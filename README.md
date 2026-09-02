@@ -36,6 +36,27 @@ npm run lint
 
 Ett byggt paket kan förhandsvisas med `npm run preview`.
 
+## Publicering på GitHub Pages
+
+Webbplatsen publiceras automatiskt från `main` med GitHub Actions-arbetsflödet
+`.github/workflows/deploy-pages.yml`. Arbetsflödet bygger applikationen och publicerar
+innehållet i `dist` till GitHub Pages. Det kan också startas manuellt från fliken
+**Actions** i GitHub.
+
+För att aktivera publiceringen i `joben-dot/transformation-cockpit`:
+
+1. Öppna **Settings → Pages** i GitHub-repot.
+2. Under **Build and deployment**, välj **GitHub Actions** som källa.
+3. Slå ihop ändringarna till `main`, eller starta arbetsflödet **Deploy to GitHub
+   Pages** manuellt från **Actions**.
+4. Om repot är privat behöver kontots GitHub-plan tillåta Pages för privata repon.
+   Gör annars repot publikt under **Settings → General → Danger Zone → Change
+   repository visibility**.
+
+Efter en lyckad körning finns webbplatsen på
+`https://joben-dot.github.io/transformation-cockpit/`. Inga secrets eller egna
+domäninställningar krävs.
+
 ## Nuvarande begränsningar
 
 - All data är syntetisk och lagras enbart i klientkoden; ändringar sparas inte.

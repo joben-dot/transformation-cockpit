@@ -36,12 +36,19 @@ npm run lint
 
 Ett byggt paket kan förhandsvisas med `npm run preview`.
 
+## Publicering på Netlify
+
+Det vanliga produktionsbygget använder basvägen `/` och kan därför publiceras
+direkt på Netlify. Skapa distributionsfilerna med `npm run build` och publicera
+innehållet i katalogen `dist` (inte själva katalogen som en extra mappnivå).
+
 ## Publicering på GitHub Pages
 
 Webbplatsen publiceras automatiskt från `main` med GitHub Actions-arbetsflödet
 `.github/workflows/deploy-pages.yml`. Arbetsflödet bygger applikationen och publicerar
-innehållet i `dist` till GitHub Pages. Det kan också startas manuellt från fliken
-**Actions** i GitHub.
+innehållet i `dist` till GitHub Pages. Eftersom GitHub Pages ligger under repots
+undermapp anger arbetsflödet den särskilda basvägen vid byggtillfället. Det kan
+också startas manuellt från fliken **Actions** i GitHub.
 
 För att aktivera publiceringen i `joben-dot/transformation-cockpit`:
 

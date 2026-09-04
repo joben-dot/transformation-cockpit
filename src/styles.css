@@ -39,3 +39,7 @@ button,input,select,textarea{font:inherit}aside{width:264px}.context{margin:18px
 .initiative-select input:checked+i{background:#6757c8;border-color:#6757c8}
 .empty-state{text-align:center;padding:45px}.empty-state h3{font-size:21px}
 @media(max-width:720px){.pageintro h2{font-size:28px}.pageintro p{font-size:13px}}
+
+/* Sjok 1 final continuity: explicit initiative identity and focus */
+.active-context,.focus-banner{margin-bottom:17px;border-left:4px solid #6757c8}.active-context>span,.focus-banner>span{font-size:9px;font-weight:800;letter-spacing:1px;color:#6757c8}.active-context h2,.focus-banner h2{font:700 24px Manrope;margin:6px 0 10px}.active-context>div{display:grid;grid-template-columns:2fr repeat(3,1fr);gap:12px}.active-context p{font-size:11px;line-height:1.45;margin:0}.active-context p b{display:block;font-size:8px;text-transform:uppercase;color:#898e9d;margin-bottom:4px}.focus-banner p{font-size:10px;color:#777c8c;margin:0}.focused-row{background:#eeebff;box-shadow:inset 4px 0 #6757c8}.focus-button{border:1px solid #cfc8f5;background:#fff;color:#5f4fba;border-radius:5px;padding:6px 9px;font-size:9px;font-weight:700}.decision-context{display:grid;gap:6px;background:#f2efff;padding:11px;border-radius:7px;font-size:10px;margin-bottom:12px}.placeholder{margin:17px 0;border-style:dashed}.placeholder h3{font-size:17px}.placeholder p{font-size:11px;color:#777c8c}.modal button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:720px){.active-context>div{grid-template-columns:1fr}.active-context h2,.focus-banner h2{font-size:20px}}

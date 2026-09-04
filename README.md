@@ -69,5 +69,6 @@ domäninställningar krävs.
 - All data är syntetisk och lagras enbart i klientkoden; ändringar sparas inte.
 - Knappar för att skapa och redigera objekt är visuella prototypytor och saknar formulärflöden.
 - Behörigheter, autentisering, notifieringar, export, API-integrationer och revisionslogg ingår inte.
-- Prioriteringspoäng och effekter är demonstrativa, inte en validerad kommunal beräkningsmodell.
+- Prioriteringspoäng och effekter är demonstrativa, inte en validerad kommunal beräkningsmodell. Deltagarscenariot skiljer mellan fast, organisationsspecifik och deltagarskalande kostnad.
+- Alternativkostnaden, den tekniska skulden och andra följder för en kommun som väljer att stå utanför modelleras inte i denna iteration; det är en framtida modellfråga.
 - Prototypen har grundläggande responsivitet men har ännu inte genomgått en fullständig tillgänglighetsgranskning eller användartestning.

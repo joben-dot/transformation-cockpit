@@ -24,3 +24,18 @@ button,input,select,textarea{font:inherit}aside{width:264px}.context{margin:18px
 .method-note{margin:10px 2px 0!important;font-size:9px!important;color:#686d7d!important}
 .princip-note{display:flex;gap:9px;align-items:flex-start;background:#f2efff;color:#6555c4;padding:11px;margin-top:10px;border-radius:7px;font-size:9px}.princip-note svg{flex:none}.princip-note span,.princip-note b{display:block}.princip-note b{margin-bottom:3px;color:#303547}
 @media(max-width:720px){.simulation-results.detailed{grid-template-columns:1fr 1fr}}
+
+/* SJOK 1 — action hierarchy and lifecycle feedback */
+.pageintro h2{font-size:34px;line-height:1.15;margin:5px 0 8px}
+.pageintro p{font-size:14px;line-height:1.5;max-width:760px}
+.object-id{display:block;margin:12px 0 0;color:#777c8d;font-size:10px;font-weight:700;letter-spacing:.7px}
+.qualification-success,.selection-explainer{display:flex;align-items:flex-start;gap:10px;padding:14px 16px;margin:-8px 0 18px;border-radius:8px;font-size:12px;line-height:1.5}
+.qualification-success{background:#e8f7ef;border:1px solid #bce4d1;color:#216b50}
+.selection-explainer{background:#fff6e7;border:1px solid #f1dfbe;color:#80551c}
+.qualification-success svg,.selection-explainer svg{flex:none;margin-top:1px}
+.initiative-select{display:grid;place-items:center}
+.initiative-select input{position:absolute;opacity:0}
+.initiative-select i{width:21px;height:21px;border:1px solid #cfd2dc;border-radius:4px;display:grid;place-items:center;color:#fff;font-style:normal}
+.initiative-select input:checked+i{background:#6757c8;border-color:#6757c8}
+.empty-state{text-align:center;padding:45px}.empty-state h3{font-size:21px}
+@media(max-width:720px){.pageintro h2{font-size:28px}.pageintro p{font-size:13px}}

@@ -45,4 +45,15 @@ describe('deltagarscenario', () => {
     expect(isQualified(qualification)).toBe(false)
     expect(calculateParticipationScenario([...municipalities], defaultSteeringProfile, false).priorityScore).toBe(0)
   })
+
+  it('håller vald kommuns lokala breakdown skild från aggregerad total', () => {
+    const scenario = calculateParticipationScenario([...municipalities])
+    const vetlanda = scenario.localBreakdown.find(item => item.municipality === 'Vetlanda')
+
+    expect(vetlanda).toBeDefined()
+    expect(vetlanda?.releasedHours).toBe(2100)
+    expect(vetlanda?.releasedHours).not.toBe(scenario.releasedHours)
+    expect(vetlanda?.totalCostKsek).not.toBe(scenario.totalCostKsek)
+    expect(vetlanda?.netEffectKsek).not.toBe(scenario.federatedNetKsek)
+  })
 })

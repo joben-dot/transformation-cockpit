@@ -70,6 +70,22 @@ export function calculateParticipationScenario(
   const capacity = participants.reduce((sum, name) => sum + initiativeEconomics[name].capacity, 0) + (participantCount ? 0.75 : 0)
   const benefitKsek = releasedHours * HOUR_VALUE_SEK / 1000
   const federatedNetKsek = benefitKsek - totalCostKsek
+  const localBreakdown = participants.map(municipality => {
+    const economics = initiativeEconomics[municipality]
+    const benefitKsek = economics.benefitHours * HOUR_VALUE_SEK / 1000
+    const allocatedFixedCostKsek = fixedCostKsek / participantCount
+    const totalCostKsek = economics.organizationCostKsek + SCALING_COST_PER_PARTICIPANT_KSEK + allocatedFixedCostKsek
+    return {
+      municipality,
+      releasedHours: economics.benefitHours,
+      benefitKsek,
+      organizationCostKsek: economics.organizationCostKsek,
+      scalingCostKsek: SCALING_COST_PER_PARTICIPANT_KSEK,
+      allocatedFixedCostKsek,
+      totalCostKsek,
+      netEffectKsek: benefitKsek - totalCostKsek,
+    }
+  })
 
   // Deltagande ändrar endast initiativets faktiska effekt- och kapacitetsvärden.
   // Det finns ingen deltagarfaktor, samverkansvikt eller förmågebonus i poängen.
@@ -82,5 +98,5 @@ export function calculateParticipationScenario(
   }
   const priorityScore = participantCount && qualified ? calculatePriorityScore(scores, weights) : 0
 
-  return { participantCount, releasedHours, organizationCostKsek, fixedCostKsek, scalingCostKsek, totalCostKsek, costPerParticipantKsek, capacity, benefitKsek, federatedNetKsek, priorityScore }
+  return { participantCount, releasedHours, organizationCostKsek, fixedCostKsek, scalingCostKsek, totalCostKsek, costPerParticipantKsek, capacity, benefitKsek, federatedNetKsek, localBreakdown, priorityScore }
 }

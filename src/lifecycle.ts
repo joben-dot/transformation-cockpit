@@ -1,12 +1,16 @@
-import { isQualified, qualificationRequirements, type QualificationState } from './scenario'
+import { isQualified, qualificationRequirements, type Municipality, type QualificationState } from './scenario'
 
 export type HumanDecision = 'BESLUTAT' | 'UTRED' | 'VÄNTA' | 'STOPPA' | null
 export type LifecycleStatus = 'UTMANING' | 'UNDER_KVALIFICERING' | 'KVALIFICERAT_INITIATIV' | 'BESLUTAT_INITIATIV' | 'GENOMFORANDE'
+export type InitiatingOrganization = Municipality | 'Höglandsförbundet'
 
 export type Initiative = {
   id: string
   title: string
   problem: string
+  initiator: InitiatingOrganization
+  participants: Municipality[]
+  isDemo: boolean
   area: string
   effect: string
   evidence: string
@@ -53,6 +57,34 @@ export function recordDecision(initiative: Initiative, decision: HumanDecision):
   return {
     ...initiative,
     decision,
+    implementationStatus: 'EJ_STARTAD',
+  }
+}
+
+export function updateParticipants(initiative: Initiative, participants: Municipality[]): Initiative {
+  return { ...initiative, participants: [...participants] }
+}
+
+export function createInitiative(id: string, title: string, problem: string, initiator: InitiatingOrganization): Initiative {
+  return {
+    id,
+    title,
+    problem,
+    initiator,
+    participants: [],
+    isDemo: false,
+    area: 'Ej ännu angivet',
+    effect: 'Tas fram under kvalificeringen',
+    evidence: 'Underlag saknas',
+    time: 'Ej ännu angivet',
+    capacity: 0,
+    risk: 'Ej ännu angivet',
+    scale: 'Ej ännu angivet',
+    members: 'Ej ännu angivet',
+    recommendation: 'UTRED',
+    qualification: emptyQualification(),
+    selectedForPrioritization: false,
+    decision: null,
     implementationStatus: 'EJ_STARTAD',
   }
 }

@@ -14,6 +14,7 @@ it("går genom synliga formulär från lokalt utkast till start, verifierad mät
   const check=(label:string)=>act(()=>control(label).props.onChange({target:{checked:true}}));
   const submit=(name:string)=>{let form:ReactTestInstance|null=button(name);while(form&&form.type!=="form")form=form.parent;act(()=>form!.props.onSubmit({preventDefault(){}}));};
   click("Effekt och beslut");enter("Välj ärende",referenceCommitment.initiativeId,"select");
+  act(()=>root.findAllByType("button").find(b=>b.props["aria-label"]?.startsWith("Lokala effektåtaganden:"))!.props.onClick());
   click("Fyll formuläret med syntetiskt avtalsexempel");
   enter("Person som dokumenterar utkastet",roleAssignments[1].id,"select");
   check("Baseline är kontrollerad");submit("Spara åtagandeutkast");

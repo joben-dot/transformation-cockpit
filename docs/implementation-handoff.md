@@ -37,3 +37,9 @@ Do not claim that this scaffold guarantees an easy or cost-free conversion to pr
 ## Verification
 
 `npm test`, `npm run build`, `npm run lint`. The transformation journey tests cover missing acceptance, wrong owner, future/unverified measurement, forecast isolation, immutable original decisions, formal version changes and scaling. The React form interaction test goes from a visible local draft through start and verified measurement into the control room. This runtime blocks Chromium's socket creation, so visual browser execution was not completed locally.
+
+## Reading and interaction levels
+
+The default case view is now FlowOverview. It contains no inputs: eight derived status rows link to scoped detail work. Green reports recorded evidence or a decision, never an editable completion flag or permission to start. The existing command validation remains authoritative. Completed material opens as a read-only summary; editing is an explicit disclosure. A recorded start opens decision history. Qualification points and optional editors are collapsed individually. Comparison, potential, prerequisites and costs have separate tabs.
+
+The main element has its own bounded-width rule (not an adjacent-header selector), an 18px base size and responsive side whitespace. Demo clock settings are collapsed. Flow navigation tests cover a form-free overview, preserved case identity and separation of potential from commitments, human start and actual effect.

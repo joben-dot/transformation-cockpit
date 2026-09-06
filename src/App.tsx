@@ -1,73 +1,865 @@
-import { useMemo, useState } from 'react'
-import { Activity, AlertTriangle, ArrowRight, BarChart3, Bell, BookOpen, BrainCircuit, Check, CircleDot, Gauge, Home, Lightbulb, Menu, Plus, Search, Settings2, ShieldCheck, Sparkles, Target, Users, X } from 'lucide-react'
-import { calculateParticipationScenario, defaultSteeringProfile, isQualified, municipalities, qualificationRequirements, type Municipality, type QualificationState, type SteeringProfile } from './scenario'
-import { createInitiative, implementationInitiatives, lifecycleStatus, qualifiedInitiatives, recordDecision, togglePrioritizationSelection, updateParticipants, updateQualification, type HumanDecision, type Initiative, type InitiatingOrganization } from './lifecycle'
+import { useMemo, useState } from "react";
+import {
+  ArrowRight,
+  Blocks,
+  CheckCircle2,
+  CircleDashed,
+  Clock3,
+  Database,
+  GitBranch,
+  HelpCircle,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import {
+  demoReducer,
+  initializeDemoState,
+  type Command,
+  type CommandResult,
+  type DemoState,
+} from "./application";
+import { referenceStory, strategicComparison } from "./application/selectors";
+import {
+  createId,
+  effectPotentialLabel,
+  type ExecutionNodeId,
+  type InitiativeId,
+  type RoleAssignmentId,
+} from "./domain";
+import { stage3Ids } from "./demo-data/stage3DemoData";
 
-type Page = 'Start'|'Utmaningar'|'Kvalificering'|'Prioritering'|'Genomförande'|'Effekt'|'Lärande & återbruk'|'Styrmodell'
-type Decision = 'STARTA'|'UTRED'|'VÄNTA'|'STOPPA'
-const nav: {name:Page;icon:typeof Home}[]=[
- {name:'Start',icon:Home},{name:'Utmaningar',icon:Lightbulb},{name:'Kvalificering',icon:CircleDot},{name:'Prioritering',icon:Gauge},{name:'Genomförande',icon:Activity},{name:'Effekt',icon:BarChart3},{name:'Lärande & återbruk',icon:BookOpen}
-]
-const flow=['NY','UNDER KVALIFICERING','KVALIFICERAD','PRIORITERING','BESLUTAD','GENOMFÖRANDE','EFFEKTUPPFÖLJNING','SKALNING']
-const organizations=['Sävsjö','Vetlanda','Eksjö','Aneby','Nässjö','Höglandsförbundet'] as const
-type Organization = InitiatingOrganization
-const initialQualification=Object.fromEntries(qualificationRequirements.map((requirement,index)=>[requirement,index<3])) as QualificationState
-const completeQualification=Object.fromEntries(qualificationRequirements.map(requirement=>[requirement,true])) as QualificationState
-const incompleteQualification={...completeQualification,'Informationsklassning genomförd':false}
-const initialInitiatives:Initiative[]=[
- {id:'UTM-001',title:'Manuell sammanställning tar tid inför beslut',problem:'Medarbetare söker och sammanställer samma information i flera steg.',initiator:'Sävsjö',participants:[...municipalities],isDemo:true,area:'Myndighetsprocess · Sävsjö',effect:'8 400 tim/år',evidence:'Hög',time:'3–5 mån',capacity:2,risk:'Medel',scale:'Hög',members:'5/5',recommendation:'STARTA',qualification:initialQualification,selectedForPrioritization:false,decision:null,implementationStatus:'EJ_STARTAD'},
- {id:'UTM-002',title:'Ofullständiga ansökningar skapar väntan',problem:'Fyra av tio syntetiska ansökningar behöver kompletteras.',initiator:'Eksjö',participants:['Eksjö','Sävsjö'],isDemo:true,area:'Samhällsprocess · Eksjö',effect:'−14 dagar',evidence:'Medel',time:'2–4 mån',capacity:1,risk:'Låg',scale:'Medel',members:'2/5',recommendation:'STARTA',qualification:completeQualification,selectedForPrioritization:true,decision:null,implementationStatus:'EJ_STARTAD'},
- {id:'UTM-003',title:'Tidiga signaler leder inte till samordnad insats',problem:'Olika arbetssätt fördröjer relevant återkoppling.',initiator:'Aneby',participants:['Aneby','Eksjö','Sävsjö'],isDemo:true,area:'Välfärdsprocess · Aneby',effect:'+12 % kvalitet',evidence:'Låg',time:'6–9 mån',capacity:2,risk:'Medel',scale:'Hög',members:'3/5',recommendation:'UTRED',qualification:incompleteQualification,selectedForPrioritization:false,decision:null,implementationStatus:'EJ_STARTAD'},
- {id:'UTM-004',title:'Manuell leverantörskontroll tar kapacitet',problem:'Återkommande kontroller genomförs manuellt i flera system.',initiator:'Nässjö',participants:['Nässjö'],isDemo:true,area:'Stödprocess · Nässjö',effect:'1 600 tim/år',evidence:'Medel',time:'8–12 mån',capacity:3,risk:'Hög',scale:'Medel',members:'1/5',recommendation:'VÄNTA',qualification:completeQualification,selectedForPrioritization:false,decision:null,implementationStatus:'EJ_STARTAD'},
-]
-const Badge=({children,tone='neutral'}:{children:React.ReactNode;tone?:string})=><span className={`badge ${tone}`}>{children}</span>
-const Progress=({value}:{value:number})=><div className="progress"><i style={{width:`${value}%`}} /></div>
-const tone=(value:string)=>value==='STARTA'||value==='Uppfylld'||value==='Hög'?'green':value==='STOPPA'||value==='Blockerar'?'red':value==='VÄNTA'||value==='Medel'?'amber':'purple'
+const initialState = initializeDemoState();
+const statusLabel = {
+  AVAILABLE: "Tillgänglig",
+  PLANNED: "Planerad",
+  BLOCKED: "Blockerad",
+  UNKNOWN: "Okänd",
+} as const;
+const recommendationLabel = {
+  START: "Hög prioritet – fortsatt beredning",
+  INVESTIGATE: "Fördjupa underlaget",
+  WAIT: "Avvakta i portföljen",
+  STOP: "Prioritera inte nu",
+  NOT_ELIGIBLE: "Ofullständigt underlag",
+} as const;
 
-function Sidebar({page,setPage,open,setOpen,org,setOrg,federatedView,setFederatedView}:{page:Page;setPage:(p:Page)=>void;open:boolean;setOpen:(v:boolean)=>void;org:Organization;setOrg:(v:Organization)=>void;federatedView:boolean;setFederatedView:(value:boolean)=>void}){
- return <><aside className={open?'open':''}><div className="brand"><div className="brandmark"><Sparkles size={19}/></div><div><strong>Transformation</strong><span>COCKPIT</span></div><button aria-label="Stäng meny" className="close" onClick={()=>setOpen(false)}><X/></button></div><label className="context"><span>Organisation</span><select value={org} onChange={e=>setOrg(e.target.value as Organization)}>{organizations.map(m=><option key={m}>{m}</option>)}</select></label><button className="federated-button" onClick={()=>setFederatedView(!federatedView)}><Users size={16}/><span><b>{federatedView?'Visa lokal vy':'Visa federerad vy'}</b><small>{federatedView?`${org} – lokalt perspektiv`:'Samlad bild för aktivt initiativ'}</small></span></button><div className="navlabel">TRANSFORMATIONSFLÖDE</div><nav>{nav.map(({name,icon:Icon})=><button key={name} className={page===name?'active':''} onClick={()=>{setPage(name);setOpen(false)}}><Icon size={18}/>{name}{name==='Kvalificering'&&<em>3</em>}</button>)}</nav><div className="adminnav"><span>CONTROL PLANE</span><button className={page==='Styrmodell'?'active':''} onClick={()=>setPage('Styrmodell')}><Settings2 size={18}/>Styrmodell / Inställningar</button></div><div className="sidefoot"><div className="avatar">TL</div><div><strong>Robin Ek</strong><span>Transformationsledare · demo</span></div></div></aside>{open&&<div className="scrim" onClick={()=>setOpen(false)}/>}</>
+function Trace({ values }: { values: string[] }) {
+  return (
+    <details className="trace">
+      <summary>Visa tekniska källidentiteter</summary>
+      <div>
+        {values.map((value) => (
+          <code key={value}>{value}</code>
+        ))}
+      </div>
+    </details>
+  );
 }
-function Header({page,setOpen,onNew}:{page:Page;setOpen:(v:boolean)=>void;onNew:()=>void}){return <header><button aria-label="Öppna meny" className="menubtn" onClick={()=>setOpen(true)}><Menu/></button><div><p>EFFEKTSTYRD TRANSFORMATION</p><h1>{page}</h1></div><div className="header-actions"><label><Search size={17}/><input aria-label="Sök" placeholder="Sök i cockpiten…"/></label><button aria-label="Notiser" className="iconbtn"><Bell size={18}/><i/></button><button className="primary" onClick={onNew}><Plus size={16}/> Ny utmaning</button></div></header>}
-function Intro({eyebrow,title,text,children}:{eyebrow:string;title:string;text:string;children?:React.ReactNode}){return <section className="pageintro"><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2><p>{text}</p></div>{children}</section>}
-function AiCard({title,children}:{title:string;children:React.ReactNode}){const [state,setState]=useState('');return <section className="ai-card"><div className="ai-title"><BrainCircuit/><div><span>SIMULERAT AI-STÖD</span><strong>{title}</strong></div><Badge tone="purple">GRANSKNINGSBART</Badge></div><div className="ai-body">{children}</div><div className="ai-meta"><span><b>Fakta:</b> syntetiskt underlag</span><span><b>Inferens:</b> mönsteranalys</span><span><b>Confidence:</b> 78 %</span></div>{state?<p className="ai-state"><Check size={14}/> Förslaget är {state}. Ingen guardrail har åsidosatts.</p>:<div className="ai-actions"><button onClick={()=>setState('accepterat')}>Acceptera</button><button onClick={()=>setState('markerat för redigering')}>Ändra</button><button onClick={()=>setState('avvisat')}>Avvisa</button></div>}</section>}
-function Stage({active=2}:{active?:number}){return <div className="stage">{flow.map((s,i)=><div className={i<active?'done':i===active?'now':''} key={s}><i>{i<active?<Check size={10}/>:i+1}</i><span>{s}</span></div>)}</div>}
+function Help({ children }: { children: React.ReactNode }) {
+  return (
+    <details className="inline-help">
+      <summary>
+        <HelpCircle size={14} /> Varför behövs detta?
+      </summary>
+      <p>{children}</p>
+    </details>
+  );
+}
+function commandError(result: CommandResult) {
+  return result.success
+    ? "Ändringen sparades i samma ärende."
+    : result.errors.map((error) => error.description).join(" ");
+}
 
-function Start({go,initiatives}:{go:(p:Page)=>void;initiatives:Initiative[]}){const qualified=qualifiedInitiatives(initiatives).length;const decided=implementationInitiatives(initiatives).length;return <><Intro eyebrow="LEDNINGENS ÖVERBLICK" title="Från utmaning till realiserad effekt" text="Prioritera realiserbar verksamhetseffekt per knapp förändringskapacitet över tid."/><div className="kpis"><article className="kpi opportunity"><div className="kpi-icon"><Target/></div><span>KVALIFICERADE INITIATIV</span><strong>{qualified}</strong><p>Live från initiativens aktuella kvalificeringsstatus.</p><button onClick={()=>go('Prioritering')}>Öppna prioritering <ArrowRight size={15}/></button></article><article className="kpi"><div className="kpi-icon green"><Gauge/></div><span>BESLUTADE INITIATIV</span><strong>{decided}</strong><p>Live: explicit beslutade för genomförande.</p></article><article className="kpi"><div className="kpi-icon amber"><AlertTriangle/></div><span>REALISERAD EFFEKT</span><strong>Demo</strong><p>Effektuppföljning utvecklas i senare steg. Inget live-utfall visas.</p></article></div><section className="panel command"><div className="panel-head"><div><span className="eyebrow">LIVE FRÅN INITIATIVSTATE</span><h3>Beslutsläget just nu</h3></div><span className="updated"><CircleDot size={13}/> Aktuell status</span></div><div className="command-grid"><div><b>{initiatives.length}</b><span>utmaningar och initiativ</span></div><ArrowRight/><div><b>{qualified}</b><span>kvalificerade</span></div><ArrowRight/><div><b>{decided}</b><span>beslutade</span></div><ArrowRight/><div><b>Demo</b><span>utfall kommer i senare steg</span></div></div></section></>}
-function Challenges({initiatives,openQual,newOpen}:{initiatives:Initiative[];openQual:(id:string)=>void;newOpen:()=>void}){return <><Intro eyebrow="UTMANING · INTE LÖSNING" title="Beskriv utmaningen" text="Fånga ett observerat problem, behov eller en möjlighet innan lösningen bestäms."><button className="primary" onClick={newOpen}><Plus size={16}/> Registrera utmaning</button></Intro><Stage active={0}/><div className="cards">{initiatives.map(item=><article className="challenge" key={item.id}><div><Badge tone="purple">{item.area}</Badge><Badge tone={isQualified(item.qualification)?'green':'neutral'}>{lifecycleStatus(item).replaceAll('_',' ')}</Badge></div><small className="object-id">{item.id} · Initiativtagare: {item.initiator}</small><h3>{item.title}</h3><p>{item.problem}</p><footer><div><span>PRELIMINÄR POTENTIAL</span><strong>{item.effect}</strong></div><button onClick={()=>openQual(item.id)}>Öppna samma objekt <ArrowRight size={15}/></button></footer></article>)}</div><AiCard title="Generellt demostöd för problemformulering"><p><b>Detta är ett generiskt demoexempel och har inte analyserat det aktiva initiativet.</b> Beskriv observerat problem, berörda användare och relevant avgränsning utan att låsa en lösning.</p></AiCard></>}
+export default function App() {
+  const [state, setState] = useState<DemoState>(initialState);
+  const activeProfile = Object.values(
+    state.entities.steeringProfileVersions,
+  ).find((item) => item.status === "ACTIVE")!;
+  const [comparisonProfileId, setComparisonProfileId] = useState(
+    activeProfile.id,
+  );
+  const comparisonProfile =
+    state.entities.steeringProfileVersions[comparisonProfileId] ??
+    activeProfile;
+  const comparisons = useMemo(
+    () => strategicComparison(state, comparisonProfileId),
+    [state, comparisonProfileId],
+  );
+  const [selectedInitiativeId, setSelectedInitiativeId] =
+    useState<InitiativeId>(stage3Ids.valueInitiative);
+  const story = referenceStory(state, selectedInitiativeId);
+  const [selectedNodeId, setSelectedNodeId] = useState<
+    ExecutionNodeId | undefined
+  >();
+  const [feedback, setFeedback] = useState("");
+  const [weights, setWeights] = useState<Record<string, number>>({
+    ...activeProfile.weights,
+  });
+  const decisionActor = Object.values(state.entities.roleAssignments).find(
+    (assignment) =>
+      state.entities.roleDefinitions[assignment.roleDefinitionId]?.roleKind ===
+      "DECISION_MAKER",
+  )!;
+  const specialistActor = Object.values(state.entities.roleAssignments).find(
+    (assignment) =>
+      state.entities.roleDefinitions[assignment.roleDefinitionId]?.roleKind ===
+      "SPECIALIST",
+  )!;
+  const [selectedPotentialSeriesId, setSelectedPotentialSeriesId] = useState(
+    story?.effectPotentials[0]?.seriesId,
+  );
+  const selectedPotential =
+    story?.effectPotentials.find(
+      (item) => item.seriesId === selectedPotentialSeriesId,
+    ) ?? story?.effectPotentials[0];
+  const [potentialLower, setPotentialLower] = useState(
+    selectedPotential?.lowerBound ?? 0,
+  );
+  const [potentialExpected, setPotentialExpected] = useState(
+    selectedPotential?.expectedValue ?? 0,
+  );
+  const [potentialUpper, setPotentialUpper] = useState(
+    selectedPotential?.upperBound ?? 0,
+  );
+  const [potentialAssumption, setPotentialAssumption] = useState(
+    selectedPotential?.assumptions.join(" ") ?? "",
+  );
+  const [responsibleId, setResponsibleId] = useState<RoleAssignmentId>(
+    specialistActor.id,
+  );
+  const [neededAt, setNeededAt] = useState("2026-11-30");
 
-export function Qualification({go,initiative,setInitiative,perspective}:{go:(p:Page)=>void;initiative:Initiative;setInitiative:(value:Initiative)=>void;perspective:string}){const qualification=initiative.qualification;const qualified=isQualified(qualification);const completed=qualificationRequirements.filter(requirement=>qualification[requirement]).length;const progress=Math.round(completed/qualificationRequirements.length*100);const hasInitiativeDemo=initiative.id==='UTM-001';const facts=hasInitiativeDemo?[['Baseline / nuläge','42 min/dag i manuella moment · ej fullt verifierat'],['Evidens','Syntetisk tidsstudie, 24 observationer'],['Påverkbarhet','Hög · arbetssätt och informationsflöde'],['Time-to-value',initiative.time],['Beroenden','Informationsklassning, processägare'],['Återbruk / skala',initiative.scale]]:[['Baseline / nuläge','Tas fram under kvalificeringen'],['Evidens','Underlag saknas'],['Påverkbarhet','Ej ännu angivet'],['Time-to-value','Ej ännu angivet'],['Beroenden','Ej ännu angivet'],['Återbruk / skala','Ej ännu angivet']];return <><Intro eyebrow="INITIATIVKANDIDAT" title="Avgör om utmaningen är redo för prioritering" text="Slutför de sex obligatoriska kraven för samma initiativ."><Badge tone={qualified?'green':'amber'}>{qualified?'KVALIFICERAT INITIATIV':'EJ REDO FÖR PRIORITERING'}</Badge></Intro><section className="panel active-context"><span>DU KVALIFICERAR NU</span><h2>{initiative.title}</h2><div><p><b>Ursprunglig utmaning</b>{initiative.problem}</p><p><b>Initiativtagare</b>{initiative.initiator}</p><p><b>ID</b>{initiative.id}</p><p><b>Perspektiv</b>{perspective}</p></div></section><Stage active={qualified?2:1}/>{qualified&&<div className="qualification-success"><Check size={18}/><span><b>Kvalificering klar</b> – initiativet kan prioriteras men är ännu inte beslutat.</span></div>}<div className="qualification-layout"><section className="panel"><div className="qual-head"><div><span>KVALIFICERING · EXAKT SEX OBLIGATORISKA KRAV</span><strong>{progress} %</strong></div><Progress value={progress}/></div><h3>Slutför kvalificeringsgrinden</h3><div className="checklist">{qualificationRequirements.map((l,i)=><label key={l}><input type="checkbox" checked={qualification[l]} onChange={()=>setInitiative(updateQualification(initiative,{...qualification,[l]:!qualification[l]}))}/><i>{qualification[l]?<Check size={13}/>:null}</i><span>{l}</span><Badge tone={qualification[l]?'green':i===5?'red':'amber'}>{qualification[l]?'KLAR':i===5?'BLOCKERAR':'SAKNAS'}</Badge></label>)}</div>{qualified&&<button className="primary next" onClick={()=>go('Prioritering')}>Prioritera samma initiativ <ArrowRight size={15}/></button>}</section><section className="panel evidence"><span className="eyebrow">KVALIFICERINGSUNDERLAG</span><h3>Det vi vet hittills</h3><div className="fact"><span>Ursprunglig utmaning</span><strong>{initiative.problem}</strong></div>{facts.map(x=><div className="fact" key={x[0]}><span>{x[0]}</span><strong>{x[1]}</strong></div>)}</section></div>{hasInitiativeDemo?<EffectChain/>:<section className="panel placeholder"><h3>Effektkedja tas fram senare</h3><p>Ingen förladdad demo-baseline, evidens eller effektkedja har kopierats till den nya utmaningen.</p></section>}<AiCard title="Begreppskontroll och nästa steg"><p><b>Kvalificering innebär att underlaget är redo att prioriteras.</b> Ett separat mänskligt beslut krävs alltid innan genomförande.</p></AiCard></>}
-function EffectChain(){return <section className="panel chain"><div className="panel-head"><div><span className="eyebrow">EXPLICIT EFFEKTKEDJA</span><h3>Från förändring till mätbart utfall</h3></div><Badge tone="purple">CONFIDENCE 78 %</Badge></div><div className="chain-row">{[['FÖRÄNDRING','Standardiserat informationsflöde'],['LEVERANS / OUTPUT','Kontextbundet dokumentationsstöd'],['NYTTA / OUTCOME','Mindre manuell sammanställning'],['EFFEKT / IMPACT','22 min frigjord tid/person/dag'],['MÄTETAL','Aktiv dokumentationstid'],['BASELINE','42 min/dag'],['MÅL','20 min/dag'],['UTFALL','28 min/dag']].map((x,i)=><div key={x[0]}><small>{x[0]}</small><strong>{x[1]}</strong>{i<7&&<ArrowRight/>}</div>)}</div><div className="assumptions"><span><b>Antagande:</b> frigjord tid omsätts i kärnuppdrag</span><span><b>Evidens:</b> tidsstudie + intervjuer (syntetiskt)</span><span><b>Mätning:</b> före start, dag 30/90/180</span></div></section>}
+  const dispatch = (command: Command) => {
+    const result = demoReducer(state, command);
+    if (result.success) setState(result.nextState);
+    setFeedback(commandError(result));
+    return result;
+  };
+  const dispatchMany = (commands: Command[]) => {
+    let next = state;
+    for (const command of commands) {
+      const result = demoReducer(next, command);
+      if (!result.success) {
+        setFeedback(commandError(result));
+        return result;
+      }
+      next = result.nextState;
+    }
+    setState(next);
+    setFeedback("Nytt versionsbundet jämförelseunderlag skapades.");
+    return {
+      success: true,
+      nextState: next,
+      affectedEntityIds: [],
+    } satisfies CommandResult;
+  };
+  if (!story) return <main>Det valda syntetiska initiativet saknas.</main>;
+  const selectedNode = selectedNodeId
+    ? state.entities.executionNodes[selectedNodeId]
+    : undefined;
+  const nodeRelations = selectedNode
+    ? story.dependencies.filter(
+        (edge) =>
+          edge.predecessorNodeId === selectedNode.id ||
+          edge.successorNodeId === selectedNode.id,
+      )
+    : [];
+  const roleLabel = (id?: RoleAssignmentId) => {
+    if (!id) return "Ansvarig saknas";
+    const assignment = state.entities.roleAssignments[id];
+    return `${state.entities.people[assignment.personId].displayName} · ${state.entities.roleDefinitions[assignment.roleDefinitionId].name}`;
+  };
+  const selectInitiative = (id: InitiativeId) => {
+    setSelectedInitiativeId(id);
+    setSelectedNodeId(undefined);
+    const nextStory = referenceStory(state, id);
+    const potential = nextStory?.effectPotentials[0];
+    setSelectedPotentialSeriesId(potential?.seriesId);
+    setPotentialLower(potential?.lowerBound ?? 0);
+    setPotentialExpected(potential?.expectedValue ?? 0);
+    setPotentialUpper(potential?.upperBound ?? 0);
+    setPotentialAssumption(potential?.assumptions.join(" ") ?? "");
+    setFeedback("");
+  };
 
-export function Prioritization({initiatives,setInitiatives,activeInitiativeId,setActiveInitiativeId,weights,organization,federatedView}:{initiatives:Initiative[];setInitiatives:React.Dispatch<React.SetStateAction<Initiative[]>>;activeInitiativeId:string;setActiveInitiativeId:(id:string)=>void;weights:SteeringProfile;organization:Organization;federatedView:boolean}){
- const [showDecision,setShowDecision]=useState(false);const qualifiedItems=qualifiedInitiatives(initiatives);const selectedItems=qualifiedItems.filter(item=>item.selectedForPrioritization);const focused=qualifiedItems.find(item=>item.id===activeInitiativeId);const participants=focused?.participants||[];const scenario=calculateParticipationScenario(participants,weights,Boolean(focused));const local=municipalities.includes(organization as Municipality)?scenario.localBreakdown.find(item=>item.municipality===organization):undefined;const update=(id:string,change:(item:Initiative)=>Initiative)=>setInitiatives(items=>items.map(item=>item.id===id?change(item):item));const toggleParticipant=(name:Municipality)=>focused&&update(focused.id,item=>updateParticipants(item,participants.includes(name)?participants.filter(x=>x!==name):[...participants,name]));const money=(value:number)=>`${Math.round(value).toLocaleString('sv-SE')} tkr`;const recommendation:Decision=scenario.priorityScore>=70?'STARTA':scenario.priorityScore>=50?'UTRED':'VÄNTA';const perspective=federatedView?'Federerad vy – samlad bild för deltagande organisationer':`${organization} – lokalt perspektiv`;
- return <><Intro eyebrow="KVALIFICERADE INITIATIV" title="Prioritera och fatta beslut" text="Arbetsurval, aktivt fokus och mänskligt beslut är tre separata saker."><div className="capacity-pill"><b>{selectedItems.length}</b><span>i arbetsurval</span></div></Intro><Stage active={3}/>{focused?<section className="panel focus-banner"><span>AKTIVT INITIATIV FÖR BESLUT</span><h2>{focused.title}</h2><p>{focused.id} · Initiativtagare: {focused.initiator} · {perspective}</p></section>:<div className="selection-explainer"><AlertTriangle size={18}/><span>Öppna ett kvalificerat initiativ som fokus innan beslut fattas.</span></div>}<div className="selection-explainer"><ShieldCheck size={18}/><span><b>Urval är inte beslut.</b> Checkboxen ändrar varken aktivt initiativ eller mänskligt beslut.</span></div><section className="panel tablewrap"><div className="table-head"><div><h3>Välj initiativ att jämföra</h3><span>{qualifiedItems.length} kvalificerade initiativ i lägesbilden.</span></div><Badge tone="purple">{selectedItems.length} VALDA</Badge></div><table><thead><tr><th>Urval</th><th>Initiativ</th><th>Fokus</th><th>Effekt</th><th>Evidens</th><th>Mänskligt beslut</th></tr></thead><tbody>{qualifiedItems.map(item=><tr className={item.id===focused?.id?'focused-row':item.selectedForPrioritization?'selected-row':''} key={item.id}><td><label className="initiative-select"><input aria-label={`Ta med ${item.title} i aktuellt urval`} type="checkbox" checked={item.selectedForPrioritization} onChange={()=>update(item.id,togglePrioritizationSelection)}/><i>{item.selectedForPrioritization&&<Check size={12}/>}</i></label></td><td><strong>{item.title}</strong><span>{item.id} · {item.initiator}</span></td><td><button className="focus-button" onClick={()=>setActiveInitiativeId(item.id)}>{item.id===focused?.id?'AKTIVT':'Fokusera'}</button></td><td><strong>{item.effect}</strong></td><td><Badge tone={tone(item.evidence)}>{item.evidence}</Badge></td><td><Badge tone={item.decision==='BESLUTAT'?'green':'neutral'}>{item.decision==='BESLUTAT'?'BESLUTAT FÖR GENOMFÖRANDE':item.decision||'INGET BESLUT'}</Badge></td></tr>)}</tbody></table></section>{focused&&<section className="panel participation-simulator"><div className="panel-head"><div><span className="eyebrow">DELTAGANDE TILLHÖR {focused.id}</span><h3>Simulera deltagande för aktivt initiativ</h3><p><b>Initiativtagare: {focused.initiator}.</b> {perspective}. Vybyte ändrar inte deltagandet.</p></div><Badge tone="purple">{participants.length} AV {municipalities.length} KOMMUNER DELTAR</Badge></div><div className="org-checks">{municipalities.map(name=><label key={name}><input type="checkbox" checked={participants.includes(name)} onChange={()=>toggleParticipant(name)}/><i>{participants.includes(name)&&<Check size={12}/>}</i><span>{name}</span></label>)}</div><div className="simulation-results detailed">{federatedView?<><div><span>AGGREGERAD EFFEKT</span><b>{scenario.releasedHours.toLocaleString('sv-SE')} tim/år</b></div><div><span>Total kostnad</span><b>{money(scenario.totalCostKsek)}</b></div><div><span>Federerad nettoeffekt</span><b>{money(scenario.federatedNetKsek)}</b></div></>:local?<><div><span>LOKAL EFFEKT · {local.municipality}</span><b>{local.releasedHours.toLocaleString('sv-SE')} tim/år</b></div><div><span>Lokal total kostnad</span><b>{money(local.totalCostKsek)}</b></div></>:<div><span>Lokalt deltagande</span><b>{organization} deltar inte</b></div>}<div><span>Prioriteringspoäng</span><b>{scenario.priorityScore} / 100 · {recommendation}</b></div></div></section>}<div className="decision-layout"><section className="panel recommendation"><span className="eyebrow">SEPARAT MÄNSKLIG BESLUTSPUNKT</span><h2>{focused?`Beslut gäller ${focused.id}`:'Välj tydligt fokus'}</h2><p>Systemrekommendation och checkbox-urval är rådgivande och utgör aldrig beslut.</p><button className="primary" disabled={!focused} onClick={()=>setShowDecision(true)}>{focused?`Fatta beslut om ${focused.id}`:'Inget fokuserat initiativ'}</button></section><AiCard title="Känslighetsanalys"><p>Deltagarscenariot gäller endast det aktiva initiativet och påverkar inte andra initiativ.</p></AiCard></div>{showDecision&&focused&&<DecisionForm initiative={focused} perspective={perspective} onSave={decision=>{update(focused.id,item=>recordDecision(item,decision));setShowDecision(false)}}/>}</>}
+  return (
+    <div className="product-shell">
+      <header className="product-header">
+        <a className="brand" href="#top">
+          <span>
+            <Sparkles size={18} />
+          </span>
+          <b>Transformation Cockpit</b>
+        </a>
+        <nav aria-label="Sidinnehåll">
+          <a href="#comparison">Prioritering</a>
+          <a href="#potential">Effektpotential</a>
+          <a href="#conditions">Förutsättningar</a>
+          <a href="#costs">Kostnader</a>
+        </nav>
+        <span className="demo-badge">Syntetisk demo</span>
+      </header>
+      <main id="top">
+        <section className="hero">
+          <div>
+            <p className="eyebrow">STRATEGISKT PORTFÖLJSTÖD</p>
+            <h1>Prioritera möjlig effekt – förstå hela möjliggörandet</h1>
+            <p className="lead">
+              Samma ärende binder samman potential, prioriteringsgrund,
+              beroenden, kompletteringsansvar och kostnader.
+            </p>
+          </div>
+          <aside className="principle-card">
+            <ShieldCheck />
+            <div>
+              <b>Prioritering är inte startbeslut</b>
+              <p>
+                Potentialen är inte ett effektåtagande och teknisk
+                färdigställandegrad är inte realiserad effekt.
+              </p>
+            </div>
+          </aside>
+        </section>
 
-function DecisionForm({initiative,perspective,onSave}:{initiative:Initiative;perspective:string;onSave:(value:HumanDecision)=>void}){const [choice,setChoice]=useState<Exclude<HumanDecision,null>>(initiative.decision||'VÄNTA');return <div className="modalback"><section className="modal"><Badge tone="purple">MÄNSKLIGT BESLUT · SEPARAT FRÅN URVAL OCH SYSTEM</Badge><h2>Fatta beslut om genomförande</h2><p><b>{initiative.id} · {initiative.title}</b></p><div className="decision-context"><span>Initiativtagare: <b>{initiative.initiator}</b></span><span>Deltagande: <b>{initiative.participants.length?initiative.participants.join(', '):'Inga angivna'}</b></span><span>Perspektiv: <b>{perspective}</b></span></div><div className="compare"><div><span>Systemrekommendation</span><b>{initiative.recommendation}</b></div><ArrowRight/><label><span>Mänskligt beslut</span><select value={choice} onChange={e=>setChoice(e.target.value as Exclude<HumanDecision,null>)}>{['BESLUTAT','UTRED','VÄNTA','STOPPA'].map(value=><option key={value} value={value}>{value==='BESLUTAT'?'BESLUTAT FÖR GENOMFÖRANDE':value}</option>)}</select></label></div><label>Beslutsfunktion<input value="Portföljledning · demo" readOnly/></label><label>Beslutsfattare<input value="Kim Sjöberg · syntetisk" readOnly/></label><label>Motivering<textarea defaultValue="Kritisk verksamhetskompetens behöver säkras före start."/></label><p>Beslutet sparas på initiativet och följer dess stabila id genom navigationen.</p><button className="primary" onClick={()=>onSave(choice)}>Spara mänskligt beslut</button></section></div>}
+        <section id="comparison" className="section-block">
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">STRATEGISK JÄMFÖRELSE</p>
+              <h2>Prioriteringsunderlag för tre initiativ</h2>
+            </div>
+            <span className="nonbinding">
+              {comparisonProfile.demoAssumption}
+            </span>
+          </div>
+          <Help>
+            Ledningen behöver se både kriteriernas bidrag och osäkerheten.
+            Poängen stödjer prioriteringsdiskussionen men godkänner inte start.
+          </Help>
+          <div className="comparison-grid">
+            {comparisons.map((item) => (
+              <button
+                className={`comparison-card ${item.initiative.id === selectedInitiativeId ? "selected" : ""}`}
+                key={item.initiative.id}
+                onClick={() => selectInitiative(item.initiative.id)}
+              >
+                <span>{item.assessment.totalScore} / 100</span>
+                <h3>{item.initiative.title}</h3>
+                <p>
+                  {recommendationLabel[item.assessment.systemRecommendation]}
+                </p>
+                <small>
+                  Profil v{item.profile.versionNumber} ·{" "}
+                  {item.assessment.assessedAt.slice(0, 10)}
+                </small>
+                {item.needsReassessment && (
+                  <strong className="stale-badge">
+                    Nyare potential finns – ombedömning behövs
+                  </strong>
+                )}
+                <small>
+                  {item.potentials.length
+                    ? `${item.potentials.length} effektpotentialer`
+                    : "Obligatorisk potential saknas"}{" "}
+                  · {item.blockers.length} blockerade noder
+                </small>
+                {item.potentials[0] && (
+                  <small>
+                    {item.potentials[0].expectedValue.toLocaleString("sv-SE")}{" "}
+                    {item.potentials[0].unit} ·{" "}
+                    {item.potentials[0].realizationWindow} · osäkerhet{" "}
+                    {item.potentials[0].uncertainty}
+                  </small>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="scenario-switcher">
+            <span>
+              Gällande styrprofil: {activeProfile.profileName} v
+              {activeProfile.versionNumber}
+            </span>
+            {comparisonProfile.id !== activeProfile.id && (
+              <button
+                onClick={() => {
+                  setComparisonProfileId(activeProfile.id);
+                  setWeights({ ...activeProfile.weights });
+                }}
+              >
+                Visa grundprofilens jämförelse
+              </button>
+            )}
+          </div>
+          <div className="profile-panel">
+            <div>
+              <h3>
+                {comparisonProfile.profileName} · version{" "}
+                {comparisonProfile.versionNumber}
+              </h3>
+              <p>
+                Ändra vikter för att skapa ett nytt scenario. Historiska
+                underlag behåller sin profilversion.
+              </p>
+            </div>
+            <div className="weight-grid">
+              {comparisonProfile.criteria.map((criterion) => (
+                <label key={criterion.code}>
+                  {criterion.name}
+                  <input
+                    aria-label={`Vikt ${criterion.name}`}
+                    type="number"
+                    value={weights[criterion.code] ?? 0}
+                    onChange={(event) =>
+                      setWeights({
+                        ...weights,
+                        [criterion.code]: Number(event.target.value),
+                      })
+                    }
+                  />
+                  <small>%</small>
+                </label>
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                const token = Date.now();
+                const profileId = createId(
+                  "SteeringProfileVersion",
+                  `scenario-${token}`,
+                );
+                const issuedAt = new Date().toISOString();
+                const commands: Command[] = [
+                  {
+                    commandId: createId("Command", `profile-${token}`),
+                    actorRoleAssignmentId: decisionActor.id,
+                    issuedAt,
+                    commandType: "CREATE_STEERING_PROFILE_VERSION",
+                    targetId: profileId,
+                    payload: {
+                      profileName: "Strategiskt scenario",
+                      versionNumber:
+                        Math.max(
+                          ...Object.values(
+                            state.entities.steeringProfileVersions,
+                          ).map((profile) => profile.versionNumber),
+                        ) + 1,
+                      validFrom: issuedAt.slice(0, 10),
+                      decidedByDecisionFunctionId:
+                        comparisonProfile.decidedByDecisionFunctionId,
+                      criteria: comparisonProfile.criteria.map((item) => ({
+                        ...item,
+                      })),
+                      weights,
+                      thresholds: { ...comparisonProfile.thresholds },
+                      weightSumRule: 100,
+                      demoAssumption: "Ej beslutad – används endast i demo.",
+                    },
+                  },
+                ];
+                comparisons.forEach((item, index) =>
+                  commands.push({
+                    commandId: createId(
+                      "Command",
+                      `calculate-${token}-${index}`,
+                    ),
+                    actorRoleAssignmentId: decisionActor.id,
+                    issuedAt,
+                    commandType: "REWEIGHT_PRIORITY_ASSESSMENT",
+                    targetId: createId(
+                      "PriorityAssessment",
+                      `scenario-${token}-${index}`,
+                    ),
+                    payload: {
+                      sourcePriorityAssessmentId: item.assessment.id,
+                      steeringProfileVersionId: profileId,
+                    },
+                  }),
+                );
+                const result = dispatchMany(commands);
+                if (result.success) setComparisonProfileId(profileId);
+              }}
+            >
+              Skapa nytt prioriteringsscenario
+            </button>
+          </div>
+          <div className="contributions">
+            <h3>Bidrag för valt initiativ</h3>
+            {comparisons
+              .find((item) => item.initiative.id === selectedInitiativeId)
+              ?.assessment.criterionAssessments.map((criterion) => (
+                <div key={criterion.criterionCode}>
+                  <span>
+                    {
+                      comparisonProfile.criteria.find(
+                        (item) => item.code === criterion.criterionCode,
+                      )?.name
+                    }
+                  </span>
+                  <i style={{ width: `${criterion.contribution}%` }} />
+                  <b>{criterion.contribution}</b>
+                  <small>
+                    {
+                      comparisonProfile.criteria.find(
+                        (item) => item.code === criterion.criterionCode,
+                      )?.description
+                    }
+                  </small>
+                </div>
+              ))}
+          </div>
+        </section>
 
-function Delivery({initiatives,setInitiatives,setActiveInitiativeId}:{initiatives:Initiative[];setInitiatives:React.Dispatch<React.SetStateAction<Initiative[]>>;setActiveInitiativeId:(id:string)=>void}){const [opened,setOpened]=useState<string|null>(null);const decided=implementationInitiatives(initiatives);const toggle=(item:Initiative,name:Municipality)=>setInitiatives(items=>items.map(candidate=>candidate.id===item.id?updateParticipants(candidate,item.participants.includes(name)?item.participants.filter(x=>x!==name):[...item.participants,name]):candidate));return <><Intro eyebrow="ENDAST BESLUTADE INITIATIV" title="Säkerställ genomförandet av beslutade initiativ" text="Samma beslutade initiativ och dess egna deltagande följer in i genomförandet."/><Stage active={5}/><div className="initiative-list">{decided.length===0?<section className="panel empty-state"><h3>Inga initiativ är beslutade för genomförande</h3><p>Kvalificerade initiativ finns kvar i Prioritering tills ett separat beslut fattas.</p></section>:decided.map(item=><article className="panel initiative" key={item.id}><div className="initiative-title"><div><Badge tone="green">BESLUTAT · {item.implementationStatus==='EJ_STARTAD'?'EJ STARTAT':'PÅGÅR'}</Badge><small className="object-id">{item.id}</small><h3>{item.title}</h3><p>{item.problem}</p><p><b>Initiativtagare:</b> {item.initiator} · <b>Deltagande:</b> {item.participants.length?item.participants.join(', '):'Inga angivna'}</p><p><b>Beslut:</b> BESLUTAT FÖR GENOMFÖRANDE · <b>Genomförandestatus:</b> {item.implementationStatus}</p></div><button onClick={()=>{setActiveInitiativeId(item.id);setOpened(opened===item.id?null:item.id)}}>{opened===item.id?'Stäng':'Öppna samma initiativ'} <ArrowRight size={15}/></button></div>{opened===item.id&&<section className="initiative-participants"><h4>Deltagande kommuner för {item.id}</h4><div className="org-checks">{municipalities.map(name=><label key={name}><input type="checkbox" checked={item.participants.includes(name)} onChange={()=>toggle(item,name)}/><i>{item.participants.includes(name)&&<Check size={12}/>}</i><span>{name}</span></label>)}</div><small>Deltagarlistan sparas endast på detta initiativ och ändras inte av visningsperspektivet.</small></section>}</article>)}</div></>}
-function InitiativeContext({initiative}:{initiative:Initiative}){return <section className="panel focus-banner"><span>AKTIV INITIATIVKONTEXT</span><h2>{initiative.title}</h2><p>{initiative.id} · Initiativtagare: {initiative.initiator}</p></section>}
+        <section className="story-heading">
+          <div>
+            <p className="eyebrow">VALT SAMMANHÄNGANDE ÄRENDE</p>
+            <h2>{story.initiative.title}</h2>
+            <p>{story.challenge.problemStatement}</p>
+          </div>
+          <div className="identity-pair">
+            <span>
+              ChallengeId <code>{story.challenge.id}</code>
+            </span>
+            <ArrowRight />
+            <span>
+              InitiativeId <code>{story.initiative.id}</code>
+            </span>
+          </div>
+        </section>
 
-export function Effect({initiative}:{initiative:Initiative}){return <><Intro eyebrow="SENARE STEG" title="Effekt" text="Effektuppföljning utvecklas i senare steg."/><Stage active={6}/><InitiativeContext initiative={initiative}/><section className="panel placeholder"><h3>Effektuppföljning utvecklas i senare steg.</h3><p>Här visas inga hårdkodade utfall. Den aktiva initiativkontexten behålls inför kommande funktionalitet.</p></section></>}
+        <section id="potential" className="section-block">
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">VAD INITIATIVET KAN GE</p>
+              <h2>Åtskilda effektpotentialer</h2>
+            </div>
+            <span className="nonbinding">{effectPotentialLabel}</span>
+          </div>
+          <Help>
+            Potentialen behövs för jämförelse. Pengar, frigjord tid och kvalitet
+            hålls isär; ett senare lokalt åtagande kräver egna beslut och
+            baseline.
+          </Help>
+          <div className="potential-grid">
+            {story.effectPotentials.map((potential) => (
+              <article className="card potential-card" key={potential.id}>
+                <span className="category">{potential.category}</span>
+                <h3>{potential.effectMeasureCode}</h3>
+                <div className="range">
+                  <small>Låg</small>
+                  <b>{potential.lowerBound}</b>
+                  <small>Förväntad</small>
+                  <b>{potential.expectedValue}</b>
+                  <small>Hög</small>
+                  <b>{potential.upperBound}</b>
+                  <em>{potential.unit}</em>
+                </div>
+                <p>
+                  <Clock3 size={15} /> {potential.realizationWindow}
+                </p>
+                <p>
+                  Osäkerhet: <b>{potential.uncertainty}</b>
+                </p>
+                <p className="muted">
+                  Mottagare:{" "}
+                  {potential.recipientBusinessId
+                    ? state.entities.businesses[potential.recipientBusinessId]
+                        ?.name
+                    : potential.recipientScenario}
+                </p>
+                <p className="muted">
+                  Antaganden: {potential.assumptions.join(" ")}
+                </p>
+                <p className="muted">
+                  Tidigast {potential.earliestPossibleEffectDate} · full
+                  potential {potential.fullPotentialDate}
+                </p>
+                <Trace values={[potential.id, ...potential.evidenceRefs]} />
+              </article>
+            ))}
+          </div>
+          {selectedPotential && (
+            <form
+              className="edit-panel"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const token = Date.now();
+                const {
+                  id: _previousId,
+                  assessedAt: _previousAssessmentDate,
+                  assessedByRoleAssignmentIds,
+                  ...potentialBasis
+                } = selectedPotential;
+                void _previousId;
+                void _previousAssessmentDate;
+                dispatch({
+                  commandId: createId("Command", `potential-${token}`),
+                  actorRoleAssignmentId: specialistActor.id,
+                  issuedAt: new Date().toISOString(),
+                  commandType: "RECORD_EFFECT_POTENTIAL",
+                  targetId: createId("EffectPotential", `revision-${token}`),
+                  payload: {
+                    ...potentialBasis,
+                    initiativeId: selectedInitiativeId,
+                    lowerBound: potentialLower,
+                    expectedValue: potentialExpected,
+                    upperBound: potentialUpper,
+                    assumptions: [potentialAssumption],
+                    assessedByRoleAssignmentIds,
+                    assessmentVersion: selectedPotential.assessmentVersion + 1,
+                  },
+                });
+              }}
+            >
+              <h3>Skapa ny potentialbedömning</h3>
+              <label>
+                Potential att redigera
+                <select
+                  aria-label="Potential att redigera"
+                  value={selectedPotential.seriesId}
+                  onChange={(event) => {
+                    const potential = story.effectPotentials.find(
+                      (item) => item.seriesId === event.target.value,
+                    )!;
+                    setSelectedPotentialSeriesId(potential.seriesId);
+                    setPotentialLower(potential.lowerBound);
+                    setPotentialExpected(potential.expectedValue);
+                    setPotentialUpper(potential.upperBound);
+                    setPotentialAssumption(potential.assumptions.join(" "));
+                  }}
+                >
+                  {story.effectPotentials.map((potential) => (
+                    <option key={potential.seriesId} value={potential.seriesId}>
+                      {potential.category} · {potential.effectMeasureCode} ·{" "}
+                      {potential.unit}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Lågt värde
+                <input
+                  aria-label="Nytt lågt potentialvärde"
+                  type="number"
+                  value={potentialLower}
+                  onChange={(event) =>
+                    setPotentialLower(Number(event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Förväntat värde
+                <input
+                  aria-label="Nytt förväntat potentialvärde"
+                  type="number"
+                  value={potentialExpected}
+                  onChange={(event) =>
+                    setPotentialExpected(Number(event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Högt värde
+                <input
+                  aria-label="Nytt högt potentialvärde"
+                  type="number"
+                  value={potentialUpper}
+                  onChange={(event) =>
+                    setPotentialUpper(Number(event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Synligt antagande
+                <input
+                  aria-label="Nytt potentialantagande"
+                  value={potentialAssumption}
+                  onChange={(event) =>
+                    setPotentialAssumption(event.target.value)
+                  }
+                />
+              </label>
+              <button>Spara ny version</button>
+            </form>
+          )}
+        </section>
 
-export function Learning({initiative}:{initiative:Initiative}){return <><Intro eyebrow="SENARE STEG" title="Lärande & återbruk" text="Lärande och återbruk utvecklas i senare steg."/><Stage active={7}/><InitiativeContext initiative={initiative}/><section className="panel placeholder"><h3>Lärande och återbruk utvecklas i senare steg.</h3><p>Här visas inga hårdkodade läranderesultat. Den aktiva initiativkontexten behålls inför kommande funktionalitet.</p></section></>}
+        <section id="conditions" className="section-block">
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">VARFÖR HÖG PRIORITET KAN BEHÖVA VÄNTA</p>
+              <h2>Faktiska beroenden och ansvar</h2>
+            </div>
+            <span className="sequence-note">
+              <GitBranch /> Härledd ordning, inte startgodkännande
+            </span>
+          </div>
+          <Help>
+            En blockerande relation visar exakt vilken leverans som behövs före
+            nästa nod. Ägarskapet flyttas inte när en gemensam förutsättning
+            återanvänds.
+          </Help>
+          <div className="enabler-strip">
+            <Database />
+            <div>
+              <b>Gemensamt möjliggörande initiativ</b>
+              {story.enablingInitiatives.map((item) => (
+                <span key={item.id}>
+                  {item.title} · <code>{item.id}</code>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="execution-levels">
+            {story.executionLevels.map((level, index) => (
+              <div className="execution-level" key={index}>
+                <span className="level-number">{index + 1}</span>
+                <div>
+                  {level.map((nodeId) => {
+                    const node = state.entities.executionNodes[nodeId];
+                    return (
+                      <button
+                        className={`node node-${node.availabilityStatus.toLowerCase()}`}
+                        key={node.id}
+                        onClick={() => setSelectedNodeId(node.id)}
+                      >
+                        <span>
+                          {node.availabilityStatus === "AVAILABLE" ? (
+                            <CheckCircle2 />
+                          ) : node.availabilityStatus === "BLOCKED" ? (
+                            <CircleDashed />
+                          ) : (
+                            <Blocks />
+                          )}
+                          {statusLabel[node.availabilityStatus]}
+                        </span>
+                        <h3>{node.title}</h3>
+                        <small>Behövs {node.neededAt}</small>
+                        <code>{node.id}</code>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          {selectedNode && (
+            <aside className="drawer">
+              <button
+                className="drawer-close"
+                onClick={() => setSelectedNodeId(undefined)}
+              >
+                Stäng
+              </button>
+              <p className="eyebrow">FÖRDJUPAD FÖRUTSÄTTNING</p>
+              <h2>{selectedNode.title}</h2>
+              <p>{selectedNode.description}</p>
+              <dl>
+                <dt>Tillhör</dt>
+                <dd>
+                  {selectedNode.ownerInitiativeId
+                    ? state.entities.initiatives[selectedNode.ownerInitiativeId]
+                        ?.title
+                    : state.entities.capabilities[selectedNode.capabilityId!]
+                        ?.name}
+                </dd>
+                <dt>Ansvarig</dt>
+                <dd>{roleLabel(selectedNode.responsibleRoleAssignmentId)}</dd>
+                <dt>Behövs</dt>
+                <dd>{selectedNode.neededAt}</dd>
+                <dt>Status</dt>
+                <dd>{statusLabel[selectedNode.availabilityStatus]}</dd>
+                <dt>Tillgänglighetsunderlag</dt>
+                <dd>
+                  {selectedNode.availabilityEvidenceRefs.join(", ") || "Saknas"}
+                </dd>
+              </dl>
+              <h3>Faktiska relationer</h3>
+              {nodeRelations.map((edge) => (
+                <p key={edge.id}>
+                  <b>
+                    {
+                      state.entities.executionNodes[edge.predecessorNodeId]
+                        .title
+                    }
+                  </b>{" "}
+                  →{" "}
+                  <b>
+                    {state.entities.executionNodes[edge.successorNodeId].title}
+                  </b>
+                  <br />
+                  {edge.requiredDeliverable} Därför: {edge.rationale}
+                </p>
+              ))}
+              <form
+                className="edit-panel"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  dispatch({
+                    commandId: createId(
+                      "Command",
+                      `responsibility-${Date.now()}`,
+                    ),
+                    actorRoleAssignmentId: specialistActor.id,
+                    issuedAt: new Date().toISOString(),
+                    commandType: "UPDATE_EXECUTION_NODE",
+                    targetId: selectedNode.id,
+                    payload: {
+                      responsibleRoleAssignmentId: responsibleId,
+                      neededAt,
+                    },
+                  });
+                }}
+              >
+                <label>
+                  Kompletteringsansvarig
+                  <select
+                    aria-label="Kompletteringsansvarig"
+                    value={responsibleId}
+                    onChange={(event) =>
+                      setResponsibleId(event.target.value as RoleAssignmentId)
+                    }
+                  >
+                    {Object.values(state.entities.roleAssignments).map(
+                      (assignment) => (
+                        <option key={assignment.id} value={assignment.id}>
+                          {roleLabel(assignment.id)}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label>
+                  Deadline / behovsdatum
+                  <input
+                    aria-label="Deadline"
+                    type="date"
+                    value={neededAt}
+                    onChange={(event) => setNeededAt(event.target.value)}
+                  />
+                </label>
+                <button>Spara ansvar och datum</button>
+              </form>
+              <Trace
+                values={[
+                  selectedNode.id,
+                  ...nodeRelations.map((edge) => edge.id),
+                ]}
+              />
+            </aside>
+          )}
+          {!state.entities.executionNodes[
+            stage3Ids.sharedNode
+          ].contextInitiativeIds.includes(selectedInitiativeId) && (
+            <button
+              className="secondary-action"
+              onClick={() => {
+                const node =
+                  state.entities.executionNodes[stage3Ids.sharedNode];
+                dispatch({
+                  commandId: createId("Command", `reuse-${Date.now()}`),
+                  actorRoleAssignmentId: specialistActor.id,
+                  issuedAt: new Date().toISOString(),
+                  commandType: "UPDATE_EXECUTION_NODE",
+                  targetId: node.id,
+                  payload: {
+                    contextInitiativeIds: [
+                      ...node.contextInitiativeIds,
+                      selectedInitiativeId,
+                    ],
+                  },
+                });
+              }}
+            >
+              Koppla befintlig gemensam datamiljö
+            </button>
+          )}
+        </section>
 
-function Governance({weights,setWeights}:{weights:SteeringProfile;setWeights:(weights:SteeringProfile)=>void}){return <><Intro eyebrow="CONTROL PLANE · ADMINISTRATÖR" title="Styrmodell / Inställningar" text="Konfigurera hur organisationen prioriterar – utan att blanda ihop kriterier och guardrails."><Badge tone="purple">VERSION 2.3 · GÄLLER 2026–2027</Badge></Intro><div className="profile"><div><span>GEMENSAM GRUNDMODELL</span><b>Höglandsmodell v2.3</b></div><ArrowRight/><div><span>LOKAL STYRPROFIL</span><b>Sävsjö demo 2026–2027</b><small>Tillgänglig för: Sävsjö, Vetlanda, Eksjö, Aneby, Nässjö och Höglandsförbundet</small></div><ArrowRight/><div><span>STYRPERIOD</span><b>1 jan 2026 – 31 dec 2027</b></div></div><div className="governance-grid"><section className="panel"><span className="eyebrow">PRIORITERINGSKRITERIER</span><h3>Viktning i lokal profil</h3>{Object.entries(weights).map(([k,v])=><label className="slider" key={k}><span>{({effect:'Realiserbar effekt',evidence:'Evidens / confidence',time:'Kort time-to-value',quality:'Kvalitet / skyddsmått',capacity:'Kapacitet / insats'} as Record<string,string>)[k]}</span><input type="range" min="0" max="50" value={v} onChange={e=>setWeights({...weights,[k]:Number(e.target.value)})}/><b>{v} %</b></label>)}<p className="total">Visad viktning: <b>{Object.values(weights).reduce((a,b)=>a+b,0)} %</b> · prototypen tillåter simulering</p><div className="princip-note"><ShieldCheck size={17}/><span><b>Ingen separat samverkansvikt</b>Deltagarscenariot räknar om nytta, kostnad, kapacitet och nettoeffekt innan effektviktningen tillämpas.</span></div></section><section className="panel"><span className="eyebrow">KAPACITET OCH STRATEGI</span><h3>Tillgänglig förändringsförmåga</h3><div className="capacity-big"><b>8</b><span>kapacitetsenheter / kvartal</span></div><Progress value={75}/><p>6 enheter föreslagna · begränsning: informationssäkerhetskompetens.</p><div className="goal"><Target/><div><b>Strategiskt mål: 125/75</b><span>Frigjord kapacitet och kort time-to-value högt viktade lokalt.</span></div></div></section></div><section className="panel guardrails"><div className="panel-head"><div><span className="eyebrow">POLICY OCH DECISION GATES</span><h3>Guardrails är inte prioriteringspoäng</h3></div><button className="primary"><Plus size={15}/> Ny organisatorisk regel</button></div>{[['Tvingande krav','Informationsklassning före behandling','Start · trigger: informationsbehandling','Blockerar','Kan inte göras frivillig'],['Hård organisatorisk','Utsedd effektägare före pilot','Pilot · alla initiativtyper','Blockerar','Ändras endast av administratör'],['Mjuk guardrail','Verifierad baseline före start','Prioritering / start','Varnar','Avsteg av portföljledning med motivering']].map((g,i)=><div className="guardrail-row" key={g[1]}><ShieldCheck/><div><Badge tone={i===0?'red':i===1?'amber':'purple'}>{g[0]}</Badge><h4>{g[1]}</h4><p>{g[2]}</p></div><div><span>KONSEKVENS</span><b>{g[3]}</b></div><div><span>AVSTEG</span><b>{g[4]}</b></div><label className="switch"><input type="checkbox" checked disabled={i===0}/><i/></label></div>)}</section></>}
-
-function NewChallenge({close,open,defaultOrganization}:{close:()=>void;open:(title:string,problem:string,organization:Organization)=>void;defaultOrganization:Organization}){const [title,setTitle]=useState('');const [problem,setProblem]=useState('');const [organization,setOrganization]=useState(defaultOrganization);return <div className="modalback"><section className="modal"><Badge tone="purple">ENDAST SYNTETISK DEMODATA</Badge><h2>Registrera utmaning</h2><label>Titel<input value={title} onChange={event=>setTitle(event.target.value)}/></label><label>Problemformulering<textarea value={problem} onChange={event=>setProblem(event.target.value)}/></label><label>Organisation<select value={organization} onChange={event=>setOrganization(event.target.value as Organization)}>{organizations.map(name=><option key={name}>{name}</option>)}</select></label><p>Beskriv problemet utan att låsa en lösning. Objektet får ett stabilt id som följer med till kvalificeringen.</p><div className="modal-actions"><button onClick={close}>Avbryt</button><button className="primary" disabled={!title.trim()||!problem.trim()} onClick={()=>open(title.trim(),problem.trim(),organization)}>Registrera och kvalificera</button></div></section></div>}
-
-
-export default function App(){
- const [page,setPage]=useState<Page>('Start')
- const [menu,setMenu]=useState(false)
- const [org,setOrg]=useState<Organization>(organizations[0])
- const [newOpen,setNewOpen]=useState(false)
- const [initiatives,setInitiatives]=useState<Initiative[]>(initialInitiatives)
- const [activeInitiativeId,setActiveInitiativeId]=useState(initialInitiatives[0].id)
- const [weights,setWeights]=useState<SteeringProfile>(defaultSteeringProfile)
- const [federatedView,setFederatedView]=useState(false)
- const activeInitiative=initiatives.find(item=>item.id===activeInitiativeId)||initiatives[0]
- const replaceInitiative=(value:Initiative)=>setInitiatives(items=>items.map(item=>item.id===value.id?value:item))
- const perspective=federatedView?'Federerad vy – samlad bild för deltagande organisationer':`${org} – lokalt perspektiv`
- const content=useMemo(()=>({Start:<Start go={setPage} initiatives={initiatives}/>,Utmaningar:<Challenges initiatives={initiatives} openQual={id=>{setActiveInitiativeId(id);setPage('Kvalificering')}} newOpen={()=>setNewOpen(true)}/>,Kvalificering:<Qualification go={setPage} initiative={activeInitiative} setInitiative={replaceInitiative} perspective={perspective}/>,Prioritering:<Prioritization initiatives={initiatives} setInitiatives={setInitiatives} activeInitiativeId={activeInitiativeId} setActiveInitiativeId={setActiveInitiativeId} weights={weights} organization={org} federatedView={federatedView}/>,Genomförande:<Delivery initiatives={initiatives} setInitiatives={setInitiatives} setActiveInitiativeId={setActiveInitiativeId}/>,Effekt:<Effect initiative={activeInitiative}/>,'Lärande & återbruk':<Learning initiative={activeInitiative}/>,Styrmodell:<Governance weights={weights} setWeights={setWeights}/>})[page],[page,initiatives,activeInitiative,activeInitiativeId,weights,org,federatedView,perspective])
- return <div className="app"><Sidebar page={page} setPage={setPage} open={menu} setOpen={setMenu} org={org} setOrg={value=>{setOrg(value);setFederatedView(false)}} federatedView={federatedView} setFederatedView={setFederatedView}/><main><Header page={page} setOpen={setMenu} onNew={()=>setNewOpen(true)}/><div className="federated-strip"><Users size={15}/><span>{federatedView?<><b>Du ser nu: Federerad vy</b> – samlad bild för {activeInitiative.participants.length?activeInitiative.participants.join(', '):'inga angivna deltagare'}</>:<><b>Du ser nu: {org}</b> – lokalt perspektiv</>}</span><button onClick={()=>setFederatedView(!federatedView)}>{federatedView?'Visa lokalt':'Visa federerat'}</button></div><div className="content">{content}</div><footer className="disclaimer">Interaktiv prototyp · All data, alla namn och alla utfall är syntetiska · Ingen backend, autentisering eller extern AI-tjänst är ansluten</footer></main>{newOpen&&<NewChallenge defaultOrganization={org} close={()=>setNewOpen(false)} open={(title,problem,organization)=>{const id=`UTM-${String(Math.max(0,...initiatives.map(item=>Number(item.id.replace('UTM-',''))||0))+1).padStart(3,'0')}`;const item=createInitiative(id,title,problem,organization);setInitiatives(items=>[...items,item]);setActiveInitiativeId(id);setNewOpen(false);setPage('Kvalificering')}}/>}</div>
+        <section id="costs" className="section-block">
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">HELA MÖJLIGGÖRANDET</p>
+              <h2>Spårbar kostnadsbild</h2>
+            </div>
+          </div>
+          <Help>
+            Kostnaden visar gemensam teknik, lokalt dataarbete och
+            verksamhetsförändring. Samma kostnadspost räknas en gång även när
+            förutsättningen återanvänds.
+          </Help>
+          <div className="cost-grid">
+            <article>
+              <small>Engångskostnader</small>
+              <b>
+                {story.costBreakdown.oneTimeAmount.toLocaleString("sv-SE")} SEK
+              </b>
+              <p>
+                Gemensam investering, anslutning, dataarbete och utbildning.
+              </p>
+            </article>
+            <article>
+              <small>Återkommande drift</small>
+              <b>
+                {story.costBreakdown.recurringAnnualAmount.toLocaleString(
+                  "sv-SE",
+                )}{" "}
+                SEK/år
+              </b>
+              <p>
+                Oprojicerat årsbelopp. Treårstotal visas inte utan komplett
+                kalenderårshorisont.
+              </p>
+            </article>
+            <article>
+              <small>Ekonomisk potential</small>
+              <b>
+                {story.effectPotentials
+                  .find((item) => item.category === "MONEY")
+                  ?.expectedValue.toLocaleString("sv-SE") ?? "Saknas"}{" "}
+                SEK/år
+              </b>
+              <p>Jämförbar årstakt, men inte beslutad besparing.</p>
+            </article>
+          </div>
+          <div className="cost-details">
+            {story.costEntries.map((entry) => (
+              <p key={entry.id}>
+                <b>{entry.category}</b>
+                <span>
+                  {entry.amount.toLocaleString("sv-SE")} {entry.currency} ·{" "}
+                  {entry.recurrence === "ONE_TIME" ? "engång" : "per år"}
+                </span>
+              </p>
+            ))}
+          </div>
+          <p className="muted">
+            Kostnadsfördelning är en separat fördelning av samma kostnad och
+            skapar ingen ny kostnad.
+          </p>
+          <Trace values={story.costBreakdown.sourceRefs} />
+        </section>
+        <p role="status" className="feedback">
+          {feedback}
+        </p>
+        <section className="section-block roadmap">
+          <p className="eyebrow">SENARE STEG</p>
+          <h2>Inte implementerat i denna leverans</h2>
+          <p>
+            Lokala effektåtaganden, mandatprövad startgrind, låst
+            beslutsbaslinje, ändringsstyrning, prognos, verifierad mätning och
+            härlett kontrollrum.
+          </p>
+          <p>
+            Rapportpresentationen kvarstår som leveranskrav;
+            rapportöverensstämmelse har inte verifierats eftersom
+            rapportunderlaget saknas här.
+          </p>
+        </section>
+      </main>
+      <footer>
+        All data och alla namn är syntetiska · Ingen backend, autentisering,
+        extern AI eller integration är ansluten
+      </footer>
+    </div>
+  );
 }

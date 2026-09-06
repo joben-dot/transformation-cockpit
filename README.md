@@ -1,20 +1,45 @@
 # Transformation Cockpit
 
-En körbar prototyp för effektstyrd verksamhetstransformation i en **fiktiv svensk kommun**. All information i applikationen är syntetisk och får inte betraktas som verkliga verksamhetsdata.
+En ny, avgränsad produktingång för strategiskt stöd till en digitaliserings- och
+transformationsportfölj. All visad verksamhetsdata är syntetisk.
 
-## Vad prototypen demonstrerar
+## Vad det aktuella steget demonstrerar
 
-- En ledningsvy med största möjlighet, uppnådd effekt, effekt i risk, aktuella beslut och blockerade initiativ.
-- Ett sammanhängande transformationsflöde: **problem → kvalificering → prioritering → initiativ/program → förändrat arbetssätt → mätbar effekt → återbruk/skala**.
-- Kvalificering av verksamhetens utmaningar innan lösningar bestäms.
-- Portföljprioritering utifrån effekt, kostnad, brådska, strategisk relevans, återbrukspotential och risk, med rekommendationerna `STARTA`, `UTRED`, `VÄNTA` och `STOPPA`.
-- Exempelprogrammet **125/75**, dess gemensamma effektmål och kopplade initiativ.
-- Initiativstyrning med effekthypotes, ägare, tvärfunktionellt team, experiment, nästa beslut, blockering, mandatbehov och tid till nästa mätbara resultat.
-- En tydlig effektkedja som skiljer aktivitet/output från förändrat arbetssätt, verksamhetsutfall och ekonomi/produktivitet.
+- Ett stabilt `ChallengeId` och `InitiativeId` genom en sammanhängande referensberättelse.
+- Icke-bindande effektpotential, separat per effektkategori och måttenhet.
+- Befintliga förmågor, möjliggörande initiativ och verksamhetsförändringar som
+  delar i en riktad förutsättningsgraf.
+- En topologiskt härledd ordning som uttryckligen inte är startgodkännande.
+- En strategisk jämförelse av tre initiativ med kriteriebidrag, osäkerhet och versionsbunden styrprofil.
+- Interaktioner för ny potentialversion, nytt viktscenario, beroendefördjupning, ansvar och återanvänd förutsättning; samtliga går genom validerade commands.
+- En kontextbunden kostnadsbild där delade kostnadsposter räknas en gång.
+- Källidentiteter tillbaka till samma normaliserade grunddata.
+- En ärlig gräns mot ännu ej implementerade effektåtaganden, startbeslut,
+  beslutsversioner, mätpunkter, realiserad effekt och strategisk översikt.
 
-## Arkitektur
+Den äldre applikationens navigation, organisationsväljare och lokala affärsstate
+används inte av den nya ingången.
 
-Prototypen är en responsiv single-page application byggd med **React**, **TypeScript** och **Vite**. Navigering och demo-interaktioner hanteras lokalt i React utan router eller backend. Ikoner kommer från `lucide-react`; all verksamhetsdata ligger som statisk, syntetisk demodata i klienten.
+## Arkitektur och avgränsad återanvändning
+
+Applikationen är React, TypeScript och Vite. Ingången komponerar läsmodeller
+genom `referenceStory` och `strategicComparison` från normaliserat `DemoState`.
+Skrivningar går genom `demoReducer`; UI:t innehåller inte egna kopior av ärende-,
+potential-, prioriterings-, kostnads- eller grafdata.
+
+Följande delar återanvänds eftersom de redan har testade kontrakt som motsvarar
+målmodellen:
+
+- brandade och stabila domän-ID:n,
+- organisationsneutrala entiteter och referentiell validering,
+- det syntetiska värdeskapande initiativets `EffectPotential`,
+- `ExecutionNode` och riktade `Dependency`-relationer,
+- selectors för transitiv graf och topologisk ordning.
+
+Reducer- och selectorlagrens tidigare tester behålls som regressionsskydd. Tester
+för den avsiktligt borttagna gamla App-navigationen och dess lokala
+initiativmodell har ersatts av tester för den nya ingångens identitet,
+processgräns, källspårning och informationsarkitektur.
 
 ## Kör lokalt
 
@@ -66,9 +91,11 @@ domäninställningar krävs.
 
 ## Nuvarande begränsningar
 
-- All data är syntetisk och lagras enbart i klientkoden; ändringar sparas inte.
-- Knappar för att skapa och redigera objekt är visuella prototypytor och saknar formulärflöden.
-- Behörigheter, autentisering, notifieringar, export, API-integrationer och revisionslogg ingår inte.
-- Prioriteringspoäng och effekter är demonstrativa, inte en validerad kommunal beräkningsmodell. Deltagarscenariot skiljer mellan fast, organisationsspecifik och deltagarskalande kostnad.
-- Alternativkostnaden, den tekniska skulden och andra följder för en kommun som väljer att stå utanför modelleras inte i denna iteration; det är en framtida modellfråga.
-- Prototypen har grundläggande responsivitet men har ännu inte genomgått en fullständig tillgänglighetsgranskning eller användartestning.
+- Det aktuella steget stödjer endast avgränsade scenario-, potential-, ansvar- och
+  förutsättningscommands; det är inte ett komplett berednings- eller beslutsflöde.
+- Effektpotential är en bedömning och inget lokalt effektåtagande.
+- Startbeslut, låst beslutsbaslinje, prognoser, mätpunkter, realiserad effekt,
+  kontrollrum och lärande är uttryckligen inte implementerade i denna vy.
+- Ingen backend, autentisering, extern AI eller integration är ansluten.
+- Grundläggande responsivitet finns, men full tillgänglighets- och
+  användbarhetsgranskning återstår.

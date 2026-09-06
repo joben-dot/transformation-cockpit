@@ -2,3 +2,13 @@ node_modules/
 dist/
 *.local
 *.tsbuildinfo
+
+# Generated review screenshots (kept outside Git)
+/artifacts/etapp-*.png
+
+# Playwright runtime output
+/test-results/
+
+/artifacts/new-application-entry.png
+
+/artifacts/strategic-priority-demo.png

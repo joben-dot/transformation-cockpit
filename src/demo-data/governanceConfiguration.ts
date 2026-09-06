@@ -54,19 +54,22 @@ export const steeringProfileVersions = [
       {
         code: "EFFECT",
         name: "Effekt",
-        description: "Bedömd möjlig effekt.",
+        description:
+          "Hög poäng betyder större relevant potential med avgränsad mottagare och tidsgrund.",
         required: true,
       },
       {
         code: "EVIDENCE",
         name: "Evidens",
-        description: "Underlagets styrka.",
+        description:
+          "Hög poäng betyder starkare och mer verifierbart underlag med lägre osäkerhet.",
         required: true,
       },
       {
         code: "TIME",
         name: "Tid",
-        description: "Tid till möjlig effekt.",
+        description:
+          "Hög poäng betyder kortare tid till möjlig effekt; låg poäng betyder längre ledtid.",
         required: true,
       },
       {
@@ -78,7 +81,8 @@ export const steeringProfileVersions = [
       {
         code: "CAPACITY",
         name: "Kapacitet",
-        description: "Bedömd kapacitetsbelastning.",
+        description:
+          "Hög poäng betyder god kapacitetsmatch och låg belastning; låg poäng betyder knapp eller osäker kapacitet.",
         required: true,
       },
     ],

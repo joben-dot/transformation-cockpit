@@ -22,6 +22,8 @@ export interface MonetizationAssumption {
 }
 export interface EffectPotential {
   id: EffectPotentialId;
+  /** Stable identity for versions concerning the same recipient, scope and measure. */
+  seriesId: string;
   initiativeId: InitiativeId;
   recipientBusinessId?: BusinessId;
   recipientScenario?: string;

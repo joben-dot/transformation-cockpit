@@ -5,6 +5,7 @@ import { stage2Ids } from "../../demo-data/stage2DemoData";
 import { baseDemoState } from "../../tests/fixtures/baseDemoState";
 import {
   effectPotentialByCategory,
+  currentEffectPotentials,
   effectPotentialsByInitiative,
   groupEffectPotentials,
 } from "./effectPotentialSelectors";
@@ -103,5 +104,59 @@ describe("bedömd effektpotential", () => {
     };
     expect(state.entities.effectCommitments).toEqual({});
     expect(organizationIds.north).toBeTruthy();
+  });
+});
+
+describe("potentialserier", () => {
+  it("behåller samma mätetal för två mottagande verksamheter separat", () => {
+    const state = baseDemoState();
+    const original = effectPotentialsByInitiative(
+      state,
+      stage2Ids.calculatedInitiative,
+    ).find((item) => item.category === "QUALITY")!;
+    const otherBusiness = Object.values(state.entities.businesses).find(
+      (item) => item.id !== original.recipientBusinessId,
+    )!;
+    const id = createId("EffectPotential", "same-measure-other-recipient");
+    state.entities.effectPotentials[id] = {
+      ...original,
+      id,
+      seriesId: "SERIES-QUALITY-OTHER-RECIPIENT",
+      recipientBusinessId: otherBusiness.id,
+      assessmentVersion: 2,
+    };
+    const current = currentEffectPotentials(
+      state,
+      stage2Ids.calculatedInitiative,
+    );
+    expect(
+      current.filter(
+        (item) => item.effectMeasureCode === original.effectMeasureCode,
+      ),
+    ).toHaveLength(2);
+    expect(current.map((item) => item.recipientBusinessId)).toEqual(
+      expect.arrayContaining([original.recipientBusinessId, otherBusiness.id]),
+    );
+  });
+
+  it("enhetsändring inom samma serie ersätter versionen utan dubbelräkning", () => {
+    const state = baseDemoState();
+    const original = effectPotentialsByInitiative(
+      state,
+      stage2Ids.calculatedInitiative,
+    ).find((item) => item.category === "QUALITY")!;
+    const id = createId("EffectPotential", "unit-revision");
+    state.entities.effectPotentials[id] = {
+      ...original,
+      id,
+      unit: "indexpunkter",
+      assessmentVersion: 2,
+    };
+    const series = currentEffectPotentials(
+      state,
+      stage2Ids.calculatedInitiative,
+    ).filter((item) => item.seriesId === original.seriesId);
+    expect(series).toHaveLength(1);
+    expect(series[0]).toMatchObject({ id, unit: "indexpunkter" });
   });
 });

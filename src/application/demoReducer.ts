@@ -483,6 +483,7 @@ function validateCommand(
           command.payload.initiativeId,
         );
       if (
+        !command.payload.seriesId.trim() ||
         !(
           command.payload.recipientBusinessId ||
           command.payload.recipientScenario?.trim()
@@ -502,6 +503,38 @@ function validateCommand(
           state,
           "INVALID_PAYLOAD",
           "Potentialen kräver mottagare, mätetal, enhet, intervall, evidens, antagande och tidsfönster.",
+          command.targetId,
+        );
+      const seriesEntries = Object.values(
+        state.entities.effectPotentials,
+      ).filter((item) => item.seriesId === command.payload.seriesId);
+      if (
+        seriesEntries.some(
+          (item) =>
+            item.assessmentVersion === command.payload.assessmentVersion,
+        )
+      )
+        return failure(
+          state,
+          "INVALID_PAYLOAD",
+          "Potentialseriens versionsnummer används redan.",
+          command.targetId,
+        );
+      if (
+        seriesEntries.some(
+          (item) =>
+            item.initiativeId !== command.payload.initiativeId ||
+            item.recipientBusinessId !== command.payload.recipientBusinessId ||
+            item.recipientScenario !== command.payload.recipientScenario ||
+            item.scope !== command.payload.scope ||
+            item.category !== command.payload.category ||
+            item.effectMeasureCode !== command.payload.effectMeasureCode,
+        )
+      )
+        return failure(
+          state,
+          "INVALID_PAYLOAD",
+          "En potentialserie får inte blanda initiativ, mottagare, omfattning, kategori eller mätetal.",
           command.targetId,
         );
       if (

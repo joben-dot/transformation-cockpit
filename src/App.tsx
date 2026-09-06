@@ -73,7 +73,19 @@ function commandError(result: CommandResult) {
 
 export default function App() {
   const [state, setState] = useState<DemoState>(initialState);
-  const comparisons = useMemo(() => strategicComparison(state), [state]);
+  const activeProfile = Object.values(
+    state.entities.steeringProfileVersions,
+  ).find((item) => item.status === "ACTIVE")!;
+  const [comparisonProfileId, setComparisonProfileId] = useState(
+    activeProfile.id,
+  );
+  const comparisonProfile =
+    state.entities.steeringProfileVersions[comparisonProfileId] ??
+    activeProfile;
+  const comparisons = useMemo(
+    () => strategicComparison(state, comparisonProfileId),
+    [state, comparisonProfileId],
+  );
   const [selectedInitiativeId, setSelectedInitiativeId] =
     useState<InitiativeId>(stage3Ids.valueInitiative);
   const story = referenceStory(state, selectedInitiativeId);
@@ -81,9 +93,6 @@ export default function App() {
     ExecutionNodeId | undefined
   >();
   const [feedback, setFeedback] = useState("");
-  const activeProfile = Object.values(
-    state.entities.steeringProfileVersions,
-  ).find((item) => item.status === "ACTIVE")!;
   const [weights, setWeights] = useState<Record<string, number>>({
     ...activeProfile.weights,
   });
@@ -97,9 +106,20 @@ export default function App() {
       state.entities.roleDefinitions[assignment.roleDefinitionId]?.roleKind ===
       "SPECIALIST",
   )!;
-  const selectedPotential = story?.effectPotentials[0];
+  const [selectedPotentialId, setSelectedPotentialId] = useState(
+    story?.effectPotentials[0]?.id,
+  );
+  const selectedPotential =
+    story?.effectPotentials.find((item) => item.id === selectedPotentialId) ??
+    story?.effectPotentials[0];
+  const [potentialLower, setPotentialLower] = useState(
+    selectedPotential?.lowerBound ?? 0,
+  );
   const [potentialExpected, setPotentialExpected] = useState(
     selectedPotential?.expectedValue ?? 0,
+  );
+  const [potentialUpper, setPotentialUpper] = useState(
+    selectedPotential?.upperBound ?? 0,
   );
   const [potentialAssumption, setPotentialAssumption] = useState(
     selectedPotential?.assumptions.join(" ") ?? "",
@@ -154,7 +174,10 @@ export default function App() {
     setSelectedNodeId(undefined);
     const nextStory = referenceStory(state, id);
     const potential = nextStory?.effectPotentials[0];
+    setSelectedPotentialId(potential?.id);
+    setPotentialLower(potential?.lowerBound ?? 0);
     setPotentialExpected(potential?.expectedValue ?? 0);
+    setPotentialUpper(potential?.upperBound ?? 0);
     setPotentialAssumption(potential?.assumptions.join(" ") ?? "");
     setFeedback("");
   };
@@ -204,7 +227,9 @@ export default function App() {
               <p className="eyebrow">STRATEGISK JÄMFÖRELSE</p>
               <h2>Prioriteringsunderlag för tre initiativ</h2>
             </div>
-            <span className="nonbinding">{activeProfile.demoAssumption}</span>
+            <span className="nonbinding">
+              {comparisonProfile.demoAssumption}
+            </span>
           </div>
           <Help>
             Ledningen behöver se både kriteriernas bidrag och osäkerheten.
@@ -226,6 +251,11 @@ export default function App() {
                   Profil v{item.profile.versionNumber} ·{" "}
                   {item.assessment.assessedAt.slice(0, 10)}
                 </small>
+                {item.needsReassessment && (
+                  <strong className="stale-badge">
+                    Nyare potential finns – ombedömning behövs
+                  </strong>
+                )}
                 <small>
                   {item.potentials.length
                     ? `${item.potentials.length} effektpotentialer`
@@ -243,11 +273,27 @@ export default function App() {
               </button>
             ))}
           </div>
+          <div className="scenario-switcher">
+            <span>
+              Gällande styrprofil: {activeProfile.profileName} v
+              {activeProfile.versionNumber}
+            </span>
+            {comparisonProfile.id !== activeProfile.id && (
+              <button
+                onClick={() => {
+                  setComparisonProfileId(activeProfile.id);
+                  setWeights({ ...activeProfile.weights });
+                }}
+              >
+                Visa grundprofilens jämförelse
+              </button>
+            )}
+          </div>
           <div className="profile-panel">
             <div>
               <h3>
-                {activeProfile.profileName} · version{" "}
-                {activeProfile.versionNumber}
+                {comparisonProfile.profileName} · version{" "}
+                {comparisonProfile.versionNumber}
               </h3>
               <p>
                 Ändra vikter för att skapa ett nytt scenario. Historiska
@@ -255,7 +301,7 @@ export default function App() {
               </p>
             </div>
             <div className="weight-grid">
-              {activeProfile.criteria.map((criterion) => (
+              {comparisonProfile.criteria.map((criterion) => (
                 <label key={criterion.code}>
                   {criterion.name}
                   <input
@@ -290,25 +336,23 @@ export default function App() {
                     targetId: profileId,
                     payload: {
                       profileName: "Strategiskt scenario",
-                      versionNumber: activeProfile.versionNumber + 1,
+                      versionNumber:
+                        Math.max(
+                          ...Object.values(
+                            state.entities.steeringProfileVersions,
+                          ).map((profile) => profile.versionNumber),
+                        ) + 1,
                       validFrom: issuedAt.slice(0, 10),
                       decidedByDecisionFunctionId:
-                        activeProfile.decidedByDecisionFunctionId,
-                      criteria: activeProfile.criteria.map((item) => ({
+                        comparisonProfile.decidedByDecisionFunctionId,
+                      criteria: comparisonProfile.criteria.map((item) => ({
                         ...item,
                       })),
                       weights,
-                      thresholds: { ...activeProfile.thresholds },
+                      thresholds: { ...comparisonProfile.thresholds },
                       weightSumRule: 100,
                       demoAssumption: "Ej beslutad – används endast i demo.",
                     },
-                  },
-                  {
-                    commandId: createId("Command", `activate-${token}`),
-                    actorRoleAssignmentId: decisionActor.id,
-                    issuedAt,
-                    commandType: "ACTIVATE_STEERING_PROFILE_VERSION",
-                    targetId: profileId,
                   },
                 ];
                 comparisons.forEach((item, index) =>
@@ -342,7 +386,8 @@ export default function App() {
                     },
                   }),
                 );
-                dispatchMany(commands);
+                const result = dispatchMany(commands);
+                if (result.success) setComparisonProfileId(profileId);
               }}
             >
               Skapa nytt prioriteringsscenario
@@ -356,13 +401,20 @@ export default function App() {
                 <div key={criterion.criterionCode}>
                   <span>
                     {
-                      activeProfile.criteria.find(
+                      comparisonProfile.criteria.find(
                         (item) => item.code === criterion.criterionCode,
                       )?.name
                     }
                   </span>
                   <i style={{ width: `${criterion.contribution}%` }} />
                   <b>{criterion.contribution}</b>
+                  <small>
+                    {
+                      comparisonProfile.criteria.find(
+                        (item) => item.code === criterion.criterionCode,
+                      )?.description
+                    }
+                  </small>
                 </div>
               ))}
           </div>
@@ -441,9 +493,6 @@ export default function App() {
               className="edit-panel"
               onSubmit={(event) => {
                 event.preventDefault();
-                const span =
-                  selectedPotential.upperBound -
-                  selectedPotential.expectedValue;
                 const token = Date.now();
                 const {
                   id: _previousId,
@@ -462,9 +511,9 @@ export default function App() {
                   payload: {
                     ...potentialBasis,
                     initiativeId: selectedInitiativeId,
-                    lowerBound: potentialExpected - span,
+                    lowerBound: potentialLower,
                     expectedValue: potentialExpected,
-                    upperBound: potentialExpected + span,
+                    upperBound: potentialUpper,
                     assumptions: [potentialAssumption],
                     assessedByRoleAssignmentIds,
                     assessmentVersion: selectedPotential.assessmentVersion + 1,
@@ -474,6 +523,41 @@ export default function App() {
             >
               <h3>Skapa ny potentialbedömning</h3>
               <label>
+                Potential att redigera
+                <select
+                  aria-label="Potential att redigera"
+                  value={selectedPotential.id}
+                  onChange={(event) => {
+                    const potential = story.effectPotentials.find(
+                      (item) => item.id === event.target.value,
+                    )!;
+                    setSelectedPotentialId(potential.id);
+                    setPotentialLower(potential.lowerBound);
+                    setPotentialExpected(potential.expectedValue);
+                    setPotentialUpper(potential.upperBound);
+                    setPotentialAssumption(potential.assumptions.join(" "));
+                  }}
+                >
+                  {story.effectPotentials.map((potential) => (
+                    <option key={potential.id} value={potential.id}>
+                      {potential.category} · {potential.effectMeasureCode} ·{" "}
+                      {potential.unit}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Lågt värde
+                <input
+                  aria-label="Nytt lågt potentialvärde"
+                  type="number"
+                  value={potentialLower}
+                  onChange={(event) =>
+                    setPotentialLower(Number(event.target.value))
+                  }
+                />
+              </label>
+              <label>
                 Förväntat värde
                 <input
                   aria-label="Nytt förväntat potentialvärde"
@@ -481,6 +565,17 @@ export default function App() {
                   value={potentialExpected}
                   onChange={(event) =>
                     setPotentialExpected(Number(event.target.value))
+                  }
+                />
+              </label>
+              <label>
+                Högt värde
+                <input
+                  aria-label="Nytt högt potentialvärde"
+                  type="number"
+                  value={potentialUpper}
+                  onChange={(event) =>
+                    setPotentialUpper(Number(event.target.value))
                   }
                 />
               </label>

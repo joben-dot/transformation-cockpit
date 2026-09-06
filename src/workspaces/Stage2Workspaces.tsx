@@ -798,6 +798,7 @@ export function EffectPotentialWorkspace({
                   recipientScenario:
                     recipientKind === "SCENARIO" ? scenario : undefined,
                   category,
+                  seriesId: `SERIES-${initiativeId}-${category}-${measure}`,
                   effectMeasureCode: measure,
                   unit,
                   lowerBound: lower,

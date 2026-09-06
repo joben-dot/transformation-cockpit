@@ -11,6 +11,7 @@ import {
   isInitiativeQualified,
   completionBlockersForStep,
 } from "./qualificationSelectors";
+import { currentEffectPotentials } from "./effectPotentialSelectors";
 
 export function validateSteeringProfile(profile: SteeringProfileVersion) {
   const errors: string[] = [];
@@ -100,9 +101,7 @@ export function calculatePriorityAssessment(
     input.profile,
   );
   const eligible = blockers.length === 0;
-  const potentials = Object.values(state.entities.effectPotentials).filter(
-    (item) => item.initiativeId === input.initiativeId,
-  );
+  const potentials = currentEffectPotentials(state, input.initiativeId);
   const qualificationAssessments = Object.values(
     state.entities.qualificationAssessments,
   ).filter((item) => item.initiativeId === input.initiativeId);

@@ -181,6 +181,7 @@ export function addStage2DemoData(state: DemoState): DemoState {
   const potentialId = createId("EffectPotential", "potential-001");
   entities.effectPotentials[potentialId] = {
     id: potentialId,
+    seriesId: "SERIES-QUALIFIED-RELEASED-TIME",
     initiativeId: stage2Ids.qualifiedInitiative,
     recipientBusinessId: businessIds.intake,
     category: "RELEASED_TIME",
@@ -202,18 +203,50 @@ export function addStage2DemoData(state: DemoState): DemoState {
   };
   const profile = steeringProfileVersions[0];
   const profileWeights: Record<string, number> = profile.weights;
+  const scoreProfiles = {
+    [stage2Ids.calculatedInitiative]: {
+      EFFECT: 95,
+      EVIDENCE: 75,
+      TIME: 75,
+      QUALITY: 80,
+      CAPACITY: 55,
+    },
+    [stage2Ids.acceptedInitiative]: {
+      EFFECT: 65,
+      EVIDENCE: 90,
+      TIME: 90,
+      QUALITY: 85,
+      CAPACITY: 80,
+    },
+    [stage2Ids.overriddenInitiative]: {
+      EFFECT: 75,
+      EVIDENCE: 55,
+      TIME: 40,
+      QUALITY: 65,
+      CAPACITY: 70,
+    },
+  } as const;
   [
     stage2Ids.calculatedInitiative,
     stage2Ids.acceptedInitiative,
     stage2Ids.overriddenInitiative,
   ].forEach((initiativeId, index) => {
     const id = createId("PriorityAssessment", `priority-${index + 1}`);
+    const scores = scoreProfiles[initiativeId];
     const criterionAssessments = profile.criteria.map((criterion) => ({
       criterionCode: criterion.code,
-      score: 80 - index * 5,
-      contribution: (80 - index * 5) * (profileWeights[criterion.code] / 100),
-      evidenceRefs: [`EVIDENCE-DEMO-PRIORITY-${criterion.code}`],
-      uncertainty: "MEDIUM" as const,
+      score: scores[criterion.code as keyof typeof scores],
+      contribution:
+        scores[criterion.code as keyof typeof scores] *
+        (profileWeights[criterion.code] / 100),
+      evidenceRefs: [
+        `EVIDENCE-DEMO-PRIORITY-${initiativeId}-${criterion.code}`,
+      ],
+      uncertainty:
+        criterion.code === "CAPACITY" &&
+        initiativeId === stage2Ids.calculatedInitiative
+          ? ("HIGH" as const)
+          : ("MEDIUM" as const),
     }));
     entities.priorityAssessments[id] = {
       id,
@@ -255,6 +288,7 @@ export function addStage2DemoData(state: DemoState): DemoState {
   entities.effectPotentials[portfolioPotentialId] = {
     ...entities.effectPotentials[potentialId],
     id: portfolioPotentialId,
+    seriesId: "SERIES-PLANNING-QUALITY-RESPONSE",
     initiativeId: stage2Ids.calculatedInitiative,
     recipientBusinessId: businessIds.response,
     category: "QUALITY",
@@ -280,6 +314,7 @@ export function addStage2DemoData(state: DemoState): DemoState {
     const id = createId("EffectPotential", token);
     entities.effectPotentials[id] = {
       id,
+      seriesId: `SERIES-${token.toUpperCase()}`,
       initiativeId,
       recipientBusinessId: businessIds.response,
       category,

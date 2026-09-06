@@ -1,27 +1,12 @@
 import type { InitiativeId, PriorityAssessment } from "../../domain";
 import type { DemoState } from "../demoState";
-import { effectPotentialsByInitiative } from "./effectPotentialSelectors";
+import { currentEffectPotentials } from "./effectPotentialSelectors";
 import {
   prerequisiteGraph,
   topologicalExecutionOrder,
 } from "./executionSelectors";
 import { blockingChains } from "./executionSelectors";
 import { costBreakdownWithoutProjection, costsByOrigin } from "./costSelectors";
-
-function currentPotentials(state: DemoState, initiativeId: InitiativeId) {
-  const current = new Map<
-    string,
-    ReturnType<typeof effectPotentialsByInitiative>[number]
-  >();
-  effectPotentialsByInitiative(state, initiativeId).forEach((item) => {
-    const key = `${item.category}:${item.effectMeasureCode}:${item.unit}`;
-    const previous = current.get(key);
-    if (!previous || item.assessmentVersion > previous.assessmentVersion) {
-      current.set(key, item);
-    }
-  });
-  return [...current.values()];
-}
 
 /**
  * Composes the first product story from normalized entities. It deliberately
@@ -44,7 +29,7 @@ export function referenceStory(state: DemoState, initiativeId: InitiativeId) {
   return {
     challenge,
     initiative,
-    effectPotentials: currentPotentials(state, initiativeId),
+    effectPotentials: currentEffectPotentials(state, initiativeId),
     prerequisiteNodes: graph.nodes,
     dependencies: graph.dependencies,
     enablingInitiatives: [...ownerInitiativeIds].flatMap((id) =>
@@ -64,23 +49,20 @@ export function referenceStory(state: DemoState, initiativeId: InitiativeId) {
   };
 }
 
-export function strategicComparison(state: DemoState) {
+export function strategicComparison(
+  state: DemoState,
+  steeringProfileVersionId?: import("../../domain").SteeringProfileVersionId,
+) {
+  const selectedProfileId =
+    steeringProfileVersionId ??
+    Object.values(state.entities.steeringProfileVersions).find(
+      (profile) => profile.status === "ACTIVE",
+    )?.id;
   const latestByInitiative = new Map<InitiativeId, PriorityAssessment>();
   Object.values(state.entities.priorityAssessments).forEach((assessment) => {
+    if (assessment.steeringProfileVersionId !== selectedProfileId) return;
     const current = latestByInitiative.get(assessment.initiativeId);
-    const assessmentProfile =
-      state.entities.steeringProfileVersions[
-        assessment.steeringProfileVersionId
-      ];
-    const currentProfile = current
-      ? state.entities.steeringProfileVersions[current.steeringProfileVersionId]
-      : undefined;
-    if (
-      !current ||
-      assessmentProfile.versionNumber > (currentProfile?.versionNumber ?? 0) ||
-      (assessmentProfile.versionNumber === currentProfile?.versionNumber &&
-        assessment.assessedAt > current.assessedAt)
-    ) {
+    if (!current || assessment.assessedAt > current.assessedAt) {
       latestByInitiative.set(assessment.initiativeId, assessment);
     }
   });
@@ -93,12 +75,23 @@ export function strategicComparison(state: DemoState) {
         state.entities.steeringProfileVersions[
           assessment.steeringProfileVersionId
         ];
+      const assessedPotentials = assessment.effectPotentialIds.flatMap((id) =>
+        state.entities.effectPotentials[id]
+          ? [state.entities.effectPotentials[id]]
+          : [],
+      );
+      const latestPotentials = currentEffectPotentials(state, initiative.id);
+      const assessedIds = new Set(assessedPotentials.map((item) => item.id));
       return [
         {
           initiative,
           assessment,
           profile,
-          potentials: currentPotentials(state, initiative.id),
+          potentials: assessedPotentials,
+          latestPotentials,
+          needsReassessment: latestPotentials.some(
+            (item) => !assessedIds.has(item.id),
+          ),
           blockers: blockingChains(state, initiative.id),
           sourceRefs: [
             initiative.id,

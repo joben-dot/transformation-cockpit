@@ -27,6 +27,7 @@ function potentialCommand(
       initiativeId: stage2Ids.qualifiedInitiative,
       recipientBusinessId: Object.values(state.entities.businesses)[0].id,
       category,
+      seriesId: `SERIES-${token}`,
       effectMeasureCode:
         category === "MONEY" ? "OPERATING_COST" : "RELEASED_HOURS",
       unit: category === "MONEY" ? "SEK/år" : "timmar/år",

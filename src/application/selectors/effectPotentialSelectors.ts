@@ -23,6 +23,24 @@ export const effectPotentialByCategory = (
   effectPotentialsByInitiative(state, initiativeId).filter(
     (item) => item.category === category,
   );
+
+/** Selects the latest version inside each explicitly identified recipient/scope series. */
+export function currentEffectPotentials(
+  state: DemoState,
+  initiativeId: InitiativeId,
+) {
+  const current = new Map<
+    string,
+    ReturnType<typeof effectPotentialsByInitiative>[number]
+  >();
+  effectPotentialsByInitiative(state, initiativeId).forEach((item) => {
+    const previous = current.get(item.seriesId);
+    if (!previous || item.assessmentVersion > previous.assessmentVersion) {
+      current.set(item.seriesId, item);
+    }
+  });
+  return [...current.values()];
+}
 export function groupEffectPotentials(
   state: DemoState,
   initiativeId: InitiativeId,

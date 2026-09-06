@@ -27,6 +27,10 @@ export interface MeasurementPlan {
   responsibleRoleAssignmentId: RoleAssignmentId;
 }
 export interface MeasurementPoint {
+  evidenceReference?: string;
+  qualityObservation?: string;
+  qualityMet?: boolean;
+  decisionVersionId?: string;
   id: MeasurementPointId;
   measurementPlanId: MeasurementPlanId;
   measuredAt: IsoDate;

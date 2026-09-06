@@ -28,7 +28,7 @@ interface CommandMetadata {
   issuedAt: string;
 }
 
-export type Command =
+export type Command = import("./transformationCommands").TransformationCommand
   | (CommandMetadata & {
       commandType: "SET_ACTIVE_CHALLENGE";
       targetId: ChallengeId;

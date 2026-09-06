@@ -17,6 +17,7 @@ import {
 import { priorityReviewMandateScope } from "../domain";
 import { reduceStage3Command } from "./stage3Reducer";
 import { validateStage3State } from "./validateStage3State";
+import { transformationReducer } from "./transformationReducer";
 
 const failure = (
   state: DemoState,
@@ -1070,7 +1071,7 @@ export function demoReducer(state: DemoState, command: Command): CommandResult {
       "POST_STATE_INVALID",
       invalidCurrentState[0]?.description ?? invalidStage3State[0],
     );
-  const stage3Result = reduceStage3Command(state, command);
+  const stage3Result = transformationReducer(state, command) ?? reduceStage3Command(state, command);
   if (stage3Result) {
     if (!stage3Result.success) return stage3Result;
     const errors = validateDemoState(stage3Result.nextState);

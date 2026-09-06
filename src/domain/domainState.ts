@@ -1,4 +1,5 @@
 import type { EntityMap } from "./common";
+import type { StartPreparation, TransformationGovernance } from "./transformation";
 import type { StrategicChallenge } from "./challenge";
 import type { AllocationRuleVersion, CostAllocation, CostEntry } from "./costs";
 import type {
@@ -72,6 +73,8 @@ export interface AuditEntry {
 }
 
 export interface DomainEntities {
+  startPreparations: Record<string, StartPreparation>;
+  transformationGovernance: Record<string, TransformationGovernance>;
   organizations: EntityMap<LegalOrganization>;
   organizationalUnits: EntityMap<OrganizationalUnit>;
   businessAreas: EntityMap<BusinessArea>;
@@ -122,6 +125,8 @@ export interface DomainEntities {
 
 export function createEmptyDomainEntities(): DomainEntities {
   return {
+    startPreparations: {},
+    transformationGovernance: {},
     organizations: {},
     organizationalUnits: {},
     businessAreas: {},

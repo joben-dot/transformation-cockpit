@@ -3,6 +3,8 @@ import type { ChallengeId, InitiativeId } from "./ids";
 
 export type InitiativeKind = "VALUE_CREATING" | "ENABLING";
 export interface Initiative {
+  implementationCompletedAt?: string;
+  closedAt?: string;
   id: InitiativeId;
   challengeId: ChallengeId;
   title: string;

@@ -29,6 +29,7 @@ import {
 } from "./governanceConfiguration";
 import { addStage2DemoData } from "./stage2DemoData";
 import { addStage3DemoData } from "./stage3DemoData";
+import { addTransformationDemoData } from "./transformationDemoData";
 
 const toMap = <T extends { id: string }>(items: T[]): EntityMap<T> =>
   Object.fromEntries(
@@ -139,7 +140,7 @@ export function createDemoData(): DemoState {
   };
   entities.resourceAllocations[allocation.id] = allocation;
 
-  return addStage3DemoData(
+  return addTransformationDemoData(addStage3DemoData(
     addStage2DemoData({
       entities,
       viewContext: {
@@ -159,5 +160,5 @@ export function createDemoData(): DemoState {
         isSynthetic: true,
       },
     }),
-  );
+  ));
 }

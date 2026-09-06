@@ -13,9 +13,11 @@ describe("ärendeöversikten", () => {
     expect(html).not.toContain("INITIATIVE-DEMO-initiative-104");
   });
 
-  it("visar kommande steg utan att påstå att de är genomförda", () => {
+  it("visar effektkedjans arbetsytor utan att påstå att effekt är uppnådd", () => {
     const html = renderToStaticMarkup(<App />);
-    expect(html).toContain("Inte implementerat i denna leverans");
+    expect(html).toContain("Effekt och beslut");
+    expect(html).toContain("Kontrollrum");
+    expect(html).toContain("Ingen backend");
     expect(html).not.toContain("STARTA");
     expect(html).not.toContain("realiserad effekt uppnådd");
   });

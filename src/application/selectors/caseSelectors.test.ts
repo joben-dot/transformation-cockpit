@@ -14,7 +14,7 @@ describe("caseOverview", () => {
       step: "BEREDNING",
       obstacle: "Behörig juridisk verifiering",
       nextAction: "Verifiera dokumenterat svar",
-      responsible: "Alex Exempel",
+      responsible: "Robin Demo",
       dueDate: "2026-10-15",
       comparable: false,
     });

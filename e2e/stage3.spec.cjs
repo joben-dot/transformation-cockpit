@@ -65,6 +65,17 @@ test("demonstrerbart strategiskt prioriteringsunderlag", async ({ page }) => {
   await expect(page.getByLabel("Nytt förväntat potentialvärde")).toHaveValue(
     "260000",
   );
+  await page.getByLabel("Nytt förväntat potentialvärde").fill("270000");
+  await page.getByRole("button", { name: "Spara ny version" }).click();
+  await expect(page.getByRole("status")).toContainText("Ändringen sparades");
+  await expect(potentialSelect.locator("option:checked")).toContainText(
+    "MONEY",
+  );
+  await expect(page.getByLabel("Nytt förväntat potentialvärde")).toHaveValue(
+    "270000",
+  );
+  await page.getByRole("button", { name: "Spara ny version" }).click();
+  await expect(page.getByRole("status")).toContainText("Ändringen sparades");
   await selectPotential("RELEASED_TIME");
   await expect(page.getByLabel("Nytt förväntat potentialvärde")).toHaveValue(
     "1300",
@@ -73,18 +84,18 @@ test("demonstrerbart strategiskt prioriteringsunderlag", async ({ page }) => {
   await expect(page.getByLabel("Nytt förväntat potentialvärde")).toHaveValue(
     "7",
   );
-  await page.getByLabel("Nytt lågt potentialvärde").fill("5");
-  await page.getByLabel("Nytt förväntat potentialvärde").fill("8");
-  await page.getByLabel("Nytt högt potentialvärde").fill("11");
-  await page
-    .getByLabel("Nytt potentialantagande")
-    .fill("Aktivt ändrat syntetiskt kvalitetsantagande.");
-  await page.getByRole("button", { name: "Spara ny version" }).click();
-  await expect(page.getByRole("status")).toContainText("Ändringen sparades");
-  await expect(page.locator(".potential-card").first()).toContainText("8");
   await page.getByRole("link", { name: "Prioritering" }).click();
   await expect(
     page.getByText("Nyare potential finns – ombedömning behövs"),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Skapa nytt prioriteringsscenario" })
+    .click();
+  await expect(
+    page.getByText("Nyare potential finns – ombedömning behövs"),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Gällande styrprofil: Neutral demoprofil v1"),
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Förutsättningar" }).click();

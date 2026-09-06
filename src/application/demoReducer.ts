@@ -675,6 +675,52 @@ function validateCommand(
           );
       }
       break;
+    case "REWEIGHT_PRIORITY_ASSESSMENT": {
+      const source =
+        state.entities.priorityAssessments[
+          command.payload.sourcePriorityAssessmentId
+        ];
+      const profile =
+        state.entities.steeringProfileVersions[
+          command.payload.steeringProfileVersionId
+        ];
+      if (!source)
+        return failure(
+          state,
+          "INVALID_REFERENCE",
+          "Prioriteringsbedömningen som ska viktas om finns inte.",
+          command.payload.sourcePriorityAssessmentId,
+        );
+      if (!profile)
+        return failure(
+          state,
+          "INVALID_REFERENCE",
+          "Styrprofilen för omviktningen finns inte.",
+          command.payload.steeringProfileVersionId,
+        );
+      if (state.entities.priorityAssessments[command.targetId])
+        return failure(
+          state,
+          "TARGET_ALREADY_EXISTS",
+          "Det nya prioriteringsunderlagets ID används redan.",
+          command.targetId,
+        );
+      if (
+        source.effectPotentialIds.some(
+          (id) => !state.entities.effectPotentials[id],
+        ) ||
+        source.qualificationAssessmentIds.some(
+          (id) => !state.entities.qualificationAssessments[id],
+        )
+      )
+        return failure(
+          state,
+          "INVALID_REFERENCE",
+          "Ursprungsbedömningens versionsbundna underlag är inte komplett.",
+          source.id,
+        );
+      return undefined;
+    }
     case "REVIEW_PRIORITY_ASSESSMENT":
     case "OVERRIDE_PRIORITY_ASSESSMENT":
     case "REJECT_PRIORITY_ASSESSMENT":
@@ -862,6 +908,39 @@ function applyCommand(nextState: DemoState, command: Command): string[] {
           assessedAt: command.issuedAt,
         });
       return [command.targetId, command.payload.initiativeId, profile.id];
+    }
+    case "REWEIGHT_PRIORITY_ASSESSMENT": {
+      const source =
+        nextState.entities.priorityAssessments[
+          command.payload.sourcePriorityAssessmentId
+        ];
+      const profile =
+        nextState.entities.steeringProfileVersions[
+          command.payload.steeringProfileVersionId
+        ];
+      const scores = Object.fromEntries(
+        source.criterionAssessments.map((criterion) => [
+          criterion.criterionCode,
+          {
+            score: criterion.score,
+            evidenceRefs: criterion.evidenceRefs,
+            uncertainty: criterion.uncertainty,
+          },
+        ]),
+      );
+      const reweighted = calculatePriorityAssessment(nextState, {
+        assessmentId: command.targetId,
+        initiativeId: source.initiativeId,
+        profile,
+        scores,
+        assessedAt: command.issuedAt,
+      });
+      nextState.entities.priorityAssessments[command.targetId] = {
+        ...reweighted,
+        effectPotentialIds: [...source.effectPotentialIds],
+        qualificationAssessmentIds: [...source.qualificationAssessmentIds],
+      };
+      return [command.targetId, source.id, source.initiativeId, profile.id];
     }
     case "REVIEW_PRIORITY_ASSESSMENT": {
       const item = nextState.entities.priorityAssessments[command.targetId];

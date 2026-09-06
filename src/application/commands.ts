@@ -171,6 +171,15 @@ export type Command =
       };
     })
   | (CommandMetadata & {
+      /** Reweights an immutable assessment snapshot; it is not a reassessment. */
+      commandType: "REWEIGHT_PRIORITY_ASSESSMENT";
+      targetId: import("../domain").PriorityAssessmentId;
+      payload: {
+        sourcePriorityAssessmentId: import("../domain").PriorityAssessmentId;
+        steeringProfileVersionId: import("../domain").SteeringProfileVersionId;
+      };
+    })
+  | (CommandMetadata & {
       commandType: "REVIEW_PRIORITY_ASSESSMENT";
       targetId: import("../domain").PriorityAssessmentId;
       payload: { rationale?: string };

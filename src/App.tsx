@@ -106,12 +106,13 @@ export default function App() {
       state.entities.roleDefinitions[assignment.roleDefinitionId]?.roleKind ===
       "SPECIALIST",
   )!;
-  const [selectedPotentialId, setSelectedPotentialId] = useState(
-    story?.effectPotentials[0]?.id,
+  const [selectedPotentialSeriesId, setSelectedPotentialSeriesId] = useState(
+    story?.effectPotentials[0]?.seriesId,
   );
   const selectedPotential =
-    story?.effectPotentials.find((item) => item.id === selectedPotentialId) ??
-    story?.effectPotentials[0];
+    story?.effectPotentials.find(
+      (item) => item.seriesId === selectedPotentialSeriesId,
+    ) ?? story?.effectPotentials[0];
   const [potentialLower, setPotentialLower] = useState(
     selectedPotential?.lowerBound ?? 0,
   );
@@ -174,7 +175,7 @@ export default function App() {
     setSelectedNodeId(undefined);
     const nextStory = referenceStory(state, id);
     const potential = nextStory?.effectPotentials[0];
-    setSelectedPotentialId(potential?.id);
+    setSelectedPotentialSeriesId(potential?.seriesId);
     setPotentialLower(potential?.lowerBound ?? 0);
     setPotentialExpected(potential?.expectedValue ?? 0);
     setPotentialUpper(potential?.upperBound ?? 0);
@@ -363,26 +364,14 @@ export default function App() {
                     ),
                     actorRoleAssignmentId: decisionActor.id,
                     issuedAt,
-                    commandType: "CALCULATE_PRIORITY_ASSESSMENT",
+                    commandType: "REWEIGHT_PRIORITY_ASSESSMENT",
                     targetId: createId(
                       "PriorityAssessment",
                       `scenario-${token}-${index}`,
                     ),
                     payload: {
-                      initiativeId: item.initiative.id,
+                      sourcePriorityAssessmentId: item.assessment.id,
                       steeringProfileVersionId: profileId,
-                      scores: Object.fromEntries(
-                        item.assessment.criterionAssessments.map(
-                          (criterion) => [
-                            criterion.criterionCode,
-                            {
-                              score: criterion.score,
-                              evidenceRefs: criterion.evidenceRefs,
-                              uncertainty: criterion.uncertainty,
-                            },
-                          ],
-                        ),
-                      ),
                     },
                   }),
                 );
@@ -526,12 +515,12 @@ export default function App() {
                 Potential att redigera
                 <select
                   aria-label="Potential att redigera"
-                  value={selectedPotential.id}
+                  value={selectedPotential.seriesId}
                   onChange={(event) => {
                     const potential = story.effectPotentials.find(
-                      (item) => item.id === event.target.value,
+                      (item) => item.seriesId === event.target.value,
                     )!;
-                    setSelectedPotentialId(potential.id);
+                    setSelectedPotentialSeriesId(potential.seriesId);
                     setPotentialLower(potential.lowerBound);
                     setPotentialExpected(potential.expectedValue);
                     setPotentialUpper(potential.upperBound);
@@ -539,7 +528,7 @@ export default function App() {
                   }}
                 >
                   {story.effectPotentials.map((potential) => (
-                    <option key={potential.id} value={potential.id}>
+                    <option key={potential.seriesId} value={potential.seriesId}>
                       {potential.category} · {potential.effectMeasureCode} ·{" "}
                       {potential.unit}
                     </option>

@@ -114,6 +114,55 @@ describe("prioriteringsscenarier och underlagsversioner", () => {
     ).toBe(active.id);
   });
 
+  it("omviktning behåller ursprungsbedömningens exakta potentialversioner", () => {
+    const state = baseDemoState();
+    const source = strategicComparison(state).find(
+      (item) => item.initiative.id === stage2Ids.calculatedInitiative,
+    )!;
+    const quality = source.latestPotentials.find(
+      (item) => item.category === "QUALITY",
+    )!;
+    const revisedId = createId("EffectPotential", "reweight-newer-potential");
+    state.entities.effectPotentials[revisedId] = {
+      ...quality,
+      id: revisedId,
+      expectedValue: 8,
+      assessmentVersion: quality.assessmentVersion + 1,
+    };
+    const scenarioId = createId("SteeringProfileVersion", "reweight-scenario");
+    state.entities.steeringProfileVersions[scenarioId] = {
+      ...source.profile,
+      id: scenarioId,
+      profileName: "Omviktningsscenario",
+      versionNumber: 2,
+      status: "DRAFT",
+      weights: { EFFECT: 100, EVIDENCE: 0, TIME: 0, QUALITY: 0, CAPACITY: 0 },
+    };
+    const targetId = createId("PriorityAssessment", "reweighted-snapshot");
+    const result = demoReducer(state, {
+      commandId: createId("Command", "reweight-snapshot"),
+      actorRoleAssignmentId: Object.values(state.entities.roleAssignments)[2]
+        .id,
+      issuedAt: "2026-10-02T10:00:00Z",
+      commandType: "REWEIGHT_PRIORITY_ASSESSMENT",
+      targetId,
+      payload: {
+        sourcePriorityAssessmentId: source.assessment.id,
+        steeringProfileVersionId: scenarioId,
+      },
+    });
+    expect(result.success).toBe(true);
+    const reweighted = result.nextState.entities.priorityAssessments[targetId];
+    expect(reweighted.effectPotentialIds).toEqual(
+      source.assessment.effectPotentialIds,
+    );
+    expect(reweighted.effectPotentialIds).not.toContain(revisedId);
+    const comparison = strategicComparison(result.nextState, scenarioId).find(
+      (item) => item.initiative.id === stage2Ids.calculatedInitiative,
+    )!;
+    expect(comparison.needsReassessment).toBe(true);
+  });
+
   it("historiskt underlag ligger kvar och ny potential markerar ombedömningsbehov", () => {
     const state = baseDemoState();
     const before = strategicComparison(state).find(

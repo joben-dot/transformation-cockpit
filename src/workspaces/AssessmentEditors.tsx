@@ -4,8 +4,8 @@ import { createId, type InitiativeId, type PotentialCategory } from "../domain";
 import { currentEffectPotentials } from "../application/selectors/effectPotentialSelectors";
 import { priorityEligibilityBlockers } from "../application/selectors/prioritySelectors";
 
-type Props = { state: DemoState; initiativeId: InitiativeId; dispatch: (command: Command) => CommandResult };
-export function AssessmentEditors({ state, initiativeId, dispatch }: Props) {
+type Props = { state: DemoState; initiativeId: InitiativeId; dispatch: (command: Command) => CommandResult; section?: "potential" | "priority" };
+export function AssessmentEditors({ state, initiativeId, dispatch, section }: Props) {
   const profile = Object.values(state.entities.steeringProfileVersions).find(p => p.status === "ACTIVE")!;
   const [potential, setPotential] = useState({ measure: "", category: "MONEY", unit: "SEK/år", lower: "", expected: "", upper: "", evidence: "", assumption: "", horizon: "", earliest: "", full: "", recipient: "", uncertainty: "MEDIUM" });
   const [scores, setScores] = useState<Record<string, { score: string; evidence: string; uncertainty: "LOW" | "MEDIUM" | "HIGH" }>>({});
@@ -16,10 +16,10 @@ export function AssessmentEditors({ state, initiativeId, dispatch }: Props) {
   function send(command: Command) { const result = dispatch(command); setFeedback(result.success ? "Underlaget sparades i ärendet." : result.errors.map(e => e.description).join(" ")); }
   const token = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return <section className="card assessment-editors">
-    <h2>Effektpotential och prioriteringsbedömning</h2>
+    <h2>{section==="potential"?"Bedömd effektpotential":section==="priority"?"Prioriteringsbedömning":"Effektpotential och prioriteringsbedömning"}</h2>
     <p>Potentialen beskriver vad förändringen kan ge. Verksamhetens bindande åtagande beslutas senare, före start.</p>
     <p role="status">{feedback}</p>
-    <details><summary>Lägg till en bedömd effektpotential</summary>
+    {section!=="priority"&&<><div className="potential-summary">{potentials.map(p=><article key={p.id}><b>{p.effectMeasureCode}</b><p>{p.expectedValue.toLocaleString("sv-SE")} {p.unit} · bedömt intervall {p.lowerBound.toLocaleString("sv-SE")}–{p.upperBound.toLocaleString("sv-SE")}</p><p>{p.realizationWindow} · full potential {p.fullPotentialDate}</p></article>)}</div><details><summary>Lägg till en bedömd effektpotential</summary>
       <form className="material-form" onSubmit={e => {
         e.preventDefault(); const id = token();
         if ([potential.lower, potential.expected, potential.upper].some(v => !v.trim())) { setFeedback("Ange hela intervallet. Tomt värde är inte noll."); return; }
@@ -37,8 +37,8 @@ export function AssessmentEditors({ state, initiativeId, dispatch }: Props) {
         <button>Spara bedömd potential</button>
       </form>
     </details>
-    <p>{potentials.length} aktuella potentialer. Befintliga serier och deras versioner redigeras i ärendets potentialvy.</p>
-    <details><summary>Gör en uttrycklig prioriteringsbedömning</summary>
+    <p>{potentials.length} aktuella potentialer. Befintliga serier och deras versioner redigeras i ärendets potentialvy.</p></>}
+    {section!=="potential"&&<details><summary>Gör en uttrycklig prioriteringsbedömning</summary>
       <p>Bedöm varje kriterium 0–100 och ange underlaget. Poängen fylls aldrig i automatiskt. Vikter och kriterier följer {profile.profileName} v{profile.versionNumber}.</p>
       {blockers.length > 0 && <ul>{blockers.map((b,i) => <li key={i}>{b.description}</li>)}</ul>}
       <form onSubmit={e => {
@@ -51,6 +51,6 @@ export function AssessmentEditors({ state, initiativeId, dispatch }: Props) {
         {profile.criteria.map(c => { const value = scores[c.code] ?? { score: "", evidence: "", uncertainty: "MEDIUM" as const }; return <fieldset key={c.code}><legend>{c.name} · {profile.weights[c.code]} %</legend><p>{c.description}</p><label>Poäng för {c.name}<input required type="number" min="0" max="100" value={value.score} onChange={e => setScores({...scores,[c.code]: {...value,score:e.target.value}})}/></label><label>Underlag för {c.name}<input required value={value.evidence} onChange={e => setScores({...scores,[c.code]: {...value,evidence:e.target.value}})}/></label><label>Osäkerhet för {c.name}<select value={value.uncertainty} onChange={e => setScores({...scores,[c.code]: {...value,uncertainty:e.target.value as typeof value.uncertainty}})}><option value="LOW">Låg</option><option value="MEDIUM">Medel</option><option value="HIGH">Hög</option></select></label></fieldset>; })}
         <button>Skapa prioriteringsunderlag från mina bedömningar</button>
       </form>
-    </details>
+    </details>}
   </section>;
 }

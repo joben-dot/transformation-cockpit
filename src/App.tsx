@@ -27,6 +27,7 @@ import {
   type RoleAssignmentId,
 } from "./domain";
 import { stage3Ids } from "./demo-data/stage3DemoData";
+import type { FlowStepKey } from "./application/selectors/flowSelectors";
 import { CaseWorkspace, type CaseNavigationContext } from "./workspaces/CaseWorkspace";
 
 import { PrerequisiteEditor } from "./workspaces/PrerequisiteEditor";
@@ -82,6 +83,9 @@ export default function App() {
   const [state, setState] = useState<DemoState>(initialState);
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [workArea, setWorkArea] = useState<"cases"|"effects"|"control"|"governance">("cases");
+  const [caseSection,setCaseSection]=useState<FlowStepKey|undefined>();
+  const [effectSection,setEffectSection]=useState<FlowStepKey|undefined>();
+  const [portfolioSection,setPortfolioSection]=useState("comparison");
   const [day,setDay]=useState("2026-09-06");
   const stateRef=useRef(state);
   stateRef.current=state;
@@ -203,14 +207,14 @@ export default function App() {
     setFeedback("");
   };
 
-  const openEffects=(id:InitiativeId)=>{selectInitiative(id);setWorkArea("effects");};
-  const openCase=(id:InitiativeId)=>{setCaseContext({...caseContext,activeId:state.entities.initiatives[id].challengeId});setWorkArea("cases");setShowPortfolio(false);};
-  const header=<><header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Arbetsytor"><button className="nav-button" onClick={()=>{setWorkArea("cases");setShowPortfolio(false);}}>Ärenden</button><button className="nav-button" onClick={()=>{setWorkArea("cases");setShowPortfolio(true);}}>Prioritering</button><button className="nav-button" onClick={()=>setWorkArea("effects")}>Effekt och beslut</button><button className="nav-button" onClick={()=>setWorkArea("control")}>Kontrollrum</button><button className="nav-button" onClick={()=>setWorkArea("governance")}>Metod och styrning</button></nav><span className="demo-badge">Syntetisk demo</span></header><div className="demo-clock"><label>Demodatum <input type="date" value={day} min={state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06"} onChange={e=>{const value=e.target.value;const last=state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06";if(validDate(value)&&value>=last)setDay(value);}}/></label><span>Flytta tiden framåt för att demonstrera planerade mätningar. Ingen verklig mätdata.</span><button className="text-button" onClick={()=>{if(window.confirm("Återställ alla egna demoändringar?")){stateRef.current=initializeDemoState();setState(stateRef.current);setDay("2026-09-06");setFeedback("");setCaseContext({query:"",stepFilter:"ALL"});setWorkArea("cases");setShowPortfolio(false);}}}>Återställ demo</button></div></>;
+  const openEffects=(id:InitiativeId,section?:FlowStepKey)=>{selectInitiative(id);setEffectSection(section);setWorkArea("effects");};
+  const openCase=(id:InitiativeId,section?:FlowStepKey)=>{setCaseSection(section);setCaseContext({...caseContext,activeId:state.entities.initiatives[id].challengeId});setWorkArea("cases");setShowPortfolio(false);};
+  const header=<><header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Arbetsytor"><button className="nav-button" onClick={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}}>Ärenden</button><button className="nav-button" onClick={()=>{setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("comparison");}}>Prioritering</button><button className="nav-button" onClick={()=>{setEffectSection(undefined);setWorkArea("effects");}}>Effekt och beslut</button><button className="nav-button" onClick={()=>setWorkArea("control")}>Kontrollrum</button><button className="nav-button" onClick={()=>setWorkArea("governance")}>Metod och styrning</button></nav><span className="demo-badge">Syntetisk demo</span></header><details className="demo-settings"><summary>Demoinställningar</summary><div className="demo-clock"><label>Demodatum <input type="date" value={day} min={state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06"} onChange={e=>{const value=e.target.value;const last=state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06";if(validDate(value)&&value>=last)setDay(value);}}/></label><span>Flytta tiden framåt för att demonstrera planerade mätningar. Ingen verklig mätdata.</span><button className="text-button" onClick={()=>{if(window.confirm("Återställ alla egna demoändringar?")){stateRef.current=initializeDemoState();setState(stateRef.current);setDay("2026-09-06");setFeedback("");setCaseContext({query:"",stepFilter:"ALL"});setWorkArea("cases");setShowPortfolio(false);}}}>Återställ demo</button></div></details></>;
   const footer=<footer>Prioritering är inte startbeslut · All data och alla namn är syntetiska · Ändringar gäller denna session · Ingen backend, verklig autentisering, extern AI eller integration är ansluten</footer>;
-  if(workArea!=="cases")return <div className="product-shell">{header}<main id="top">{workArea==="effects"?<EffectWorkspace key={selectedInitiativeId} state={state} dispatch={dispatch} day={day} initialId={selectedInitiativeId} openCase={openCase}/>:workArea==="control"?<ControlRoom state={state} day={day} open={openEffects}/>:<GovernanceWorkspace state={state} dispatch={dispatch} day={day}/>}</main>{footer}</div>;
+  if(workArea!=="cases")return <div className="product-shell">{header}<main id="top">{workArea==="effects"?<EffectWorkspace key={`${selectedInitiativeId}-${effectSection??"flow"}`} initialSection={effectSection} state={state} dispatch={dispatch} day={day} initialId={selectedInitiativeId} openCase={openCase} openPortfolio={(id)=>{selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}}/>:workArea==="control"?<ControlRoom state={state} day={day} open={openEffects}/>:<GovernanceWorkspace state={state} dispatch={dispatch} day={day}/>}</main>{footer}</div>;
   if (!showPortfolio) return (
     <div className="product-shell">{header}
-      <main id="top"><CaseWorkspace key={caseContext.activeId ?? "overview"} state={state} dispatch={dispatch} day={day} context={caseContext} setContext={setCaseContext} feedback={feedback} openPortfolio={(id) => { selectInitiative(id); setShowPortfolio(true); }}/>{caseContext.activeId&&state.entities.challenges[caseContext.activeId]?.relatedInitiativeIds[0]&&<button className="secondary-action" onClick={()=>openEffects(state.entities.challenges[caseContext.activeId!].relatedInitiativeIds[0])}>Fortsätt till lokala åtaganden och startklarhet</button>}</main>{footer}
+      <main id="top"><CaseWorkspace key={`${caseContext.activeId??"overview"}-${caseSection??"flow"}`} initialSection={caseSection} openEffects={openEffects} state={state} dispatch={dispatch} day={day} context={caseContext} setContext={next=>{setCaseSection(undefined);setCaseContext(next);}} feedback={feedback} openPortfolio={(id) => { selectInitiative(id); setShowPortfolio(true);setPortfolioSection("conditions"); }}/></main>{footer}
     </div>
   );
 
@@ -239,7 +243,8 @@ export default function App() {
           </aside>
         </section>
 
-        <section id="comparison" className="section-block">
+        <nav className="portfolio-tabs" aria-label="Prioriteringens delar">{[["comparison","Jämförelse"],["potential","Effektpotential"],["conditions","Förutsättningar"],["costs","Kostnader"]].map(([key,label])=><button key={key} aria-pressed={portfolioSection===key} onClick={()=>setPortfolioSection(key)}>{label}</button>)}<button onClick={()=>openCase(selectedInitiativeId)}>Till ärendets flöde</button></nav>
+        <section hidden={portfolioSection!=="comparison"} id="comparison" className="section-block">
           <div className="section-title">
             <div>
               <p className="eyebrow">STRATEGISK JÄMFÖRELSE</p>
@@ -253,7 +258,7 @@ export default function App() {
             Ledningen behöver se både kriteriernas bidrag och osäkerheten.
             Poängen stödjer prioriteringsdiskussionen men godkänner inte start.
           </Help>
-          <fieldset className="comparison-selection"><legend>Välj kvalificerade initiativ att jämföra</legend>{availableComparisons.map((item) => <label key={item.initiative.id}><input type="checkbox" checked={comparisonSelection.includes(item.initiative.id)} onChange={(event) => setComparisonSelection(event.target.checked ? [...comparisonSelection, item.initiative.id] : comparisonSelection.filter((id) => id !== item.initiative.id))}/>{item.initiative.title}</label>)}</fieldset>
+          <details className="point-detail"><summary>Ändra urvalet för jämförelsen</summary><fieldset className="comparison-selection"><legend>Välj kvalificerade initiativ att jämföra</legend>{availableComparisons.map((item) => <label key={item.initiative.id}><input type="checkbox" checked={comparisonSelection.includes(item.initiative.id)} onChange={(event) => setComparisonSelection(event.target.checked ? [...comparisonSelection, item.initiative.id] : comparisonSelection.filter((id) => id !== item.initiative.id))}/>{item.initiative.title}</label>)}</fieldset></details>
           <div className="comparison-grid">
             {displayedComparisons.map((item) => (
               <button
@@ -308,7 +313,7 @@ export default function App() {
               </button>
             )}
           </div>
-          <div className="profile-panel">
+          <details className="point-detail"><summary>Granska kriterier eller pröva andra vikter</summary><div className="profile-panel">
             <div>
               <h3>
                 {comparisonProfile.profileName} · version{" "}
@@ -400,7 +405,7 @@ export default function App() {
               Skapa nytt prioriteringsscenario
             </button>
           </div>
-          <div className="contributions">
+          </details><details className="point-detail"><summary>Visa poängens bidrag per kriterium</summary><div className="contributions">
             <h3>Bidrag för valt initiativ</h3>
             {displayedComparisons
               .find((item) => item.initiative.id === selectedInitiativeId)
@@ -424,16 +429,16 @@ export default function App() {
                   </small>
                 </div>
               ))}
-          </div>
+          </div></details>
         </section>
 
-        <section className="story-heading">
+        <section hidden={portfolioSection==="comparison"} className="story-heading">
           <div>
             <p className="eyebrow">VALT SAMMANHÄNGANDE ÄRENDE</p>
             <h2>{story.initiative.title}</h2>
             <p>{story.challenge.problemStatement}</p>
           </div>
-          <div className="identity-pair">
+          <details className="trace"><summary>Spårbarhet</summary><div className="identity-pair">
             <span>
               ChallengeId <code>{story.challenge.id}</code>
             </span>
@@ -441,10 +446,10 @@ export default function App() {
             <span>
               InitiativeId <code>{story.initiative.id}</code>
             </span>
-          </div>
+          </div></details>
         </section>
 
-        <section id="potential" className="section-block">
+        <section hidden={portfolioSection!=="potential"} id="potential" className="section-block">
           <div className="section-title">
             <div>
               <p className="eyebrow">VAD INITIATIVET KAN GE</p>
@@ -496,7 +501,7 @@ export default function App() {
             ))}
           </div>
           {selectedPotential && (
-            <form
+            <details className="point-detail"><summary>Komplettera eller ombedöm potentialen</summary><form
               className="edit-panel"
               onSubmit={(event) => {
                 event.preventDefault();
@@ -597,11 +602,11 @@ export default function App() {
                 />
               </label>
               <button>Spara ny version</button>
-            </form>
+            </form></details>
           )}
         </section>
 
-        <section id="conditions" className="section-block">
+        <section hidden={portfolioSection!=="conditions"} id="conditions" className="section-block">
           <div className="section-title">
             <div>
               <p className="eyebrow">VARFÖR HÖG PRIORITET KAN BEHÖVA VÄNTA</p>
@@ -793,8 +798,8 @@ export default function App() {
           )}
         </section>
 
-        <PrerequisiteEditor key={selectedInitiativeId} state={state} dispatch={dispatch} day={day} id={selectedInitiativeId}/>
-        <section id="costs" className="section-block">
+        {portfolioSection==="conditions"&&<PrerequisiteEditor key={selectedInitiativeId} state={state} dispatch={dispatch} day={day} id={selectedInitiativeId}/>}
+        <section hidden={portfolioSection!=="costs"} id="costs" className="section-block">
           <div className="section-title">
             <div>
               <p className="eyebrow">HELA MÖJLIGGÖRANDET</p>

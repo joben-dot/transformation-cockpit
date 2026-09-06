@@ -1,3 +1,5 @@
+import { FlowOverview } from "./FlowOverview";
+import type { FlowStepKey } from "../application/selectors/flowSelectors";
 import { referenceCommitment } from "../demo-data/referenceCommitment";
 import { useState } from "react";
 import { createId, type BusinessId, type EffectCommitmentId, type InitiativeId, type LocalEffectCommitment, type PriorityAssessmentId, type RoleAssignmentId } from "../domain";
@@ -6,13 +8,20 @@ import { acceptedCommitment, activeCommitments, commitmentBlockers, effectOutcom
 import { Blockers, Field, RoleSelect, Why, type WorkProps } from "./transformationUi";
 import { format, roleName, token } from "./transformationHelpers";
 
-export function EffectWorkspace(props: WorkProps & {initialId?:InitiativeId;openCase:(id:InitiativeId)=>void}) {
+export function EffectWorkspace(props: WorkProps & {initialId?:InitiativeId;initialSection?:FlowStepKey;openCase:(id:InitiativeId,section?:FlowStepKey)=>void;openPortfolio?:(id:InitiativeId)=>void}) {
   const [id,setId]=useState(props.initialId??Object.values(props.state.entities.initiatives)[0].id);
-  return <><section className="hero"><div><p className="eyebrow">FRÅN MÖJLIG EFFEKT TILL VERIFIERAT UTFALL</p><h1>Verksamheten äger effekten</h1><p className="lead">Ett lokalt löfte, ett mänskligt beslut och en mätning mot det som faktiskt beslutades.</p></div></section><label className="case-picker">Välj ärende<select value={id} onChange={e=>setId(e.target.value as InitiativeId)}>{Object.values(props.state.entities.initiatives).map(i=><option key={i.id} value={i.id}>{i.title} · {transformationStage(props.state,i.id)}</option>)}</select></label><button className="secondary-action" onClick={()=>props.openCase(id)}>Visa utmaning och businesscase</button><EffectCase key={id} {...props} id={id}/></>;
+  const [section,setSection]=useState<FlowStepKey|undefined>(props.initialSection);
+  const initiative=props.state.entities.initiatives[id];
+  const open=(key:FlowStepKey)=>{
+    if(["material","qualification","potential","priority"].includes(key))props.openCase(id,key);
+    else if(key==="conditions"&&props.openPortfolio)props.openPortfolio(id);
+    else setSection(key);
+  };
+  return <section className="effect-workspace"><div className="case-detail-head"><div><p className="eyebrow">SAMMA ÄRENDE · HELA VÄGEN TILL EFFEKT</p><h1>{initiative.title}</h1></div></div><label className="case-picker">Välj ärende<select value={id} onChange={e=>{setId(e.target.value as InitiativeId);setSection(undefined);}}>{Object.values(props.state.entities.initiatives).map(i=><option key={i.id} value={i.id}>{i.title} · {transformationStage(props.state,i.id)}</option>)}</select></label>{section?<><button className="back-link" onClick={()=>setSection(undefined)}>← Till ärendets flöde</button><EffectCase key={`${id}-${section}`} {...props} id={id} initialTab={section==="decision"&&latestDecision(props.state,id)?"history":section}/></>:<FlowOverview state={props.state} challengeId={initiative.challengeId} day={props.day} onOpen={open}/>}</section>;
 }
 
-function EffectCase({state,dispatch,day,id}:WorkProps & {id:InitiativeId}) {
-  const [tab,setTab]=useState("commitments"),[feedback,setFeedback]=useState("");
+function EffectCase({state,dispatch,day,id,initialTab}:WorkProps & {id:InitiativeId;initialTab?:string}) {
+  const [tab,setTab]=useState(initialTab??"commitments"),[feedback,setFeedback]=useState("");
   const send=(c:Command)=>{const r=dispatch(c);setFeedback(r.success?"Sparat. Samma underlag följer med genom ärendet.":r.errors.map(e=>e.description).join(" "));return r;};
   const props={state,dispatch:send,day};
   const commitments=Object.values(state.entities.effectCommitments).filter(c=>c.initiativeId===id);

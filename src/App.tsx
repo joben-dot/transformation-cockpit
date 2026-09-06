@@ -1,3 +1,5 @@
+import { createPresentationDemoState } from "./demo-data/presentationDemoState";
+import { LocationTrail } from "./workspaces/LocationTrail";
 import { useMemo, useState, useRef, useLayoutEffect } from "react";
 import {
   ArrowRight,
@@ -13,7 +15,6 @@ import {
 } from "lucide-react";
 import {
   demoReducer,
-  initializeDemoState,
   type Command,
   type CommandResult,
   type DemoState,
@@ -36,7 +37,7 @@ import { ControlRoom } from "./workspaces/ControlRoom";
 import { GovernanceWorkspace } from "./workspaces/GovernanceWorkspace";
 import { validDate } from "./application/selectors/transformationSelectors";
 
-const initialState = initializeDemoState();
+const initialState = createPresentationDemoState();
 const statusLabel = {
   AVAILABLE: "Tillgänglig",
   PLANNED: "Planerad",
@@ -79,8 +80,8 @@ function commandError(result: CommandResult) {
     : result.errors.map((error) => error.description).join(" ");
 }
 
-export default function App() {
-  const [state, setState] = useState<DemoState>(initialState);
+export default function App({ demoState = initialState }: { demoState?: DemoState } = {}) {
+  const [state, setState] = useState<DemoState>(demoState);
   const [showPortfolio, setShowPortfolio] = useState(false);
   const [workArea, setWorkArea] = useState<"cases"|"effects"|"control"|"governance">("control");
   const [caseSection,setCaseSection]=useState<FlowStepKey|undefined>();
@@ -106,7 +107,7 @@ export default function App() {
   );
   const availableComparisons = useMemo(() => strategicComparison(state, activeProfile.id), [state, activeProfile.id]);
   const [comparisonSelection, setComparisonSelection] = useState<InitiativeId[]>(
-    () => strategicComparison(initialState, activeProfile.id).map((item) => item.initiative.id),
+    () => strategicComparison(demoState, activeProfile.id).map((item) => item.initiative.id),
   );
   const displayedComparisons = comparisons.filter((item) => comparisonSelection.includes(item.initiative.id));
   const [selectedInitiativeId, setSelectedInitiativeId] =
@@ -179,7 +180,7 @@ export default function App() {
       affectedEntityIds: [],
     } satisfies CommandResult;
   };
-  if (!story) return <main>Det valda syntetiska initiativet saknas.</main>;
+  if (!story) return <main>Det valda initiativet saknas.</main>;
   const selectedNode = selectedNodeId
     ? state.entities.executionNodes[selectedNodeId]
     : undefined;
@@ -210,9 +211,9 @@ export default function App() {
 
   const openEffects=(id:InitiativeId,section?:FlowStepKey)=>{selectInitiative(id);setEffectSection(section);setWorkArea("effects");};
   const openCase=(id:InitiativeId,section?:FlowStepKey)=>{setCaseSection(section);setCaseContext({...caseContext,activeId:state.entities.initiatives[id].challengeId});setWorkArea("cases");setShowPortfolio(false);};
-  const header=<><header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Arbetsytor"><button className="nav-button" aria-current={workArea==="cases"&&!showPortfolio?"page":undefined} onClick={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}}>Ärenden</button><button className="nav-button" aria-current={workArea==="cases"&&showPortfolio?"page":undefined} onClick={()=>{setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("comparison");}}>Prioritering</button><button className="nav-button" aria-current={workArea==="effects"?"page":undefined} onClick={()=>{setEffectSection(undefined);setWorkArea("effects");}}>Effekt och beslut</button><button className="nav-button" aria-current={workArea==="control"?"page":undefined} onClick={()=>setWorkArea("control")}>Kontrollrum</button><button className="nav-button" aria-current={workArea==="governance"?"page":undefined} onClick={()=>setWorkArea("governance")}>Metod och styrning</button></nav><span className="demo-badge">Syntetisk demo</span></header><details className="demo-settings"><summary>Demoinställningar</summary><div className="demo-clock"><label>Demodatum <input type="date" value={day} min={state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06"} onChange={e=>{const value=e.target.value;const last=state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06";if(validDate(value)&&value>=last)setDay(value);}}/></label><span>Flytta tiden framåt för att demonstrera planerade mätningar. Ingen verklig mätdata.</span><button className="text-button" onClick={()=>{if(window.confirm("Återställ alla egna demoändringar?")){stateRef.current=initializeDemoState();setState(stateRef.current);setDay("2026-09-06");setFeedback("");setCaseContext({query:"",stepFilter:"ALL"});setWorkArea("cases");setShowPortfolio(false);}}}>Återställ demo</button></div></details></>;
+  const header=<><header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Arbetsytor"><button className="nav-button" aria-current={workArea==="cases"&&!showPortfolio?"page":undefined} onClick={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}}>Ärenden</button><button className="nav-button" aria-current={workArea==="cases"&&showPortfolio?"page":undefined} onClick={()=>{setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("comparison");}}>Prioritering</button><button className="nav-button" aria-current={workArea==="effects"?"page":undefined} onClick={()=>{setEffectSection(undefined);setWorkArea("effects");}}>Effekt och beslut</button><button className="nav-button" aria-current={workArea==="control"?"page":undefined} onClick={()=>setWorkArea("control")}>Kontrollrum</button><button className="nav-button" aria-current={workArea==="governance"?"page":undefined} onClick={()=>setWorkArea("governance")}>Metod och styrning</button></nav></header><details className="demo-settings"><summary>Demoinställningar</summary><div className="demo-clock"><label>Demodatum <input type="date" value={day} min={state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06"} onChange={e=>{const value=e.target.value;const last=state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06";if(validDate(value)&&value>=last)setDay(value);}}/></label><span>Flytta tiden framåt för att demonstrera planerade mätningar. Ingen verklig mätdata.</span><button className="text-button" onClick={()=>{if(window.confirm("Återställ alla egna demoändringar?")){stateRef.current=createPresentationDemoState();setState(stateRef.current);setDay("2026-09-06");setFeedback("");setCaseContext({query:"",stepFilter:"ALL"});setWorkArea("cases");setShowPortfolio(false);}}}>Återställ demo</button></div></details></>;
   const footer=<footer>Prioritering är inte startbeslut · All data och alla namn är syntetiska · Ändringar gäller denna session · Ingen backend, verklig autentisering, extern AI eller integration är ansluten</footer>;
-  if(workArea!=="cases")return <div className="product-shell">{header}<main id="top">{workArea==="effects"?<EffectWorkspace key={`${selectedInitiativeId}-${effectSection??"flow"}`} initialSection={effectSection} state={state} dispatch={dispatch} day={day} initialId={selectedInitiativeId} openCase={openCase} openPortfolio={(id)=>{selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}}/>:workArea==="control"?<ControlRoom state={state} day={day} open={(id,section)=>section?openCase(id,section):openEffects(id)} openCases={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}}/>:<GovernanceWorkspace state={state} dispatch={dispatch} day={day}/>}</main>{footer}</div>;
+  if(workArea!=="cases")return <div className="product-shell">{header}<main id="top">{workArea==="governance"&&<LocationTrail items={[{label:"Metod och styrning"}]}/>} {workArea==="effects"?<EffectWorkspace key={`${selectedInitiativeId}-${effectSection??"flow"}`} initialSection={effectSection} state={state} dispatch={dispatch} day={day} initialId={selectedInitiativeId} openCases={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}} openCase={openCase} openPortfolio={(id)=>{selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}}/>:workArea==="control"?<ControlRoom state={state} day={day} open={(id,section)=>section?openCase(id,section):openEffects(id)} openCases={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}}/>:<GovernanceWorkspace state={state} dispatch={dispatch} day={day}/>}</main>{footer}</div>;
   if (!showPortfolio) return (
     <div className="product-shell">{header}
       <main id="top"><CaseWorkspace key={`${caseContext.activeId??"overview"}-${caseSection??"flow"}`} initialSection={caseSection} openEffects={openEffects} state={state} dispatch={dispatch} day={day} context={caseContext} setContext={next=>{setCaseSection(undefined);setCaseContext(next);}} feedback={feedback} openPortfolio={(id) => { selectInitiative(id); setShowPortfolio(true);setPortfolioSection("conditions"); }}/></main>{footer}
@@ -223,6 +224,7 @@ export default function App() {
     <div className="product-shell">
       {header}
       <main id="top">
+        <LocationTrail items={[{label:"Prioritering",onClick:portfolioSection!=="comparison"?()=>setPortfolioSection("comparison"):undefined},...(portfolioSection!=="comparison"?[{label:story.initiative.title,onClick:()=>openCase(selectedInitiativeId)},{label:({potential:"Effektpotential",conditions:"Förutsättningar",costs:"Kostnader"} as Record<string,string>)[portfolioSection]}]:[{label:"Jämförelse"}])]}/>
         <section className="hero">
           <div>
             <p className="eyebrow">STRATEGISKT PORTFÖLJSTÖD</p>

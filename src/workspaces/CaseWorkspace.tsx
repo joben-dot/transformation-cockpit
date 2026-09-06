@@ -1,3 +1,5 @@
+import { LocationTrail } from "./LocationTrail";
+import { flowLocationLabels } from "./flowLocationLabels";
 import { cockpitCases } from "../application/selectors/cockpitSelectors";
 import { DataProvenance } from "./DataProvenance";
 import { useMemo, useState, useLayoutEffect } from "react";
@@ -69,8 +71,9 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
     setContext({ ...context, activeId: id });
   };
 
+  const location=<LocationTrail items={[{label:"Ärenden",onClick:active?()=>setContext({...context,activeId:undefined}):undefined},...(active?[{label:active.title,onClick:detail?()=>setDetail(undefined):undefined}]:[]),...(detail?[{label:flowLocationLabels[detail]}]:[])]}/>;
   if (active && challenge) {
-    if (!detail) return <section className="case-workspace" aria-label="Ärendevy">
+    if (!detail) return <section className="case-workspace" aria-label="Ärendevy">{location}
       <button className="back-link" onClick={()=>setContext({...context,activeId:undefined})}><ArrowLeft size={16}/> Till ärendeöversikten</button>
       <div className="case-detail-head"><div><p className="eyebrow">{active.caseNumber} · {stepLabels[active.step]}</p><h1>{active.title}</h1></div></div>
       <FlowOverview state={state} challengeId={challenge.id} day={day} onOpen={key=>{
@@ -81,9 +84,9 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
       }}/>
     </section>;
     const saveMaterial = (nominationStatus = challenge.nominationStatus) => send({ commandType: "UPDATE_STRATEGIC_CHALLENGE", targetId: challenge.id, payload: { title: form.title, problemStatement: form.problemStatement, currentState: form.currentState, strategicHandlingReason: form.strategicHandlingReason, strategicRelevance: form.strategicRelevance, nominationStatus, businessCase: { templateId: "DEMO-CASE-V1", purpose: form.purpose, desiredState: form.desiredState, scope: form.scope, alternatives: form.alternatives, doNothingConsequence: form.doNothingConsequence, evidence: form.evidence, assumptions: form.assumptions, uncertainty: form.uncertainty, timeHorizon: form.timeHorizon, knownPrerequisites: form.knownPrerequisites, knownRisks: form.knownRisks } } });
-    return <section className="case-workspace" aria-label="Ärendevy">
+    return <section className="case-workspace" aria-label="Ärendevy">{location}
       <button className="back-link" onClick={() => setDetail(undefined)}><ArrowLeft size={16}/> Till ärendets flöde</button>
-      <div className="case-detail-head"><div><p className="eyebrow">{active.caseNumber} · {stepLabels[active.step]}</p><h1>{active.title}</h1><p>{challenge.problemStatement || "Problemformulering saknas."}</p></div><span className="demo-role">Fiktiv demosession<small>Roll används per handling – ingen verklig autentisering</small></span></div>
+      <div className="case-detail-head"><div><p className="eyebrow">{active.caseNumber} · {stepLabels[active.step]}</p><h1>{active.title}</h1><p>{challenge.problemStatement || "Problemformulering saknas."}</p></div></div>
 
       {initiative&&<DataProvenance state={state} id={initiative.id}/>}
       <p role="status" className="inline-feedback">{feedback}</p>
@@ -115,7 +118,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
   const filtered = items.filter((item) => (context.stepFilter === "ALL" || item.step === context.stepFilter) && `${item.caseNumber} ${item.title} ${item.area}`.toLocaleLowerCase("sv").includes(context.query.toLocaleLowerCase("sv")));
   if(sort==="oldest")filtered.sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.caseNumber.localeCompare(b.caseNumber));
   if(sort==="deadline")filtered.sort((a,b)=>(a.dueDate??"9999").localeCompare(b.dueDate??"9999"));
-  return <section className="case-workspace" aria-label="Ärendeöversikt"><div className="overview-head"><div><p className="eyebrow">STRATEGISKA ÄRENDEN</p><h1>Vad behöver ledningens uppmärksamhet?</h1><p>Prioriterade ärenden först. Följ nästa steg, ansvar och vad som behöver bli klart före genomförande.</p></div><button onClick={()=>{setForm({...emptyCase});setShowNew(!showNew)}}><Plus size={17}/> Registrera utmaning</button></div>
+  return <section className="case-workspace" aria-label="Ärendeöversikt">{location}<div className="overview-head"><div><p className="eyebrow">STRATEGISKA ÄRENDEN</p><h1>Vad behöver ledningens uppmärksamhet?</h1><p>Prioriterade ärenden först. Följ nästa steg, ansvar och vad som behöver bli klart före genomförande.</p></div><button onClick={()=>{setForm({...emptyCase});setShowNew(!showNew)}}><Plus size={17}/> Registrera utmaning</button></div>
     <p role="status" className="inline-feedback">{feedback}</p>
     {showNew && <form className="new-case" onSubmit={(event)=>{event.preventDefault();const id=createId("Challenge",`user-${Date.now()}`);const result=send({commandType:"CREATE_STRATEGIC_CHALLENGE",targetId:id,payload:{title:form.title,problemStatement:form.problemStatement,currentState:form.currentState,source:"Registrerad i demosessionen",strategicRelevance:form.strategicRelevance,strategicHandlingReason:form.strategicHandlingReason,nominationStatus:"DRAFT"}});if(result.success){setShowNew(false);setContext({...context,activeId:id});}}}><h2>Nytt utkast</h2><p>Tomma uppgifter får sparas och kompletteras senare.</p><label>Titel<input value={form.title} onChange={(event)=>setForm({...form,title:event.target.value})}/></label><label>Problem<textarea value={form.problemStatement} onChange={(event)=>setForm({...form,problemStatement:event.target.value})}/></label><button>Spara utkast i demosessionen</button></form>}
     <div className="case-toolbar"><label><Search size={16}/><input aria-label="Sök ärenden" placeholder="Sök nummer, titel eller område" value={context.query} onChange={(event)=>setContext({...context,query:event.target.value})}/></label><select aria-label="Filtrera processteg" value={context.stepFilter} onChange={(event)=>setContext({...context,stepFilter:event.target.value})}><option value="ALL">Alla processteg</option>{Object.entries(stepLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><select aria-label="Sortera ärendelistan" value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Prioriteringsunderlag – högst först</option><option value="deadline">Nästa åtgärdsdatum</option><option value="oldest">Äldsta ärende först</option></select><span>{filtered.length} av {items.length}</span></div>

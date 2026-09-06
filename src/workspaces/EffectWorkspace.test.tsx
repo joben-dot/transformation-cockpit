@@ -1,3 +1,4 @@
+import { initializeDemoState } from "../application/initializeDemoState";
 import { act, create, type ReactTestInstance } from "react-test-renderer";
 import { expect, it } from "vitest";
 import App from "../App";
@@ -6,7 +7,7 @@ import { roleAssignments } from "../demo-data/peopleAndRoles";
 
 const text=(n:unknown):string=>typeof n==="string"?n:n&&typeof n==="object"&&"children" in n?(n as {children:unknown[]}).children.map(text).join(""):"";
 it("går genom synliga formulär från lokalt utkast till start, verifierad mätning och kontrollrum",()=>{
-  const renderer=create(<App/>),root=renderer.root;
+  const renderer=create(<App demoState={initializeDemoState()}/>),root=renderer.root;
   const button=(name:string)=>root.findAllByType("button").find(b=>text(b)===name)!;
   const click=(name:string)=>act(()=>button(name).props.onClick());
   const control=(label:string,kind:"input"|"select"="input")=>root.findAllByType("label").find(l=>text(l).startsWith(label))!.findByType(kind);
@@ -15,7 +16,7 @@ it("går genom synliga formulär från lokalt utkast till start, verifierad mät
   const submit=(name:string)=>{let form:ReactTestInstance|null=button(name);while(form&&form.type!=="form")form=form.parent;act(()=>form!.props.onSubmit({preventDefault(){}}));};
   click("Effekt och beslut");enter("Välj ärende",referenceCommitment.initiativeId,"select");
   act(()=>root.findAllByType("button").find(b=>b.props["aria-label"]?.startsWith("Lokala effektåtaganden:"))!.props.onClick());
-  click("Fyll formuläret med syntetiskt avtalsexempel");
+  click("Fyll formuläret med avtalsexemplet");
   enter("Person som dokumenterar utkastet",roleAssignments[1].id,"select");
   check("Baseline är kontrollerad");submit("Spara åtagandeutkast");
   expect(text(root)).toContain("Utkast – inte accepterat");

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useLayoutEffect } from "react";
 import { ArrowLeft, ChevronRight, Plus, Search } from "lucide-react";
 import {
   activeQualificationConfiguration,
@@ -43,6 +43,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
   openEffects?: (id: InitiativeId, section: FlowStepKey) => void;
 }) {
   const [detail, setDetail] = useState<FlowStepKey | undefined>(initialSection);
+  useLayoutEffect(()=>{if(typeof window!=="undefined")window.scrollTo(0,0);},[detail,context.activeId]);
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState(() => {
     const saved = context.activeId ? state.entities.challenges[context.activeId] : undefined;

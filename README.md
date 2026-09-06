@@ -1,48 +1,41 @@
 # Transformation Cockpit
 
-En körbar prototyp för effektstyrd verksamhetstransformation i en **fiktiv svensk kommun**. All information i applikationen är syntetisk och får inte betraktas som verkliga verksamhetsdata.
+En ny, avgränsad produktingång för strategiskt stöd till en digitaliserings- och
+transformationsportfölj. All visad verksamhetsdata är syntetisk.
 
-## Vad prototypen demonstrerar
+## Vad den första vyn demonstrerar
 
-- En ledningsvy med största möjlighet, uppnådd effekt, effekt i risk, aktuella beslut och blockerade initiativ.
-- Ett sammanhängande transformationsflöde: **problem → kvalificering → prioritering → initiativ/program → förändrat arbetssätt → mätbar effekt → återbruk/skala**.
-- Kvalificering av verksamhetens utmaningar innan lösningar bestäms.
-- Portföljprioritering utifrån effekt, kostnad, brådska, strategisk relevans, återbrukspotential och risk, med rekommendationerna `STARTA`, `UTRED`, `VÄNTA` och `STOPPA`.
-- Exempelprogrammet **125/75**, dess gemensamma effektmål och kopplade initiativ.
-- Initiativstyrning med effekthypotes, ägare, tvärfunktionellt team, experiment, nästa beslut, blockering, mandatbehov och tid till nästa mätbara resultat.
-- En tydlig effektkedja som skiljer aktivitet/output från förändrat arbetssätt, verksamhetsutfall och ekonomi/produktivitet.
+- Ett stabilt `ChallengeId` och `InitiativeId` genom en sammanhängande referensberättelse.
+- Icke-bindande effektpotential, separat per effektkategori och måttenhet.
+- Befintliga förmågor, möjliggörande initiativ och verksamhetsförändringar som
+  delar i en riktad förutsättningsgraf.
+- En topologiskt härledd ordning som uttryckligen inte är startgodkännande.
+- Källidentiteter tillbaka till samma normaliserade grunddata.
+- En ärlig gräns mot ännu ej implementerade effektåtaganden, startbeslut,
+  beslutsversioner, mätpunkter, realiserad effekt och strategisk översikt.
 
-## Arkitektur
+Den äldre applikationens navigation, organisationsväljare och lokala affärsstate
+används inte av den nya ingången.
 
-Prototypen är en responsiv single-page application byggd med **React**, **TypeScript** och **Vite**. Navigering och demo-interaktioner hanteras lokalt i React utan router eller backend. Ikoner kommer från `lucide-react`; all verksamhetsdata ligger som statisk, syntetisk demodata i klienten.
+## Arkitektur och avgränsad återanvändning
 
-Den gemensamma grunden under `src/domain`, `src/application` och `src/demo-data`
-är ren TypeScript och inför brandade ID:n, normaliserat `DemoState`, validerade
-commands, en atomär reducer och rena selectors. Det befintliga presentationslagret
-behålls under etapp 1 och migreras stegvis i senare, separat verifierade etapper.
+Applikationen är React, TypeScript och Vite. Den nya ingången komponerar en
+läsmodell genom `referenceStory` från normaliserat `DemoState`; UI:t innehåller
+inte egna kopior av ärende-, potential- eller grafdata.
 
-Etapp 2 använder samma grund för sex härledda kvalificeringsområden, styrda
-kompletteringskrav, icke-bindande effektpotential och versionsbunden, transparent
-prioritering med ett separat mänskligt ställningstagande.
+Följande delar återanvänds eftersom de redan har testade kontrakt som motsvarar
+målmodellen:
 
-Etapp 3 utökar samma normaliserade state med en riktad förutsättningsgraf,
-topologiskt härledd genomförandeordning, tidsatt kapacitetsanalys och spårbara
-kostnadsursprung. Scenariobunden kostnadsallokering fördelar en befintlig kostnad
-och skapar ingen ny. Startbeslut, effektåtaganden och effektutfall ingår ännu inte
-i den nya arkitekturen.
+- brandade och stabila domän-ID:n,
+- organisationsneutrala entiteter och referentiell validering,
+- det syntetiska värdeskapande initiativets `EffectPotential`,
+- `ExecutionNode` och riktade `Dependency`-relationer,
+- selectors för transitiv graf och topologisk ordning.
 
-Kostnadsberäkningen skiljer investeringens ursprung från enskilda ekonomiska
-poster. Faktiska delutfall summeras, medan bara den senaste versionen av samma
-bedömning används. Återkommande årsbelopp projiceras endast när ett uttryckligt
-tidsintervall har angetts, och då endast för hela kalenderår. Utan sådan horisont
-visas beloppet som ett oprojicerat årsbelopp. Allokering avrundas till hela kronor
-och sista mottagaren får deterministiskt återstående belopp.
-
-Om en vald horisont innehåller delår returnerar kostnadsselectorn en ofullständig
-beräkning med beräknad helårsdel, obehandlad period, anledning och källreferenser.
-Kapacitetsunderlag väljs genom explicita ersättningsrelationer; motstridiga
-överlappande underlag utan sådan relation redovisas som `UNKNOWN` och väljs aldrig
-automatiskt efter högsta eller lägsta värde.
+Reducer- och selectorlagrens tidigare tester behålls som regressionsskydd. Tester
+för den avsiktligt borttagna gamla App-navigationen och dess lokala
+initiativmodell har ersatts av tester för den nya ingångens identitet,
+processgräns, källspårning och informationsarkitektur.
 
 ## Kör lokalt
 
@@ -94,9 +87,11 @@ domäninställningar krävs.
 
 ## Nuvarande begränsningar
 
-- All data är syntetisk och lagras enbart i klientkoden; ändringar sparas inte.
-- Etapp 1–3 har enkla command-drivna formulärflöden; senare arbetsytor är tydligt märkta platshållare utan frikopplade resultat.
-- Behörigheter, autentisering, notifieringar, export, API-integrationer och revisionslogg ingår inte.
-- Prioriteringspoäng och effekter är demonstrativa, inte en validerad kommunal beräkningsmodell. Deltagarscenariot skiljer mellan fast, organisationsspecifik och deltagarskalande kostnad.
-- Alternativkostnaden, den tekniska skulden och andra följder för en kommun som väljer att stå utanför modelleras inte i denna iteration; det är en framtida modellfråga.
-- Prototypen har grundläggande responsivitet men har ännu inte genomgått en fullständig tillgänglighetsgranskning eller användartestning.
+- Den första vyn är läsande; command-drivna arbetsflöden exponeras igen först när
+  respektive fortsatta processdel migreras till den nya produkten.
+- Effektpotential är en bedömning och inget lokalt effektåtagande.
+- Startbeslut, låst beslutsbaslinje, prognoser, mätpunkter, realiserad effekt,
+  kontrollrum och lärande är uttryckligen inte implementerade i denna vy.
+- Ingen backend, autentisering, extern AI eller integration är ansluten.
+- Grundläggande responsivitet finns, men full tillgänglighets- och
+  användbarhetsgranskning återstår.

@@ -1,1939 +1,274 @@
-import { useState } from "react";
 import {
-  Activity,
-  AlertTriangle,
   ArrowRight,
-  BarChart3,
-  Bell,
-  BookOpen,
-  BrainCircuit,
-  Check,
-  CircleDot,
-  Gauge,
-  Home,
-  Lightbulb,
-  Menu,
-  Plus,
-  Search,
-  Settings2,
+  Blocks,
+  CheckCircle2,
+  CircleDashed,
+  Clock3,
+  Database,
+  GitBranch,
   ShieldCheck,
   Sparkles,
   Target,
-  Users,
-  X,
 } from "lucide-react";
-import {
-  calculateParticipationScenario,
-  isQualified,
-  municipalities,
-  qualificationRequirements,
-  type Municipality,
-  type SteeringProfile,
-} from "./scenario";
-import {
-  demoReducer,
-  initializeDemoState,
-  type Command,
-  type CommandResult,
-  type DemoState,
-} from "./application";
-import { createId, type RoleAssignmentId } from "./domain";
-import { stage2Ids } from "./demo-data/stage2DemoData";
-import { Stage3Workspace } from "./workspaces/Stage3Workspace";
-import {
-  StrategicChallengeWorkspace,
-  QualificationWorkspace,
-  EffectPotentialWorkspace,
-  PriorityWorkspace,
-  SteeringProfileWorkspace,
-} from "./workspaces/Stage2Workspaces";
-import {
-  implementationInitiatives,
-  lifecycleStatus,
-  qualifiedInitiatives,
-  recordDecision,
-  togglePrioritizationSelection,
-  updateParticipants,
-  updateQualification,
-  type HumanDecision,
-  type Initiative,
-  type InitiatingOrganization,
-} from "./lifecycle";
+import { initializeDemoState } from "./application";
+import { referenceStory } from "./application/selectors";
+import { effectPotentialLabel } from "./domain";
+import { stage3Ids } from "./demo-data/stage3DemoData";
 
-type Page =
-  | "Start"
-  | "Utmaningar"
-  | "Kvalificering"
-  | "Effektpotential"
-  | "Prioritering"
-  | "Genomförande"
-  | "Effekt"
-  | "Lärande & återbruk"
-  | "Styrmodell";
-type Decision = "STARTA" | "UTRED" | "VÄNTA" | "STOPPA";
-const nav: { name: Page; icon: typeof Home }[] = [
-  { name: "Start", icon: Home },
-  { name: "Utmaningar", icon: Lightbulb },
-  { name: "Kvalificering", icon: CircleDot },
-  { name: "Effektpotential", icon: Target },
-  { name: "Prioritering", icon: Gauge },
-  { name: "Genomförande", icon: Activity },
-  { name: "Effekt", icon: BarChart3 },
-  { name: "Lärande & återbruk", icon: BookOpen },
-];
-const flow = [
-  "NY",
-  "UNDER KVALIFICERING",
-  "KVALIFICERAD",
-  "PRIORITERING",
-  "BESLUTAD",
-  "GENOMFÖRANDE",
-  "EFFEKTUPPFÖLJNING",
-  "SKALNING",
-];
-const organizations = [
-  "Sävsjö",
-  "Vetlanda",
-  "Eksjö",
-  "Aneby",
-  "Nässjö",
-  "Höglandsförbundet",
-] as const;
-type Organization = InitiatingOrganization;
-const Badge = ({
-  children,
-  tone = "neutral",
-}: {
-  children: React.ReactNode;
-  tone?: string;
-}) => <span className={`badge ${tone}`}>{children}</span>;
-const Progress = ({ value }: { value: number }) => (
-  <div className="progress">
-    <i style={{ width: `${value}%` }} />
-  </div>
-);
-const tone = (value: string) =>
-  value === "STARTA" || value === "Uppfylld" || value === "Hög"
-    ? "green"
-    : value === "STOPPA" || value === "Blockerar"
-      ? "red"
-      : value === "VÄNTA" || value === "Medel"
-        ? "amber"
-        : "purple";
+const state = initializeDemoState();
 
-function Sidebar({
-  page,
-  setPage,
-  open,
-  setOpen,
-  org,
-  setOrg,
-  federatedView,
-  setFederatedView,
-}: {
-  page: Page;
-  setPage: (p: Page) => void;
-  open: boolean;
-  setOpen: (v: boolean) => void;
-  org: Organization;
-  setOrg: (v: Organization) => void;
-  federatedView: boolean;
-  setFederatedView: (value: boolean) => void;
-}) {
-  return (
-    <>
-      <aside className={open ? "open" : ""}>
-        <div className="brand">
-          <div className="brandmark">
-            <Sparkles size={19} />
-          </div>
-          <div>
-            <strong>Transformation</strong>
-            <span>COCKPIT</span>
-          </div>
-          <button
-            aria-label="Stäng meny"
-            className="close"
-            onClick={() => setOpen(false)}
-          >
-            <X />
-          </button>
-        </div>
-        <label className="context">
-          <span>Organisation</span>
-          <select
-            value={org}
-            onChange={(e) => setOrg(e.target.value as Organization)}
-          >
-            {organizations.map((m) => (
-              <option key={m}>{m}</option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="federated-button"
-          onClick={() => setFederatedView(!federatedView)}
-        >
-          <Users size={16} />
-          <span>
-            <b>{federatedView ? "Visa lokal vy" : "Visa federerad vy"}</b>
-            <small>
-              {federatedView
-                ? `${org} – lokalt perspektiv`
-                : "Samlad bild för aktivt initiativ"}
-            </small>
-          </span>
-        </button>
-        <div className="navlabel">TRANSFORMATIONSFLÖDE</div>
-        <nav>
-          {nav.map(({ name, icon: Icon }) => (
-            <button
-              key={name}
-              className={page === name ? "active" : ""}
-              onClick={() => {
-                setPage(name);
-                setOpen(false);
-              }}
-            >
-              <Icon size={18} />
-              {name}
-              {name === "Kvalificering" && <em>3</em>}
-            </button>
-          ))}
-        </nav>
-        <div className="adminnav">
-          <span>CONTROL PLANE</span>
-          <button
-            className={page === "Styrmodell" ? "active" : ""}
-            onClick={() => setPage("Styrmodell")}
-          >
-            <Settings2 size={18} />
-            Styrmodell / Inställningar
-          </button>
-        </div>
-        <div className="sidefoot">
-          <div className="avatar">TL</div>
-          <div>
-            <strong>Robin Ek</strong>
-            <span>Transformationsledare · demo</span>
-          </div>
-        </div>
-      </aside>
-      {open && <div className="scrim" onClick={() => setOpen(false)} />}
-    </>
-  );
-}
-function DomainSidebar({
-  page,
-  setPage,
-  open,
-  setOpen,
-  state,
-  onCommand,
-}: {
-  page: Page;
-  setPage: (page: Page) => void;
-  open: boolean;
-  setOpen: (open: boolean) => void;
-  state: DemoState;
-  onCommand: (command: Command) => CommandResult;
-}) {
-  const perspective = state.viewContext.selectedPerspective;
-  const actor = Object.keys(
-    state.entities.roleAssignments,
-  )[0] as RoleAssignmentId;
-  const setPerspective = (organizationId?: import("./domain").OrganizationId) =>
-    onCommand({
-      commandId: createId("Command", `navigation-perspective-${Date.now()}`),
-      actorRoleAssignmentId: actor,
-      issuedAt: new Date().toISOString(),
-      commandType: "SET_VIEW_PERSPECTIVE",
-      payload: {
-        perspective: organizationId
-          ? { kind: "ORGANIZATION", organizationId }
-          : { kind: "FEDERATED" },
-      },
-    });
-  return (
-    <>
-      <aside className={open ? "open" : ""}>
-        <div className="brand">
-          <div className="brandmark">
-            <Sparkles size={19} />
-          </div>
-          <div>
-            <strong>Transformation</strong>
-            <span>COCKPIT</span>
-          </div>
-          <button
-            aria-label="Stäng meny"
-            className="close"
-            onClick={() => setOpen(false)}
-          >
-            <X />
-          </button>
-        </div>
-        <label className="context">
-          <span>Visningsperspektiv (ändrar inte deltagande)</span>
-          <select
-            aria-label="Organisationsperspektiv"
-            value={
-              perspective.kind === "ORGANIZATION"
-                ? perspective.organizationId
-                : "FEDERATED"
-            }
-            onChange={(event) =>
-              setPerspective(
-                event.target.value === "FEDERATED"
-                  ? undefined
-                  : (event.target.value as import("./domain").OrganizationId),
-              )
-            }
-          >
-            <option value="FEDERATED">Federerad vy</option>
-            {Object.values(state.entities.organizations).map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="stage2-refs">
-          Perspektivet ändrar endast visningen; ingen filtrering eller omräkning
-          påstås.
-        </p>
-        <div className="navlabel">TRANSFORMATIONSFLÖDE</div>
-        <nav>
-          {nav.map(({ name, icon: Icon }) => (
-            <button
-              key={name}
-              className={page === name ? "active" : ""}
-              onClick={() => {
-                setPage(name);
-                setOpen(false);
-              }}
-            >
-              <Icon size={18} />
-              {name}
-            </button>
-          ))}
-        </nav>
-        <div className="adminnav">
-          <span>CONTROL PLANE</span>
-          <button
-            className={page === "Styrmodell" ? "active" : ""}
-            onClick={() => setPage("Styrmodell")}
-          >
-            <Settings2 size={18} />
-            Styrmodell / Inställningar
-          </button>
-        </div>
-        <div className="sidefoot">
-          <div className="avatar">DE</div>
-          <div>
-            <strong>Syntetisk demoanvändare</strong>
-            <span>Roll visas i respektive åtgärd</span>
-          </div>
-        </div>
-      </aside>
-      {open && <div className="scrim" onClick={() => setOpen(false)} />}
-    </>
-  );
-}
+const statusLabel = {
+  AVAILABLE: "Tillgänglig",
+  PLANNED: "Planerad",
+  BLOCKED: "Blockerad",
+  UNKNOWN: "Okänd",
+} as const;
 
-function DomainStart({
-  state,
-  go,
-  onCommands,
-}: {
-  state: DemoState;
-  go: (page: Page) => void;
-  onCommands: (commands: Command[]) => CommandResult;
-}) {
-  const actor = Object.keys(
-    state.entities.roleAssignments,
-  )[0] as RoleAssignmentId;
-  const initiatives = Object.values(state.entities.initiatives);
-  return (
-    <section className="stage2-workspace">
-      <span className="eyebrow">GEMENSAM ÄRENDEÖVERSIKT</span>
-      <h1>Från underlag till prioriteringsdiskussion</h1>
-      <p>
-        Översikten använder samma normaliserade syntetiska domändata som
-        arbetsytorna. Effektutfall och startbeslut ingår ännu inte.
-      </p>
-      <p>
-        {Object.keys(state.entities.challenges).length} utmaningar ·{" "}
-        {initiatives.length} initiativ
-      </p>
-      {initiatives.map((initiative) => (
-        <article className="stage2-potential" key={initiative.id}>
-          <h3>{initiative.title}</h3>
-          <p>
-            ChallengeId: {initiative.challengeId} · InitiativeId:{" "}
-            {initiative.id}
-          </p>
-          <button
-            onClick={() => {
-              const issuedAt = new Date().toISOString();
-              const result = onCommands([
-                {
-                  commandId: createId(
-                    "Command",
-                    `overview-challenge-${Date.now()}`,
-                  ),
-                  actorRoleAssignmentId: actor,
-                  issuedAt,
-                  commandType: "SET_ACTIVE_CHALLENGE",
-                  targetId: initiative.challengeId,
-                },
-                {
-                  commandId: createId(
-                    "Command",
-                    `overview-initiative-${Date.now()}`,
-                  ),
-                  actorRoleAssignmentId: actor,
-                  issuedAt,
-                  commandType: "SET_ACTIVE_INITIATIVE",
-                  targetId: initiative.id,
-                },
-              ]);
-              if (result.success) go("Utmaningar");
-            }}
-          >
-            Öppna gemensamt ärende
-          </button>
-        </article>
-      ))}
-    </section>
-  );
-}
+const kindLabel = {
+  EXISTING_CAPABILITY: "Befintlig förmåga",
+  ENABLING_DELIVERY: "Förutsättningsprojekt",
+  BUSINESS_CHANGE: "Verksamhetsförändring",
+  LOCAL_ADOPTION: "Lokalt införande",
+  FOLLOW_UP_PREPARATION: "Förberedd uppföljning",
+} as const;
 
-function Header({
-  page,
-  setOpen,
-  onNew,
-}: {
-  page: Page;
-  setOpen: (v: boolean) => void;
-  onNew: () => void;
-}) {
+function Trace({ values }: { values: string[] }) {
   return (
-    <header>
-      <button
-        aria-label="Öppna meny"
-        className="menubtn"
-        onClick={() => setOpen(true)}
-      >
-        <Menu />
-      </button>
+    <details className="trace">
+      <summary>Visa källidentiteter</summary>
       <div>
-        <p>EFFEKTSTYRD TRANSFORMATION</p>
-        <h1>{page}</h1>
-      </div>
-      <div className="header-actions">
-        <label>
-          <Search size={17} />
-          <input aria-label="Sök" placeholder="Sök i cockpiten…" />
-        </label>
-        <button aria-label="Notiser" className="iconbtn">
-          <Bell size={18} />
-          <i />
-        </button>
-        <button className="primary" onClick={onNew}>
-          <Plus size={16} /> Ny utmaning
-        </button>
-      </div>
-    </header>
-  );
-}
-function Intro({
-  eyebrow,
-  title,
-  text,
-  children,
-}: {
-  eyebrow: string;
-  title: string;
-  text: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <section className="pageintro">
-      <div>
-        <span className="eyebrow">{eyebrow}</span>
-        <h2>{title}</h2>
-        <p>{text}</p>
-      </div>
-      {children}
-    </section>
-  );
-}
-function AiCard({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
-  const [state, setState] = useState("");
-  return (
-    <section className="ai-card">
-      <div className="ai-title">
-        <BrainCircuit />
-        <div>
-          <span>SIMULERAT AI-STÖD</span>
-          <strong>{title}</strong>
-        </div>
-        <Badge tone="purple">GRANSKNINGSBART</Badge>
-      </div>
-      <div className="ai-body">{children}</div>
-      <div className="ai-meta">
-        <span>
-          <b>Fakta:</b> syntetiskt underlag
-        </span>
-        <span>
-          <b>Inferens:</b> mönsteranalys
-        </span>
-        <span>
-          <b>Confidence:</b> 78 %
-        </span>
-      </div>
-      {state ? (
-        <p className="ai-state">
-          <Check size={14} /> Förslaget är {state}. Ingen guardrail har
-          åsidosatts.
-        </p>
-      ) : (
-        <div className="ai-actions">
-          <button onClick={() => setState("accepterat")}>Acceptera</button>
-          <button onClick={() => setState("markerat för redigering")}>
-            Ändra
-          </button>
-          <button onClick={() => setState("avvisat")}>Avvisa</button>
-        </div>
-      )}
-    </section>
-  );
-}
-function Stage({ active = 2 }: { active?: number }) {
-  return (
-    <div className="stage">
-      {flow.map((s, i) => (
-        <div
-          className={i < active ? "done" : i === active ? "now" : ""}
-          key={s}
-        >
-          <i>{i < active ? <Check size={10} /> : i + 1}</i>
-          <span>{s}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Start({
-  go,
-  initiatives,
-}: {
-  go: (p: Page) => void;
-  initiatives: Initiative[];
-}) {
-  const qualified = qualifiedInitiatives(initiatives).length;
-  const decided = implementationInitiatives(initiatives).length;
-  return (
-    <>
-      <Intro
-        eyebrow="LEDNINGENS ÖVERBLICK"
-        title="Från utmaning till realiserad effekt"
-        text="Prioritera realiserbar verksamhetseffekt per knapp förändringskapacitet över tid."
-      />
-      <div className="kpis">
-        <article className="kpi opportunity">
-          <div className="kpi-icon">
-            <Target />
-          </div>
-          <span>KVALIFICERADE INITIATIV</span>
-          <strong>{qualified}</strong>
-          <p>Live från initiativens aktuella kvalificeringsstatus.</p>
-          <button onClick={() => go("Prioritering")}>
-            Öppna prioritering <ArrowRight size={15} />
-          </button>
-        </article>
-        <article className="kpi">
-          <div className="kpi-icon green">
-            <Gauge />
-          </div>
-          <span>BESLUTADE INITIATIV</span>
-          <strong>{decided}</strong>
-          <p>Live: explicit beslutade för genomförande.</p>
-        </article>
-        <article className="kpi">
-          <div className="kpi-icon amber">
-            <AlertTriangle />
-          </div>
-          <span>REALISERAD EFFEKT</span>
-          <strong>Demo</strong>
-          <p>
-            Effektuppföljning utvecklas i senare steg. Inget live-utfall visas.
-          </p>
-        </article>
-      </div>
-      <section className="panel command">
-        <div className="panel-head">
-          <div>
-            <span className="eyebrow">LIVE FRÅN INITIATIVSTATE</span>
-            <h3>Beslutsläget just nu</h3>
-          </div>
-          <span className="updated">
-            <CircleDot size={13} /> Aktuell status
-          </span>
-        </div>
-        <div className="command-grid">
-          <div>
-            <b>{initiatives.length}</b>
-            <span>utmaningar och initiativ</span>
-          </div>
-          <ArrowRight />
-          <div>
-            <b>{qualified}</b>
-            <span>kvalificerade</span>
-          </div>
-          <ArrowRight />
-          <div>
-            <b>{decided}</b>
-            <span>beslutade</span>
-          </div>
-          <ArrowRight />
-          <div>
-            <b>Demo</b>
-            <span>utfall kommer i senare steg</span>
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-export function Challenges({
-  initiatives,
-  openQual,
-  newOpen,
-}: {
-  initiatives: Initiative[];
-  openQual: (id: string) => void;
-  newOpen: () => void;
-}) {
-  return (
-    <>
-      <Intro
-        eyebrow="UTMANING · INTE LÖSNING"
-        title="Beskriv utmaningen"
-        text="Fånga ett observerat problem, behov eller en möjlighet innan lösningen bestäms."
-      >
-        <button className="primary" onClick={newOpen}>
-          <Plus size={16} /> Registrera utmaning
-        </button>
-      </Intro>
-      <Stage active={0} />
-      <div className="cards">
-        {initiatives.map((item) => (
-          <article className="challenge" key={item.id}>
-            <div>
-              <Badge tone="purple">{item.area}</Badge>
-              <Badge
-                tone={isQualified(item.qualification) ? "green" : "neutral"}
-              >
-                {lifecycleStatus(item).replaceAll("_", " ")}
-              </Badge>
-            </div>
-            <small className="object-id">
-              {item.id} · Initiativtagare: {item.initiator}
-            </small>
-            <h3>{item.title}</h3>
-            <p>{item.problem}</p>
-            <footer>
-              <div>
-                <span>PRELIMINÄR POTENTIAL</span>
-                <strong>{item.effect}</strong>
-              </div>
-              <button onClick={() => openQual(item.id)}>
-                Öppna samma objekt <ArrowRight size={15} />
-              </button>
-            </footer>
-          </article>
+        {values.map((value) => (
+          <code key={value}>{value}</code>
         ))}
       </div>
-      <AiCard title="Generellt demostöd för problemformulering">
-        <p>
-          <b>
-            Detta är ett generiskt demoexempel och har inte analyserat det
-            aktiva initiativet.
-          </b>{" "}
-          Beskriv observerat problem, berörda användare och relevant avgränsning
-          utan att låsa en lösning.
-        </p>
-      </AiCard>
-    </>
+    </details>
   );
-}
-
-export function Qualification({
-  go,
-  initiative,
-  setInitiative,
-  perspective,
-}: {
-  go: (p: Page) => void;
-  initiative: Initiative;
-  setInitiative: (value: Initiative) => void;
-  perspective: string;
-}) {
-  const qualification = initiative.qualification;
-  const qualified = isQualified(qualification);
-  const completed = qualificationRequirements.filter(
-    (requirement) => qualification[requirement],
-  ).length;
-  const progress = Math.round(
-    (completed / qualificationRequirements.length) * 100,
-  );
-  const hasInitiativeDemo = initiative.id === "UTM-001";
-  const facts = hasInitiativeDemo
-    ? [
-        [
-          "Baseline / nuläge",
-          "42 min/dag i manuella moment · ej fullt verifierat",
-        ],
-        ["Evidens", "Syntetisk tidsstudie, 24 observationer"],
-        ["Påverkbarhet", "Hög · arbetssätt och informationsflöde"],
-        ["Time-to-value", initiative.time],
-        ["Beroenden", "Informationsklassning, processägare"],
-        ["Återbruk / skala", initiative.scale],
-      ]
-    : [
-        ["Baseline / nuläge", "Tas fram under kvalificeringen"],
-        ["Evidens", "Underlag saknas"],
-        ["Påverkbarhet", "Ej ännu angivet"],
-        ["Time-to-value", "Ej ännu angivet"],
-        ["Beroenden", "Ej ännu angivet"],
-        ["Återbruk / skala", "Ej ännu angivet"],
-      ];
-  return (
-    <>
-      <Intro
-        eyebrow="INITIATIVKANDIDAT"
-        title="Avgör om utmaningen är redo för prioritering"
-        text="Slutför de sex obligatoriska kraven för samma initiativ."
-      >
-        <Badge tone={qualified ? "green" : "amber"}>
-          {qualified ? "KVALIFICERAT INITIATIV" : "EJ REDO FÖR PRIORITERING"}
-        </Badge>
-      </Intro>
-      <section className="panel active-context">
-        <span>DU KVALIFICERAR NU</span>
-        <h2>{initiative.title}</h2>
-        <div>
-          <p>
-            <b>Ursprunglig utmaning</b>
-            {initiative.problem}
-          </p>
-          <p>
-            <b>Initiativtagare</b>
-            {initiative.initiator}
-          </p>
-          <p>
-            <b>ID</b>
-            {initiative.id}
-          </p>
-          <p>
-            <b>Perspektiv</b>
-            {perspective}
-          </p>
-        </div>
-      </section>
-      <Stage active={qualified ? 2 : 1} />
-      {qualified && (
-        <div className="qualification-success">
-          <Check size={18} />
-          <span>
-            <b>Kvalificering klar</b> – initiativet kan prioriteras men är ännu
-            inte beslutat.
-          </span>
-        </div>
-      )}
-      <div className="qualification-layout">
-        <section className="panel">
-          <div className="qual-head">
-            <div>
-              <span>KVALIFICERING · EXAKT SEX OBLIGATORISKA KRAV</span>
-              <strong>{progress} %</strong>
-            </div>
-            <Progress value={progress} />
-          </div>
-          <h3>Slutför kvalificeringsgrinden</h3>
-          <div className="checklist">
-            {qualificationRequirements.map((l, i) => (
-              <label key={l}>
-                <input
-                  type="checkbox"
-                  checked={qualification[l]}
-                  onChange={() =>
-                    setInitiative(
-                      updateQualification(initiative, {
-                        ...qualification,
-                        [l]: !qualification[l],
-                      }),
-                    )
-                  }
-                />
-                <i>{qualification[l] ? <Check size={13} /> : null}</i>
-                <span>{l}</span>
-                <Badge
-                  tone={qualification[l] ? "green" : i === 5 ? "red" : "amber"}
-                >
-                  {qualification[l] ? "KLAR" : i === 5 ? "BLOCKERAR" : "SAKNAS"}
-                </Badge>
-              </label>
-            ))}
-          </div>
-          {qualified && (
-            <button className="primary next" onClick={() => go("Prioritering")}>
-              Prioritera samma initiativ <ArrowRight size={15} />
-            </button>
-          )}
-        </section>
-        <section className="panel evidence">
-          <span className="eyebrow">KVALIFICERINGSUNDERLAG</span>
-          <h3>Det vi vet hittills</h3>
-          <div className="fact">
-            <span>Ursprunglig utmaning</span>
-            <strong>{initiative.problem}</strong>
-          </div>
-          {facts.map((x) => (
-            <div className="fact" key={x[0]}>
-              <span>{x[0]}</span>
-              <strong>{x[1]}</strong>
-            </div>
-          ))}
-        </section>
-      </div>
-      {hasInitiativeDemo ? (
-        <EffectChain />
-      ) : (
-        <section className="panel placeholder">
-          <h3>Effektkedja tas fram senare</h3>
-          <p>
-            Ingen förladdad demo-baseline, evidens eller effektkedja har
-            kopierats till den nya utmaningen.
-          </p>
-        </section>
-      )}
-      <AiCard title="Begreppskontroll och nästa steg">
-        <p>
-          <b>Kvalificering innebär att underlaget är redo att prioriteras.</b>{" "}
-          Ett separat mänskligt beslut krävs alltid innan genomförande.
-        </p>
-      </AiCard>
-    </>
-  );
-}
-function EffectChain() {
-  return (
-    <section className="panel chain">
-      <div className="panel-head">
-        <div>
-          <span className="eyebrow">EXPLICIT EFFEKTKEDJA</span>
-          <h3>Från förändring till mätbart utfall</h3>
-        </div>
-        <Badge tone="purple">CONFIDENCE 78 %</Badge>
-      </div>
-      <div className="chain-row">
-        {[
-          ["FÖRÄNDRING", "Standardiserat informationsflöde"],
-          ["LEVERANS / OUTPUT", "Kontextbundet dokumentationsstöd"],
-          ["NYTTA / OUTCOME", "Mindre manuell sammanställning"],
-          ["EFFEKT / IMPACT", "22 min frigjord tid/person/dag"],
-          ["MÄTETAL", "Aktiv dokumentationstid"],
-          ["BASELINE", "42 min/dag"],
-          ["MÅL", "20 min/dag"],
-          ["UTFALL", "28 min/dag"],
-        ].map((x, i) => (
-          <div key={x[0]}>
-            <small>{x[0]}</small>
-            <strong>{x[1]}</strong>
-            {i < 7 && <ArrowRight />}
-          </div>
-        ))}
-      </div>
-      <div className="assumptions">
-        <span>
-          <b>Antagande:</b> frigjord tid omsätts i kärnuppdrag
-        </span>
-        <span>
-          <b>Evidens:</b> tidsstudie + intervjuer (syntetiskt)
-        </span>
-        <span>
-          <b>Mätning:</b> före start, dag 30/90/180
-        </span>
-      </div>
-    </section>
-  );
-}
-
-export function Prioritization({
-  initiatives,
-  setInitiatives,
-  activeInitiativeId,
-  setActiveInitiativeId,
-  weights,
-  organization,
-  federatedView,
-}: {
-  initiatives: Initiative[];
-  setInitiatives: React.Dispatch<React.SetStateAction<Initiative[]>>;
-  activeInitiativeId: string;
-  setActiveInitiativeId: (id: string) => void;
-  weights: SteeringProfile;
-  organization: Organization;
-  federatedView: boolean;
-}) {
-  const [showDecision, setShowDecision] = useState(false);
-  const qualifiedItems = qualifiedInitiatives(initiatives);
-  const selectedItems = qualifiedItems.filter(
-    (item) => item.selectedForPrioritization,
-  );
-  const focused = qualifiedItems.find((item) => item.id === activeInitiativeId);
-  const participants = focused?.participants || [];
-  const scenario = calculateParticipationScenario(
-    participants,
-    weights,
-    Boolean(focused),
-  );
-  const local = municipalities.includes(organization as Municipality)
-    ? scenario.localBreakdown.find((item) => item.municipality === organization)
-    : undefined;
-  const update = (id: string, change: (item: Initiative) => Initiative) =>
-    setInitiatives((items) =>
-      items.map((item) => (item.id === id ? change(item) : item)),
-    );
-  const toggleParticipant = (name: Municipality) =>
-    focused &&
-    update(focused.id, (item) =>
-      updateParticipants(
-        item,
-        participants.includes(name)
-          ? participants.filter((x) => x !== name)
-          : [...participants, name],
-      ),
-    );
-  const money = (value: number) =>
-    `${Math.round(value).toLocaleString("sv-SE")} tkr`;
-  const recommendation: Decision =
-    scenario.priorityScore >= 70
-      ? "STARTA"
-      : scenario.priorityScore >= 50
-        ? "UTRED"
-        : "VÄNTA";
-  const perspective = federatedView
-    ? "Federerad vy – samlad bild för deltagande organisationer"
-    : `${organization} – lokalt perspektiv`;
-  return (
-    <>
-      <Intro
-        eyebrow="KVALIFICERADE INITIATIV"
-        title="Prioritera och fatta beslut"
-        text="Arbetsurval, aktivt fokus och mänskligt beslut är tre separata saker."
-      >
-        <div className="capacity-pill">
-          <b>{selectedItems.length}</b>
-          <span>i arbetsurval</span>
-        </div>
-      </Intro>
-      <Stage active={3} />
-      {focused ? (
-        <section className="panel focus-banner">
-          <span>AKTIVT INITIATIV FÖR BESLUT</span>
-          <h2>{focused.title}</h2>
-          <p>
-            {focused.id} · Initiativtagare: {focused.initiator} · {perspective}
-          </p>
-        </section>
-      ) : (
-        <div className="selection-explainer">
-          <AlertTriangle size={18} />
-          <span>
-            Öppna ett kvalificerat initiativ som fokus innan beslut fattas.
-          </span>
-        </div>
-      )}
-      <div className="selection-explainer">
-        <ShieldCheck size={18} />
-        <span>
-          <b>Urval är inte beslut.</b> Checkboxen ändrar varken aktivt initiativ
-          eller mänskligt beslut.
-        </span>
-      </div>
-      <section className="panel tablewrap">
-        <div className="table-head">
-          <div>
-            <h3>Välj initiativ att jämföra</h3>
-            <span>
-              {qualifiedItems.length} kvalificerade initiativ i lägesbilden.
-            </span>
-          </div>
-          <Badge tone="purple">{selectedItems.length} VALDA</Badge>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Urval</th>
-              <th>Initiativ</th>
-              <th>Fokus</th>
-              <th>Effekt</th>
-              <th>Evidens</th>
-              <th>Mänskligt beslut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {qualifiedItems.map((item) => (
-              <tr
-                className={
-                  item.id === focused?.id
-                    ? "focused-row"
-                    : item.selectedForPrioritization
-                      ? "selected-row"
-                      : ""
-                }
-                key={item.id}
-              >
-                <td>
-                  <label className="initiative-select">
-                    <input
-                      aria-label={`Ta med ${item.title} i aktuellt urval`}
-                      type="checkbox"
-                      checked={item.selectedForPrioritization}
-                      onChange={() =>
-                        update(item.id, togglePrioritizationSelection)
-                      }
-                    />
-                    <i>
-                      {item.selectedForPrioritization && <Check size={12} />}
-                    </i>
-                  </label>
-                </td>
-                <td>
-                  <strong>{item.title}</strong>
-                  <span>
-                    {item.id} · {item.initiator}
-                  </span>
-                </td>
-                <td>
-                  <button
-                    className="focus-button"
-                    onClick={() => setActiveInitiativeId(item.id)}
-                  >
-                    {item.id === focused?.id ? "AKTIVT" : "Fokusera"}
-                  </button>
-                </td>
-                <td>
-                  <strong>{item.effect}</strong>
-                </td>
-                <td>
-                  <Badge tone={tone(item.evidence)}>{item.evidence}</Badge>
-                </td>
-                <td>
-                  <Badge
-                    tone={item.decision === "BESLUTAT" ? "green" : "neutral"}
-                  >
-                    {item.decision === "BESLUTAT"
-                      ? "BESLUTAT FÖR GENOMFÖRANDE"
-                      : item.decision || "INGET BESLUT"}
-                  </Badge>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-      {focused && (
-        <section className="panel participation-simulator">
-          <div className="panel-head">
-            <div>
-              <span className="eyebrow">DELTAGANDE TILLHÖR {focused.id}</span>
-              <h3>Simulera deltagande för aktivt initiativ</h3>
-              <p>
-                <b>Initiativtagare: {focused.initiator}.</b> {perspective}.
-                Vybyte ändrar inte deltagandet.
-              </p>
-            </div>
-            <Badge tone="purple">
-              {participants.length} AV {municipalities.length} KOMMUNER DELTAR
-            </Badge>
-          </div>
-          <div className="org-checks">
-            {municipalities.map((name) => (
-              <label key={name}>
-                <input
-                  type="checkbox"
-                  checked={participants.includes(name)}
-                  onChange={() => toggleParticipant(name)}
-                />
-                <i>{participants.includes(name) && <Check size={12} />}</i>
-                <span>{name}</span>
-              </label>
-            ))}
-          </div>
-          <div className="simulation-results detailed">
-            {federatedView ? (
-              <>
-                <div>
-                  <span>AGGREGERAD EFFEKT</span>
-                  <b>{scenario.releasedHours.toLocaleString("sv-SE")} tim/år</b>
-                </div>
-                <div>
-                  <span>Total kostnad</span>
-                  <b>{money(scenario.totalCostKsek)}</b>
-                </div>
-                <div>
-                  <span>Federerad nettoeffekt</span>
-                  <b>{money(scenario.federatedNetKsek)}</b>
-                </div>
-              </>
-            ) : local ? (
-              <>
-                <div>
-                  <span>LOKAL EFFEKT · {local.municipality}</span>
-                  <b>{local.releasedHours.toLocaleString("sv-SE")} tim/år</b>
-                </div>
-                <div>
-                  <span>Lokal total kostnad</span>
-                  <b>{money(local.totalCostKsek)}</b>
-                </div>
-              </>
-            ) : (
-              <div>
-                <span>Lokalt deltagande</span>
-                <b>{organization} deltar inte</b>
-              </div>
-            )}
-            <div>
-              <span>Prioriteringspoäng</span>
-              <b>
-                {scenario.priorityScore} / 100 · {recommendation}
-              </b>
-            </div>
-          </div>
-        </section>
-      )}
-      <div className="decision-layout">
-        <section className="panel recommendation">
-          <span className="eyebrow">SEPARAT MÄNSKLIG BESLUTSPUNKT</span>
-          <h2>
-            {focused ? `Beslut gäller ${focused.id}` : "Välj tydligt fokus"}
-          </h2>
-          <p>
-            Systemrekommendation och checkbox-urval är rådgivande och utgör
-            aldrig beslut.
-          </p>
-          <button
-            className="primary"
-            disabled={!focused}
-            onClick={() => setShowDecision(true)}
-          >
-            {focused
-              ? `Fatta beslut om ${focused.id}`
-              : "Inget fokuserat initiativ"}
-          </button>
-        </section>
-        <AiCard title="Känslighetsanalys">
-          <p>
-            Deltagarscenariot gäller endast det aktiva initiativet och påverkar
-            inte andra initiativ.
-          </p>
-        </AiCard>
-      </div>
-      {showDecision && focused && (
-        <DecisionForm
-          initiative={focused}
-          perspective={perspective}
-          onSave={(decision) => {
-            update(focused.id, (item) => recordDecision(item, decision));
-            setShowDecision(false);
-          }}
-        />
-      )}
-    </>
-  );
-}
-
-function DecisionForm({
-  initiative,
-  perspective,
-  onSave,
-}: {
-  initiative: Initiative;
-  perspective: string;
-  onSave: (value: HumanDecision) => void;
-}) {
-  const [choice, setChoice] = useState<Exclude<HumanDecision, null>>(
-    initiative.decision || "VÄNTA",
-  );
-  return (
-    <div className="modalback">
-      <section className="modal">
-        <Badge tone="purple">
-          MÄNSKLIGT BESLUT · SEPARAT FRÅN URVAL OCH SYSTEM
-        </Badge>
-        <h2>Fatta beslut om genomförande</h2>
-        <p>
-          <b>
-            {initiative.id} · {initiative.title}
-          </b>
-        </p>
-        <div className="decision-context">
-          <span>
-            Initiativtagare: <b>{initiative.initiator}</b>
-          </span>
-          <span>
-            Deltagande:{" "}
-            <b>
-              {initiative.participants.length
-                ? initiative.participants.join(", ")
-                : "Inga angivna"}
-            </b>
-          </span>
-          <span>
-            Perspektiv: <b>{perspective}</b>
-          </span>
-        </div>
-        <div className="compare">
-          <div>
-            <span>Systemrekommendation</span>
-            <b>{initiative.recommendation}</b>
-          </div>
-          <ArrowRight />
-          <label>
-            <span>Mänskligt beslut</span>
-            <select
-              value={choice}
-              onChange={(e) =>
-                setChoice(e.target.value as Exclude<HumanDecision, null>)
-              }
-            >
-              {["BESLUTAT", "UTRED", "VÄNTA", "STOPPA"].map((value) => (
-                <option key={value} value={value}>
-                  {value === "BESLUTAT" ? "BESLUTAT FÖR GENOMFÖRANDE" : value}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label>
-          Beslutsfunktion
-          <input value="Portföljledning · demo" readOnly />
-        </label>
-        <label>
-          Beslutsfattare
-          <input value="Kim Sjöberg · syntetisk" readOnly />
-        </label>
-        <label>
-          Motivering
-          <textarea defaultValue="Kritisk verksamhetskompetens behöver säkras före start." />
-        </label>
-        <p>
-          Beslutet sparas på initiativet och följer dess stabila id genom
-          navigationen.
-        </p>
-        <button className="primary" onClick={() => onSave(choice)}>
-          Spara mänskligt beslut
-        </button>
-      </section>
-    </div>
-  );
-}
-
-function Delivery({
-  initiatives,
-  setInitiatives,
-  setActiveInitiativeId,
-}: {
-  initiatives: Initiative[];
-  setInitiatives: React.Dispatch<React.SetStateAction<Initiative[]>>;
-  setActiveInitiativeId: (id: string) => void;
-}) {
-  const [opened, setOpened] = useState<string | null>(null);
-  const decided = implementationInitiatives(initiatives);
-  const toggle = (item: Initiative, name: Municipality) =>
-    setInitiatives((items) =>
-      items.map((candidate) =>
-        candidate.id === item.id
-          ? updateParticipants(
-              candidate,
-              item.participants.includes(name)
-                ? item.participants.filter((x) => x !== name)
-                : [...item.participants, name],
-            )
-          : candidate,
-      ),
-    );
-  return (
-    <>
-      <Intro
-        eyebrow="ENDAST BESLUTADE INITIATIV"
-        title="Säkerställ genomförandet av beslutade initiativ"
-        text="Samma beslutade initiativ och dess egna deltagande följer in i genomförandet."
-      />
-      <Stage active={5} />
-      <div className="initiative-list">
-        {decided.length === 0 ? (
-          <section className="panel empty-state">
-            <h3>Inga initiativ är beslutade för genomförande</h3>
-            <p>
-              Kvalificerade initiativ finns kvar i Prioritering tills ett
-              separat beslut fattas.
-            </p>
-          </section>
-        ) : (
-          decided.map((item) => (
-            <article className="panel initiative" key={item.id}>
-              <div className="initiative-title">
-                <div>
-                  <Badge tone="green">
-                    BESLUTAT ·{" "}
-                    {item.implementationStatus === "EJ_STARTAD"
-                      ? "EJ STARTAT"
-                      : "PÅGÅR"}
-                  </Badge>
-                  <small className="object-id">{item.id}</small>
-                  <h3>{item.title}</h3>
-                  <p>{item.problem}</p>
-                  <p>
-                    <b>Initiativtagare:</b> {item.initiator} ·{" "}
-                    <b>Deltagande:</b>{" "}
-                    {item.participants.length
-                      ? item.participants.join(", ")
-                      : "Inga angivna"}
-                  </p>
-                  <p>
-                    <b>Beslut:</b> BESLUTAT FÖR GENOMFÖRANDE ·{" "}
-                    <b>Genomförandestatus:</b> {item.implementationStatus}
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setActiveInitiativeId(item.id);
-                    setOpened(opened === item.id ? null : item.id);
-                  }}
-                >
-                  {opened === item.id ? "Stäng" : "Öppna samma initiativ"}{" "}
-                  <ArrowRight size={15} />
-                </button>
-              </div>
-              {opened === item.id && (
-                <section className="initiative-participants">
-                  <h4>Deltagande kommuner för {item.id}</h4>
-                  <div className="org-checks">
-                    {municipalities.map((name) => (
-                      <label key={name}>
-                        <input
-                          type="checkbox"
-                          checked={item.participants.includes(name)}
-                          onChange={() => toggle(item, name)}
-                        />
-                        <i>
-                          {item.participants.includes(name) && (
-                            <Check size={12} />
-                          )}
-                        </i>
-                        <span>{name}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <small>
-                    Deltagarlistan sparas endast på detta initiativ och ändras
-                    inte av visningsperspektivet.
-                  </small>
-                </section>
-              )}
-            </article>
-          ))
-        )}
-      </div>
-    </>
-  );
-}
-function InitiativeContext({ initiative }: { initiative: Initiative }) {
-  return (
-    <section className="panel focus-banner">
-      <span>AKTIV INITIATIVKONTEXT</span>
-      <h2>{initiative.title}</h2>
-      <p>
-        {initiative.id} · Initiativtagare: {initiative.initiator}
-      </p>
-    </section>
-  );
-}
-
-export function Effect({ initiative }: { initiative: Initiative }) {
-  return (
-    <>
-      <Intro
-        eyebrow="SENARE STEG"
-        title="Effekt"
-        text="Effektuppföljning utvecklas i senare steg."
-      />
-      <Stage active={6} />
-      <InitiativeContext initiative={initiative} />
-      <section className="panel placeholder">
-        <h3>Effektuppföljning utvecklas i senare steg.</h3>
-        <p>
-          Här visas inga hårdkodade utfall. Den aktiva initiativkontexten
-          behålls inför kommande funktionalitet.
-        </p>
-      </section>
-    </>
-  );
-}
-
-export function Learning({ initiative }: { initiative: Initiative }) {
-  return (
-    <>
-      <Intro
-        eyebrow="SENARE STEG"
-        title="Lärande & återbruk"
-        text="Lärande och återbruk utvecklas i senare steg."
-      />
-      <Stage active={7} />
-      <InitiativeContext initiative={initiative} />
-      <section className="panel placeholder">
-        <h3>Lärande och återbruk utvecklas i senare steg.</h3>
-        <p>
-          Här visas inga hårdkodade läranderesultat. Den aktiva
-          initiativkontexten behålls inför kommande funktionalitet.
-        </p>
-      </section>
-    </>
-  );
-}
-
-function Governance({
-  weights,
-  setWeights,
-}: {
-  weights: SteeringProfile;
-  setWeights: (weights: SteeringProfile) => void;
-}) {
-  return (
-    <>
-      <Intro
-        eyebrow="CONTROL PLANE · ADMINISTRATÖR"
-        title="Styrmodell / Inställningar"
-        text="Konfigurera hur organisationen prioriterar – utan att blanda ihop kriterier och guardrails."
-      >
-        <Badge tone="purple">VERSION 2.3 · GÄLLER 2026–2027</Badge>
-      </Intro>
-      <div className="profile">
-        <div>
-          <span>GEMENSAM GRUNDMODELL</span>
-          <b>Höglandsmodell v2.3</b>
-        </div>
-        <ArrowRight />
-        <div>
-          <span>LOKAL STYRPROFIL</span>
-          <b>Sävsjö demo 2026–2027</b>
-          <small>
-            Tillgänglig för: Sävsjö, Vetlanda, Eksjö, Aneby, Nässjö och
-            Höglandsförbundet
-          </small>
-        </div>
-        <ArrowRight />
-        <div>
-          <span>STYRPERIOD</span>
-          <b>1 jan 2026 – 31 dec 2027</b>
-        </div>
-      </div>
-      <div className="governance-grid">
-        <section className="panel">
-          <span className="eyebrow">PRIORITERINGSKRITERIER</span>
-          <h3>Viktning i lokal profil</h3>
-          {Object.entries(weights).map(([k, v]) => (
-            <label className="slider" key={k}>
-              <span>
-                {
-                  (
-                    {
-                      effect: "Realiserbar effekt",
-                      evidence: "Evidens / confidence",
-                      time: "Kort time-to-value",
-                      quality: "Kvalitet / skyddsmått",
-                      capacity: "Kapacitet / insats",
-                    } as Record<string, string>
-                  )[k]
-                }
-              </span>
-              <input
-                type="range"
-                min="0"
-                max="50"
-                value={v}
-                onChange={(e) =>
-                  setWeights({ ...weights, [k]: Number(e.target.value) })
-                }
-              />
-              <b>{v} %</b>
-            </label>
-          ))}
-          <p className="total">
-            Visad viktning:{" "}
-            <b>{Object.values(weights).reduce((a, b) => a + b, 0)} %</b> ·
-            prototypen tillåter simulering
-          </p>
-          <div className="princip-note">
-            <ShieldCheck size={17} />
-            <span>
-              <b>Ingen separat samverkansvikt</b>Deltagarscenariot räknar om
-              nytta, kostnad, kapacitet och nettoeffekt innan effektviktningen
-              tillämpas.
-            </span>
-          </div>
-        </section>
-        <section className="panel">
-          <span className="eyebrow">KAPACITET OCH STRATEGI</span>
-          <h3>Tillgänglig förändringsförmåga</h3>
-          <div className="capacity-big">
-            <b>8</b>
-            <span>kapacitetsenheter / kvartal</span>
-          </div>
-          <Progress value={75} />
-          <p>
-            6 enheter föreslagna · begränsning: informationssäkerhetskompetens.
-          </p>
-          <div className="goal">
-            <Target />
-            <div>
-              <b>Strategiskt mål: 125/75</b>
-              <span>
-                Frigjord kapacitet och kort time-to-value högt viktade lokalt.
-              </span>
-            </div>
-          </div>
-        </section>
-      </div>
-      <section className="panel guardrails">
-        <div className="panel-head">
-          <div>
-            <span className="eyebrow">POLICY OCH DECISION GATES</span>
-            <h3>Guardrails är inte prioriteringspoäng</h3>
-          </div>
-          <button className="primary">
-            <Plus size={15} /> Ny organisatorisk regel
-          </button>
-        </div>
-        {[
-          [
-            "Tvingande krav",
-            "Informationsklassning före behandling",
-            "Start · trigger: informationsbehandling",
-            "Blockerar",
-            "Kan inte göras frivillig",
-          ],
-          [
-            "Hård organisatorisk",
-            "Utsedd effektägare före pilot",
-            "Pilot · alla initiativtyper",
-            "Blockerar",
-            "Ändras endast av administratör",
-          ],
-          [
-            "Mjuk guardrail",
-            "Verifierad baseline före start",
-            "Prioritering / start",
-            "Varnar",
-            "Avsteg av portföljledning med motivering",
-          ],
-        ].map((g, i) => (
-          <div className="guardrail-row" key={g[1]}>
-            <ShieldCheck />
-            <div>
-              <Badge tone={i === 0 ? "red" : i === 1 ? "amber" : "purple"}>
-                {g[0]}
-              </Badge>
-              <h4>{g[1]}</h4>
-              <p>{g[2]}</p>
-            </div>
-            <div>
-              <span>KONSEKVENS</span>
-              <b>{g[3]}</b>
-            </div>
-            <div>
-              <span>AVSTEG</span>
-              <b>{g[4]}</b>
-            </div>
-            <label className="switch">
-              <input type="checkbox" checked disabled={i === 0} />
-              <i />
-            </label>
-          </div>
-        ))}
-      </section>
-    </>
-  );
-}
-
-function NewChallenge({
-  close,
-  open,
-  state,
-}: {
-  close: () => void;
-  open: (
-    title: string,
-    problem: string,
-    organizationId: import("./domain").OrganizationId,
-  ) => void;
-  state: ReturnType<typeof initializeDemoState>;
-}) {
-  const [title, setTitle] = useState("");
-  const [problem, setProblem] = useState("");
-  const domainOrganizations = Object.values(state.entities.organizations);
-  const [organizationId, setOrganizationId] = useState(
-    domainOrganizations[0]?.id,
-  );
-  return (
-    <div className="modalback">
-      <section className="modal">
-        <Badge tone="purple">ENDAST SYNTETISK DEMODATA</Badge>
-        <h2>Registrera utmaning</h2>
-        <label>
-          Titel
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </label>
-        <label>
-          Problemformulering
-          <textarea
-            value={problem}
-            onChange={(event) => setProblem(event.target.value)}
-          />
-        </label>
-        <label>
-          Organisation
-          <select
-            value={organizationId}
-            onChange={(event) =>
-              setOrganizationId(
-                event.target.value as import("./domain").OrganizationId,
-              )
-            }
-          >
-            {domainOrganizations.map((organization) => (
-              <option key={organization.id} value={organization.id}>
-                {organization.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p>
-          Beskriv problemet utan att låsa en lösning. Objektet får ett stabilt
-          id som följer med till kvalificeringen.
-        </p>
-        <div className="modal-actions">
-          <button onClick={close}>Avbryt</button>
-          <button
-            className="primary"
-            disabled={!title.trim() || !problem.trim()}
-            onClick={() =>
-              organizationId &&
-              open(title.trim(), problem.trim(), organizationId)
-            }
-          >
-            Registrera och kvalificera
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function FutureStagePlaceholder({
-  state,
-  title,
-}: {
-  state: ReturnType<typeof initializeDemoState>;
-  title: string;
-}) {
-  return (
-    <section className="stage2-workspace">
-      <p className="stage2-identity">
-        ChallengeId: {state.viewContext.activeChallengeId ?? "Saknas"} ·
-        InitiativeId: {state.viewContext.activeInitiativeId ?? "Saknas"}
-      </p>
-      <h2>{title}</h2>
-      <p>
-        Arbetsytan är ännu inte implementerad i den gemensamma domänen. Inga
-        äldre eller frikopplade resultat visas för det aktiva ärendet.
-      </p>
-    </section>
-  );
-}
-
-function initializeStage2View() {
-  let state = initializeDemoState();
-  const actorRoleAssignmentId = Object.keys(
-    state.entities.roleAssignments,
-  )[0] as RoleAssignmentId;
-  const initiativeId = stage2Ids.calculatedInitiative;
-  const challengeId = state.entities.initiatives[initiativeId].challengeId;
-  const initiativeResult = demoReducer(state, {
-    commandId: createId("Command", "ui-active-initiative"),
-    actorRoleAssignmentId,
-    issuedAt: "2026-09-06T08:01:00Z",
-    commandType: "SET_ACTIVE_INITIATIVE",
-    targetId: initiativeId,
-  });
-  if (initiativeResult.success) state = initiativeResult.nextState;
-  const challengeResult = demoReducer(state, {
-    commandId: createId("Command", "ui-active-challenge"),
-    actorRoleAssignmentId,
-    issuedAt: "2026-09-06T08:02:00Z",
-    commandType: "SET_ACTIVE_CHALLENGE",
-    targetId: challengeId,
-  });
-  return challengeResult.success ? challengeResult.nextState : state;
 }
 
 export default function App() {
-  // Äldre komponenter hålls endast för regressionsskydd och används inte i demo-kedjan.
-  void Delivery;
-  void Governance;
-  void Sidebar;
-  void Start;
-  const [page, setPage] = useState<Page>("Start");
-  const [stage2State, setStage2State] = useState(initializeStage2View);
-  const dispatchDomainCommand = (command: Command): CommandResult => {
-    const result = demoReducer(stage2State, command);
-    if (result.success) setStage2State(result.nextState);
-    return result;
-  };
-  const dispatchDomainCommands = (commands: Command[]): CommandResult => {
-    let next = stage2State;
-    for (const command of commands) {
-      const result = demoReducer(next, command);
-      if (!result.success) return { ...result, nextState: stage2State };
-      next = result.nextState;
-    }
-    setStage2State(next);
-    return {
-      success: true,
-      nextState: next,
-      affectedEntityIds: commands.flatMap((command) => [
-        "targetId" in command ? command.targetId : command.commandId,
-      ]),
-    };
-  };
-  const [menu, setMenu] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
-  const domainPerspective = stage2State.viewContext.selectedPerspective;
-  const domainOrganization =
-    domainPerspective.kind === "ORGANIZATION"
-      ? stage2State.entities.organizations[domainPerspective.organizationId]
-      : undefined;
-  const content = {
-    Start: (
-      <DomainStart
-        state={stage2State}
-        go={setPage}
-        onCommands={dispatchDomainCommands}
-      />
-    ),
-    Utmaningar: <StrategicChallengeWorkspace state={stage2State} />,
-    Kvalificering: (
-      <QualificationWorkspace
-        state={stage2State}
-        initiativeId={stage2State.viewContext.activeInitiativeId!}
-        onCommand={dispatchDomainCommand}
-        onCommands={dispatchDomainCommands}
-      />
-    ),
-    Effektpotential: (
-      <EffectPotentialWorkspace
-        state={stage2State}
-        initiativeId={stage2State.viewContext.activeInitiativeId!}
-        onCommand={dispatchDomainCommand}
-      />
-    ),
-    Prioritering: (
-      <PriorityWorkspace
-        state={stage2State}
-        initiativeId={stage2State.viewContext.activeInitiativeId!}
-        onHumanAction={(action) => dispatchDomainCommand(action)}
-      />
-    ),
-    Genomförande: (
-      <Stage3Workspace
-        state={stage2State}
-        onCommand={(command) =>
-          setStage2State((current) => {
-            const result = demoReducer(current, command);
-            if (!result.success) return current;
-            if (command.commandType !== "SET_ACTIVE_INITIATIVE") {
-              return result.nextState;
-            }
-            const challengeId =
-              result.nextState.entities.initiatives[command.targetId]
-                .challengeId;
-            const challengeResult = demoReducer(result.nextState, {
-              commandId: createId(
-                "Command",
-                `stage3-challenge-${challengeId}`.replace(/[^a-z0-9-]/gi, "-"),
-              ),
-              actorRoleAssignmentId: command.actorRoleAssignmentId,
-              issuedAt: command.issuedAt,
-              commandType: "SET_ACTIVE_CHALLENGE",
-              targetId: challengeId,
-            });
-            return challengeResult.success
-              ? challengeResult.nextState
-              : current;
-          })
-        }
-      />
-    ),
-    Effekt: (
-      <FutureStagePlaceholder state={stage2State} title="Effektuppföljning" />
-    ),
-    "Lärande & återbruk": (
-      <FutureStagePlaceholder
-        state={stage2State}
-        title="Lärande och återbruk"
-      />
-    ),
-    Styrmodell: (
-      <SteeringProfileWorkspace
-        state={stage2State}
-        onCommands={dispatchDomainCommands}
-      />
-    ),
-  }[page];
+  const story = referenceStory(state, stage3Ids.valueInitiative);
+  if (!story) return <main>Den syntetiska referensberättelsen saknas.</main>;
+
+  const { challenge, initiative } = story;
   return (
-    <div className="app">
-      <DomainSidebar
-        page={page}
-        setPage={setPage}
-        open={menu}
-        setOpen={setMenu}
-        state={stage2State}
-        onCommand={dispatchDomainCommand}
-      />
-      <main>
-        <Header page={page} setOpen={setMenu} onNew={() => setNewOpen(true)} />
-        <div className="federated-strip">
-          <Users size={15} />
+    <div className="product-shell">
+      <header className="product-header">
+        <a
+          className="brand"
+          href="#top"
+          aria-label="Transformation Cockpit, start"
+        >
           <span>
-            <b>
-              Du ser nu:{" "}
-              {domainPerspective.kind === "FEDERATED"
-                ? "Federerad vy"
-                : domainOrganization?.name}
-            </b>{" "}
-            – gemensam ärendeidentitet; perspektivet muterar inte deltagande
-            eller grunddata
+            <Sparkles size={18} />
           </span>
-        </div>
-        <div className="content">{content}</div>
-        <footer className="disclaimer">
-          Interaktiv prototyp · All data, alla namn och alla utfall är
-          syntetiska · Ingen backend, autentisering eller extern AI-tjänst är
-          ansluten
-        </footer>
+          <b>Transformation Cockpit</b>
+        </a>
+        <nav aria-label="Sidinnehåll">
+          <a href="#potential">Effektpotential</a>
+          <a href="#conditions">Förutsättningar</a>
+          <a href="#roadmap">Fortsatt process</a>
+        </nav>
+        <span className="demo-badge">Syntetisk referensberättelse</span>
+      </header>
+
+      <main id="top">
+        <section className="hero">
+          <div>
+            <p className="eyebrow">STRATEGISKT PORTFÖLJSTÖD · NY GRUND</p>
+            <h1>Från strategisk utmaning till mätbar verksamhetseffekt</h1>
+            <p className="lead">
+              En sammanhängande struktur för att bedöma möjlig effekt, förstå
+              vad som måste möjliggöras och senare fatta spårbara mänskliga
+              beslut.
+            </p>
+          </div>
+          <aside className="principle-card">
+            <ShieldCheck size={24} />
+            <div>
+              <b>Ärlig processgräns</b>
+              <p>
+                Inga startbeslut eller realiserade effekter visas i detta första
+                steg.
+              </p>
+            </div>
+          </aside>
+        </section>
+
+        <section className="story-heading">
+          <div>
+            <p className="eyebrow">SAMMA ÄRENDE GENOM HELA STRUKTUREN</p>
+            <h2>{initiative.title}</h2>
+            <p>{initiative.purpose}</p>
+          </div>
+          <div className="identity-pair">
+            <span>
+              ChallengeId <code>{challenge.id}</code>
+            </span>
+            <ArrowRight size={16} />
+            <span>
+              InitiativeId <code>{initiative.id}</code>
+            </span>
+          </div>
+        </section>
+
+        <section className="challenge-grid">
+          <article className="card challenge-card">
+            <div className="card-icon">
+              <Target />
+            </div>
+            <p className="eyebrow">STRATEGISK UTMANING</p>
+            <h3>{challenge.title}</h3>
+            <p>{challenge.problemStatement}</p>
+            <dl>
+              <dt>Nuläge</dt>
+              <dd>{challenge.currentState}</dd>
+              <dt>Varför strategiskt?</dt>
+              <dd>{challenge.strategicHandlingReason}</dd>
+            </dl>
+            <Trace values={[challenge.id, initiative.id]} />
+          </article>
+          <article className="card model-card">
+            <p className="eyebrow">MODELLENS SKILLNADER</p>
+            <ul>
+              <li>
+                <CheckCircle2 /> Potential är en bedömning, inte ett löfte.
+              </li>
+              <li>
+                <CheckCircle2 /> Prioritet är inte genomförandeordning.
+              </li>
+              <li>
+                <CheckCircle2 /> En teknisk leverans är inte verksamhetseffekt.
+              </li>
+              <li>
+                <CheckCircle2 /> Beslut och mätning tillkommer i senare steg.
+              </li>
+            </ul>
+          </article>
+        </section>
+
+        <section id="potential" className="section-block">
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">VAD INITIATIVET KAN GE</p>
+              <h2>Bedömd effektpotential</h2>
+            </div>
+            <span className="nonbinding">{effectPotentialLabel}</span>
+          </div>
+          <div className="potential-grid">
+            {story.effectPotentials.map((potential) => (
+              <article className="card potential-card" key={potential.id}>
+                <span className="category">{potential.category}</span>
+                <h3>{potential.effectMeasureCode}</h3>
+                <div className="range">
+                  <small>Låg</small>
+                  <b>{potential.lowerBound}</b>
+                  <small>Förväntad</small>
+                  <b>{potential.expectedValue}</b>
+                  <small>Hög</small>
+                  <b>{potential.upperBound}</b>
+                  <em>{potential.unit}</em>
+                </div>
+                <p>
+                  <Clock3 size={15} /> {potential.realizationWindow}
+                </p>
+                <p>
+                  Osäkerhet: <b>{potential.uncertainty}</b>
+                </p>
+                <p className="muted">
+                  Evidens: {potential.evidenceRefs.join(", ")}
+                </p>
+                <Trace values={[potential.id, ...potential.evidenceRefs]} />
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section id="conditions" className="section-block">
+          <div className="section-title">
+            <div>
+              <p className="eyebrow">VAD SOM MÅSTE MÖJLIGGÖRAS</p>
+              <h2>Förutsättningar och beroenden</h2>
+            </div>
+            <span className="sequence-note">
+              <GitBranch size={16} /> Härledd ordning, inte startgodkännande
+            </span>
+          </div>
+          <div className="enabler-strip">
+            <Database />{" "}
+            <div>
+              <b>Återanvänt möjliggörande initiativ</b>
+              {story.enablingInitiatives.map((item) => (
+                <span key={item.id}>
+                  {item.title} · <code>{item.id}</code>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="execution-levels">
+            {story.executionLevels.map((level, index) => (
+              <div className="execution-level" key={index}>
+                <span className="level-number">{index + 1}</span>
+                <div>
+                  {level.map((nodeId) => {
+                    const node = state.entities.executionNodes[nodeId];
+                    return (
+                      <article
+                        className={`node node-${node.availabilityStatus.toLowerCase()}`}
+                        key={node.id}
+                      >
+                        <span>
+                          {node.availabilityStatus === "AVAILABLE" ? (
+                            <CheckCircle2 />
+                          ) : node.availabilityStatus === "BLOCKED" ? (
+                            <CircleDashed />
+                          ) : (
+                            <Blocks />
+                          )}
+                          {statusLabel[node.availabilityStatus]}
+                        </span>
+                        <h3>{node.title}</h3>
+                        <p>{kindLabel[node.nodeKind]}</p>
+                        <small>Behövs {node.neededAt}</small>
+                        <code>{node.id}</code>
+                      </article>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="footnote">
+            Grafen innehåller {story.prerequisiteNodes.length} stabila noder och{" "}
+            {story.dependencies.length} explicita beroenden. Ägarskap behålls
+            även när en förutsättning återanvänds.
+          </p>
+          <Trace values={story.sourceRefs} />
+        </section>
+
+        <section id="roadmap" className="section-block roadmap">
+          <p className="eyebrow">FORTSATT IMPLEMENTATION</p>
+          <h2>Processdelar som ännu inte är implementerade</h2>
+          <div className="roadmap-grid">
+            {[
+              "Lokala effektåtaganden och baseline",
+              "Mänskligt startbeslut och låst beslutsversion",
+              "Prognos och formell ändringsstyrning",
+              "Verifierade mätpunkter och realiserad effekt",
+              "Härledd strategisk översikt och lärande",
+            ].map((label, index) => (
+              <article key={label}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <p>{label}</p>
+                <small>Ej implementerad</small>
+              </article>
+            ))}
+          </div>
+        </section>
       </main>
-      {newOpen && (
-        <NewChallenge
-          state={stage2State}
-          close={() => setNewOpen(false)}
-          open={(title, problem, organizationId) => {
-            const token = Date.now().toString(36);
-            const challengeId = createId("Challenge", `created-${token}`);
-            const initiativeId = createId("Initiative", `created-${token}`);
-            const actorRoleAssignmentId = Object.keys(
-              stage2State.entities.roleAssignments,
-            )[0] as RoleAssignmentId;
-            const issuedAt = new Date().toISOString();
-            const commands: Command[] = [
-              {
-                commandId: createId("Command", `create-challenge-${token}`),
-                actorRoleAssignmentId,
-                issuedAt,
-                commandType: "CREATE_STRATEGIC_CHALLENGE",
-                targetId: challengeId,
-                payload: {
-                  title,
-                  problemStatement: problem,
-                  currentState:
-                    "Nuläge behöver kompletteras i kvalificeringen.",
-                  source: "Registrerat syntetiskt användarunderlag",
-                  strategicRelevance: "Bedöms i fortsatt kvalificering.",
-                  strategicHandlingReason:
-                    "Registrerat för gemensam bedömning.",
-                  nominationStatus: "NOMINATED",
-                },
-              },
-              {
-                commandId: createId("Command", `create-initiative-${token}`),
-                actorRoleAssignmentId,
-                issuedAt,
-                commandType: "CREATE_INITIATIVE_FROM_CHALLENGE",
-                targetId: initiativeId,
-                payload: {
-                  challengeId,
-                  title,
-                  purpose: problem,
-                  desiredEndState:
-                    "Önskat slutläge kompletteras under kvalificering.",
-                  initiativeKind: "VALUE_CREATING",
-                  scope: "Syntetiskt registrerat ärende",
-                },
-              },
-              {
-                commandId: createId("Command", `active-challenge-${token}`),
-                actorRoleAssignmentId,
-                issuedAt,
-                commandType: "SET_ACTIVE_CHALLENGE",
-                targetId: challengeId,
-              },
-              {
-                commandId: createId("Command", `active-initiative-${token}`),
-                actorRoleAssignmentId,
-                issuedAt,
-                commandType: "SET_ACTIVE_INITIATIVE",
-                targetId: initiativeId,
-              },
-              {
-                commandId: createId("Command", `perspective-${token}`),
-                actorRoleAssignmentId,
-                issuedAt,
-                commandType: "SET_VIEW_PERSPECTIVE",
-                payload: {
-                  perspective: { kind: "ORGANIZATION", organizationId },
-                },
-              },
-            ];
-            setStage2State((current) => {
-              let failed = false;
-              const next = commands.reduce((nextState, command) => {
-                if (failed) return nextState;
-                const result = demoReducer(nextState, command);
-                if (!result.success) failed = true;
-                return result.success ? result.nextState : nextState;
-              }, current);
-              return failed ? current : next;
-            });
-            setNewOpen(false);
-            setPage("Kvalificering");
-          }}
-        />
-      )}
+      <footer>
+        All data och alla namn är syntetiska · Ingen backend, autentisering,
+        extern AI eller integration är ansluten
+      </footer>
     </div>
   );
 }

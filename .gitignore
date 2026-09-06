@@ -8,3 +8,5 @@ dist/
 
 # Playwright runtime output
 /test-results/
+
+/artifacts/new-application-entry.png

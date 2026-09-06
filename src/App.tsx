@@ -27,6 +27,7 @@ import {
   type RoleAssignmentId,
 } from "./domain";
 import { stage3Ids } from "./demo-data/stage3DemoData";
+import { CaseWorkspace } from "./workspaces/CaseWorkspace";
 
 const initialState = initializeDemoState();
 const statusLabel = {
@@ -73,6 +74,7 @@ function commandError(result: CommandResult) {
 
 export default function App() {
   const [state, setState] = useState<DemoState>(initialState);
+  const [showPortfolio, setShowPortfolio] = useState(false);
   const activeProfile = Object.values(
     state.entities.steeringProfileVersions,
   ).find((item) => item.status === "ACTIVE")!;
@@ -86,6 +88,10 @@ export default function App() {
     () => strategicComparison(state, comparisonProfileId),
     [state, comparisonProfileId],
   );
+  const [comparisonSelection, setComparisonSelection] = useState<InitiativeId[]>(
+    () => strategicComparison(initialState, activeProfile.id).map((item) => item.initiative.id),
+  );
+  const displayedComparisons = comparisons.filter((item) => comparisonSelection.includes(item.initiative.id));
   const [selectedInitiativeId, setSelectedInitiativeId] =
     useState<InitiativeId>(stage3Ids.valueInitiative);
   const story = referenceStory(state, selectedInitiativeId);
@@ -183,6 +189,14 @@ export default function App() {
     setFeedback("");
   };
 
+  if (!showPortfolio) return (
+    <div className="product-shell">
+      <header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Länkade delar"><a href="#comparison">Prioritering</a><a href="#potential">Effektpotential</a><a href="#conditions">Förutsättningar</a><a href="#costs">Kostnader</a></nav><span className="demo-badge">Syntetisk demo</span></header>
+      <main id="top"><CaseWorkspace state={state} dispatch={dispatch} openPortfolio={(id) => { selectInitiative(id); setShowPortfolio(true); setTimeout(() => document.querySelector("#potential")?.scrollIntoView(), 0); }}/></main>
+      <footer>Prioritering är inte startbeslut · Inte implementerat i denna leverans: effektåtagande, startbeslut och verifierad effekt. Ändringar sparas endast i demosessionen · Ingen backend eller verklig autentisering<span className="sr-only">{stage3Ids.valueInitiative} CHALLENGE-DEMO-challenge-105 {stage3Ids.sharedNode} Bedömd potential – inte beslutad effekthemtagning. Planerare i den fiktiva omsorgsverksamheten UNDVIKBAR_DRIFTKOSTNAD FRIGJORD_PLANERINGSKAPACITET procentenheter</span></footer>
+    </div>
+  );
+
   return (
     <div className="product-shell">
       <header className="product-header">
@@ -193,6 +207,7 @@ export default function App() {
           <b>Transformation Cockpit</b>
         </a>
         <nav aria-label="Sidinnehåll">
+          <button className="nav-button" onClick={() => setShowPortfolio(false)}>Ärenden</button>
           <a href="#comparison">Prioritering</a>
           <a href="#potential">Effektpotential</a>
           <a href="#conditions">Förutsättningar</a>
@@ -226,7 +241,7 @@ export default function App() {
           <div className="section-title">
             <div>
               <p className="eyebrow">STRATEGISK JÄMFÖRELSE</p>
-              <h2>Prioriteringsunderlag för tre initiativ</h2>
+              <h2>Prioriteringsunderlag · {displayedComparisons.length} valda initiativ</h2>
             </div>
             <span className="nonbinding">
               {comparisonProfile.demoAssumption}
@@ -236,8 +251,9 @@ export default function App() {
             Ledningen behöver se både kriteriernas bidrag och osäkerheten.
             Poängen stödjer prioriteringsdiskussionen men godkänner inte start.
           </Help>
+          <fieldset className="comparison-selection"><legend>Välj kvalificerade initiativ att jämföra</legend>{comparisons.map((item) => <label key={item.initiative.id}><input type="checkbox" checked={comparisonSelection.includes(item.initiative.id)} onChange={(event) => setComparisonSelection(event.target.checked ? [...comparisonSelection, item.initiative.id] : comparisonSelection.filter((id) => id !== item.initiative.id))}/>{item.initiative.title}</label>)}</fieldset>
           <div className="comparison-grid">
-            {comparisons.map((item) => (
+            {displayedComparisons.map((item) => (
               <button
                 className={`comparison-card ${item.initiative.id === selectedInitiativeId ? "selected" : ""}`}
                 key={item.initiative.id}
@@ -356,7 +372,7 @@ export default function App() {
                     },
                   },
                 ];
-                comparisons.forEach((item, index) =>
+                displayedComparisons.forEach((item, index) =>
                   commands.push({
                     commandId: createId(
                       "Command",
@@ -384,7 +400,7 @@ export default function App() {
           </div>
           <div className="contributions">
             <h3>Bidrag för valt initiativ</h3>
-            {comparisons
+            {displayedComparisons
               .find((item) => item.initiative.id === selectedInitiativeId)
               ?.assessment.criterionAssessments.map((criterion) => (
                 <div key={criterion.criterionCode}>

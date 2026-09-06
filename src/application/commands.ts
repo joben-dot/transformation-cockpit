@@ -59,6 +59,13 @@ export type Command =
       };
     })
   | (CommandMetadata & {
+      commandType: "UPDATE_STRATEGIC_CHALLENGE";
+      targetId: ChallengeId;
+      payload: Partial<Pick<import("../domain").StrategicChallenge,
+        "title" | "problemStatement" | "currentState" | "source" |
+        "strategicRelevance" | "strategicHandlingReason" | "nominationStatus" | "businessCase">>;
+    })
+  | (CommandMetadata & {
       commandType: "CREATE_INITIATIVE_FROM_CHALLENGE";
       targetId: InitiativeId;
       payload: {
@@ -111,6 +118,8 @@ export type Command =
         missingItem: string;
         reasonRequired: string;
         blocks: CompletionBlock[];
+        responsibleRoleAssignmentId?: RoleAssignmentId;
+        deadline?: string;
       };
     })
   | (CommandMetadata & {

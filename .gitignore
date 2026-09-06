@@ -2,3 +2,6 @@ node_modules/
 dist/
 *.local
 *.tsbuildinfo
+
+# Generated review screenshots (kept outside Git)
+/artifacts/etapp-*.png

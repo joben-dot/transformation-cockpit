@@ -1,0 +1,141 @@
+import type {
+  InitiativeId,
+  PriorityAssessment,
+  PriorityAssessmentId,
+  PriorityRecommendation,
+  SteeringProfileVersion,
+  SteeringProfileVersionId,
+} from "../../domain";
+import type { DemoState } from "../demoState";
+import {
+  isInitiativeQualified,
+  completionBlockersForStep,
+} from "./qualificationSelectors";
+
+export function validateSteeringProfile(profile: SteeringProfileVersion) {
+  const errors: string[] = [];
+  const codes = new Set(profile.criteria.map((item) => item.code));
+  profile.criteria
+    .filter((item) => item.required)
+    .forEach((item) => {
+      if (profile.weights[item.code] === undefined)
+        errors.push(`Obligatoriskt kriterium saknar vikt: ${item.name}.`);
+    });
+  Object.entries(profile.weights).forEach(([code, weight]) => {
+    if (!codes.has(code)) errors.push(`Vikt saknar kriterium: ${code}.`);
+    if (!Number.isFinite(weight) || weight < 0)
+      errors.push(`Ogiltig vikt: ${code}.`);
+  });
+  if (
+    Object.values(profile.weights).reduce((sum, value) => sum + value, 0) !==
+    profile.weightSumRule
+  )
+    errors.push(`Viktsumman ska vara ${profile.weightSumRule}.`);
+  return { valid: errors.length === 0, errors, sourceRefs: [profile.id] };
+}
+export const activeSteeringProfile = (state: DemoState) =>
+  Object.values(state.entities.steeringProfileVersions).find(
+    (item) => item.status === "ACTIVE",
+  );
+export interface PriorityCalculationInput {
+  assessmentId: PriorityAssessmentId;
+  initiativeId: InitiativeId;
+  profile: SteeringProfileVersion;
+  scores: Record<
+    string,
+    {
+      score: number;
+      evidenceRefs: string[];
+      uncertainty: "LOW" | "MEDIUM" | "HIGH";
+    }
+  >;
+  assessedAt: string;
+}
+export function calculatePriorityAssessment(
+  state: DemoState,
+  input: PriorityCalculationInput,
+): PriorityAssessment {
+  const blockers = completionBlockersForStep(
+    state,
+    input.initiativeId,
+    "PRIORITIZATION",
+  );
+  const eligible =
+    isInitiativeQualified(state, input.initiativeId) && blockers.length === 0;
+  const criterionAssessments = input.profile.criteria.map((criterion) => {
+    const value = input.scores[criterion.code] ?? {
+      score: 0,
+      evidenceRefs: [],
+      uncertainty: "HIGH" as const,
+    };
+    return {
+      criterionCode: criterion.code,
+      score: value.score,
+      contribution: eligible
+        ? Math.round(
+            value.score * (input.profile.weights[criterion.code] ?? 0),
+          ) / input.profile.weightSumRule
+        : 0,
+      evidenceRefs: value.evidenceRefs,
+      uncertainty: value.uncertainty,
+    };
+  });
+  const totalScore = Math.round(
+    criterionAssessments.reduce((sum, item) => sum + item.contribution, 0),
+  );
+  const recommendation: PriorityRecommendation = !eligible
+    ? "NOT_ELIGIBLE"
+    : totalScore >= input.profile.thresholds.start
+      ? "START"
+      : totalScore >= input.profile.thresholds.investigate
+        ? "INVESTIGATE"
+        : totalScore >= input.profile.thresholds.wait
+          ? "WAIT"
+          : "STOP";
+  return {
+    id: input.assessmentId,
+    initiativeId: input.initiativeId,
+    steeringProfileVersionId: input.profile.id,
+    criterionAssessments,
+    totalScore,
+    evidenceSummary: `${criterionAssessments.flatMap((item) => item.evidenceRefs).length} källreferenser`,
+    uncertaintySummary: criterionAssessments.some(
+      (item) => item.uncertainty === "HIGH",
+    )
+      ? "Hög osäkerhet i minst ett kriterium"
+      : "Ingen hög osäkerhet",
+    systemRecommendation: recommendation,
+    assessedAt: input.assessedAt,
+    status: "CALCULATED",
+    humanRationale: blockers.length
+      ? `Blockerat av ${blockers.length} kompletteringskrav.`
+      : undefined,
+  };
+}
+export const priorityAssessmentByInitiative = (
+  state: DemoState,
+  initiativeId: InitiativeId,
+) =>
+  Object.values(state.entities.priorityAssessments).filter(
+    (item) => item.initiativeId === initiativeId,
+  );
+export const priorityContributionByCriterion = (
+  assessment: PriorityAssessment,
+) =>
+  assessment.criterionAssessments.map((item) => ({
+    criterionCode: item.criterionCode,
+    contribution: item.contribution,
+    sourceRefs: item.evidenceRefs,
+  }));
+export const initiativesEligibleForPrioritization = (state: DemoState) =>
+  Object.values(state.entities.initiatives).filter((item) =>
+    isInitiativeQualified(state, item.id),
+  );
+export const prioritizedInitiatives = (state: DemoState) =>
+  Object.values(state.entities.priorityAssessments)
+    .filter((item) => item.status !== "DRAFT")
+    .sort((a, b) => b.totalScore - a.totalScore);
+export const steeringProfileById = (
+  state: DemoState,
+  id: SteeringProfileVersionId,
+) => state.entities.steeringProfileVersions[id];

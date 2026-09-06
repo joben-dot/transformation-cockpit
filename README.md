@@ -16,6 +16,34 @@ En körbar prototyp för effektstyrd verksamhetstransformation i en **fiktiv sve
 
 Prototypen är en responsiv single-page application byggd med **React**, **TypeScript** och **Vite**. Navigering och demo-interaktioner hanteras lokalt i React utan router eller backend. Ikoner kommer från `lucide-react`; all verksamhetsdata ligger som statisk, syntetisk demodata i klienten.
 
+Den gemensamma grunden under `src/domain`, `src/application` och `src/demo-data`
+är ren TypeScript och inför brandade ID:n, normaliserat `DemoState`, validerade
+commands, en atomär reducer och rena selectors. Det befintliga presentationslagret
+behålls under etapp 1 och migreras stegvis i senare, separat verifierade etapper.
+
+Etapp 2 använder samma grund för sex härledda kvalificeringsområden, styrda
+kompletteringskrav, icke-bindande effektpotential och versionsbunden, transparent
+prioritering med ett separat mänskligt ställningstagande.
+
+Etapp 3 utökar samma normaliserade state med en riktad förutsättningsgraf,
+topologiskt härledd genomförandeordning, tidsatt kapacitetsanalys och spårbara
+kostnadsursprung. Scenariobunden kostnadsallokering fördelar en befintlig kostnad
+och skapar ingen ny. Startbeslut, effektåtaganden och effektutfall ingår ännu inte
+i den nya arkitekturen.
+
+Kostnadsberäkningen skiljer investeringens ursprung från enskilda ekonomiska
+poster. Faktiska delutfall summeras, medan bara den senaste versionen av samma
+bedömning används. Återkommande årsbelopp projiceras endast när ett uttryckligt
+tidsintervall har angetts, och då endast för hela kalenderår. Utan sådan horisont
+visas beloppet som ett oprojicerat årsbelopp. Allokering avrundas till hela kronor
+och sista mottagaren får deterministiskt återstående belopp.
+
+Om en vald horisont innehåller delår returnerar kostnadsselectorn en ofullständig
+beräkning med beräknad helårsdel, obehandlad period, anledning och källreferenser.
+Kapacitetsunderlag väljs genom explicita ersättningsrelationer; motstridiga
+överlappande underlag utan sådan relation redovisas som `UNKNOWN` och väljs aldrig
+automatiskt efter högsta eller lägsta värde.
+
 ## Kör lokalt
 
 Krav: Node.js 20 eller senare.

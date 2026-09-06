@@ -11,6 +11,7 @@ import type { CommandError, CommandResult } from "./commandResult";
 import type { DemoState } from "./demoState";
 import {
   calculatePriorityAssessment,
+  priorityEligibilityBlockers,
   validateSteeringProfile,
 } from "./selectors/prioritySelectors";
 import { priorityReviewMandateScope } from "../domain";
@@ -263,33 +264,61 @@ function validateCommand(
           command.targetId,
         );
       if (
-        command.payload.status === "NOT_APPLICABLE" &&
-        command.payload.requiresVerification &&
-        (!command.payload.verifiedByRoleAssignmentId ||
-          !command.payload.verifiedAt)
+        command.payload.status === "SATISFIED" &&
+        (!command.payload.summary.trim() ||
+          !command.payload.evidenceRefs.some((value) => value.trim()))
       )
         return failure(
           state,
           "INVALID_PAYLOAD",
-          "Ej tillämpligt kräver behörig verifiering för kriteriet.",
+          "En uppfylld bedömning kräver sammanfattning och explicit underlag.",
           command.targetId,
         );
-      if (command.payload.verifiedByRoleAssignmentId) {
-        const verifierAssignment =
-          state.entities.roleAssignments[
-            command.payload.verifiedByRoleAssignmentId
-          ];
-        const verifierRole = verifierAssignment
-          ? state.entities.roleDefinitions[verifierAssignment.roleDefinitionId]
-          : undefined;
-        if (!verifierAssignment || verifierRole?.roleKind !== "SPECIALIST")
-          return failure(
-            state,
-            "INVALID_REFERENCE",
-            "Verifieraren saknar behörig specialistroll.",
-            command.payload.verifiedByRoleAssignmentId,
-          );
-      }
+      break;
+    }
+    case "VERIFY_QUALIFICATION_ASSESSMENT": {
+      const assessment =
+        state.entities.qualificationAssessments[command.targetId];
+      if (!assessment)
+        return failure(
+          state,
+          "TARGET_NOT_FOUND",
+          "Bedömningen finns inte.",
+          command.targetId,
+        );
+      if (!assessment.requiresVerification)
+        return failure(
+          state,
+          "INVALID_PAYLOAD",
+          "Kriteriet kräver inte specialistverifiering.",
+          command.targetId,
+        );
+      if (!["SATISFIED", "NOT_APPLICABLE"].includes(assessment.status))
+        return failure(
+          state,
+          "INVALID_PAYLOAD",
+          "Endast ett färdigbedömt kriterium kan verifieras.",
+          command.targetId,
+        );
+      const assignment =
+        state.entities.roleAssignments[command.actorRoleAssignmentId];
+      const role = assignment
+        ? state.entities.roleDefinitions[assignment.roleDefinitionId]
+        : undefined;
+      const date = command.issuedAt.slice(0, 10);
+      if (
+        !assignment ||
+        !state.entities.people[assignment.personId] ||
+        role?.roleKind !== "SPECIALIST" ||
+        assignment.validFrom > date ||
+        (assignment.validTo && assignment.validTo < date)
+      )
+        return failure(
+          state,
+          "INVALID_REFERENCE",
+          "Verifieraren saknar en giltig specialistroll.",
+          command.actorRoleAssignmentId,
+        );
       break;
     }
     case "CREATE_COMPLETION_REQUIREMENT":
@@ -307,6 +336,22 @@ function validateCommand(
           "Initiativet finns inte.",
           command.payload.initiativeId,
         );
+      if (command.payload.qualificationAssessmentId) {
+        const assessment =
+          state.entities.qualificationAssessments[
+            command.payload.qualificationAssessmentId
+          ];
+        if (
+          !assessment ||
+          assessment.initiativeId !== command.payload.initiativeId
+        )
+          return failure(
+            state,
+            "INVALID_REFERENCE",
+            "Kompletteringskravet måste kopplas till en bedömning i samma initiativ.",
+            command.payload.qualificationAssessmentId,
+          );
+      }
       break;
     case "ASSIGN_COMPLETION_RESPONSIBILITY":
     case "SUBMIT_COMPLETION_REQUIREMENT":
@@ -347,6 +392,25 @@ function validateCommand(
           command.payload.verifierRoleAssignmentId,
         );
       if (
+        command.commandType === "ASSIGN_COMPLETION_RESPONSIBILITY" &&
+        command.payload.verifierRoleAssignmentId
+      ) {
+        const verifier =
+          state.entities.roleAssignments[
+            command.payload.verifierRoleAssignmentId
+          ];
+        if (
+          state.entities.roleDefinitions[verifier.roleDefinitionId]
+            ?.roleKind !== "SPECIALIST"
+        )
+          return failure(
+            state,
+            "INVALID_REFERENCE",
+            "Vald verifierare måste ha specialistroll.",
+            verifier.id,
+          );
+      }
+      if (
         command.commandType === "SUBMIT_COMPLETION_REQUIREMENT" &&
         (!["REQUESTED", "IN_PROGRESS", "REJECTED"].includes(
           requirement.status,
@@ -371,6 +435,26 @@ function validateCommand(
           "Endast utsedd verifierare kan verifiera ett inskickat krav.",
           command.targetId,
         );
+      if (command.commandType === "VERIFY_COMPLETION_REQUIREMENT") {
+        const verifier =
+          state.entities.roleAssignments[command.actorRoleAssignmentId];
+        const role = verifier
+          ? state.entities.roleDefinitions[verifier.roleDefinitionId]
+          : undefined;
+        const date = command.issuedAt.slice(0, 10);
+        if (
+          !verifier ||
+          role?.roleKind !== "SPECIALIST" ||
+          verifier.validFrom > date ||
+          (verifier.validTo && verifier.validTo < date)
+        )
+          return failure(
+            state,
+            "INVALID_REFERENCE",
+            "Kompletteringen kräver en giltig specialistverifierare.",
+            command.actorRoleAssignmentId,
+          );
+      }
       if (
         command.commandType === "REJECT_COMPLETION_REQUIREMENT" &&
         requirement.status !== "SUBMITTED"
@@ -383,7 +467,7 @@ function validateCommand(
         );
       break;
     }
-    case "RECORD_EFFECT_POTENTIAL":
+    case "RECORD_EFFECT_POTENTIAL": {
       if (state.entities.effectPotentials[command.targetId])
         return failure(
           state,
@@ -397,6 +481,58 @@ function validateCommand(
           "INVALID_REFERENCE",
           "Initiativet finns inte.",
           command.payload.initiativeId,
+        );
+      if (
+        !(
+          command.payload.recipientBusinessId ||
+          command.payload.recipientScenario?.trim()
+        ) ||
+        !command.payload.effectMeasureCode.trim() ||
+        !command.payload.unit.trim() ||
+        !command.payload.evidenceRefs.some((value) => value.trim()) ||
+        !command.payload.assumptions.some((value) => value.trim()) ||
+        !command.payload.realizationWindow.trim() ||
+        ![
+          command.payload.lowerBound,
+          command.payload.expectedValue,
+          command.payload.upperBound,
+        ].every(Number.isFinite)
+      )
+        return failure(
+          state,
+          "INVALID_PAYLOAD",
+          "Potentialen kräver mottagare, mätetal, enhet, intervall, evidens, antagande och tidsfönster.",
+          command.targetId,
+        );
+      if (
+        command.payload.recipientBusinessId &&
+        !state.entities.businesses[command.payload.recipientBusinessId]
+      )
+        return failure(
+          state,
+          "INVALID_REFERENCE",
+          "Mottagande verksamhet finns inte.",
+          command.payload.recipientBusinessId,
+        );
+      if (
+        command.payload.earliestPossibleEffectDate >
+        command.payload.fullPotentialDate
+      )
+        return failure(
+          state,
+          "INVALID_PAYLOAD",
+          "Datum för full potential måste vara efter tidigaste möjliga effekt.",
+          command.targetId,
+        );
+      const assessors = command.payload.assessedByRoleAssignmentIds?.length
+        ? command.payload.assessedByRoleAssignmentIds
+        : [command.actorRoleAssignmentId];
+      if (assessors.some((id) => !state.entities.roleAssignments[id]))
+        return failure(
+          state,
+          "INVALID_REFERENCE",
+          "En vald bedömare saknar giltig rollrelation.",
+          command.targetId,
         );
       if (
         command.payload.lowerBound > command.payload.expectedValue ||
@@ -420,6 +556,7 @@ function validateCommand(
           command.targetId,
         );
       break;
+    }
     case "CREATE_STEERING_PROFILE_VERSION": {
       if (state.entities.steeringProfileVersions[command.targetId])
         return failure(
@@ -486,6 +623,24 @@ function validateCommand(
           "Styrprofilversionen är inte giltig.",
           command.payload.steeringProfileVersionId,
         );
+      {
+        const profile =
+          state.entities.steeringProfileVersions[
+            command.payload.steeringProfileVersionId
+          ];
+        const blockers = priorityEligibilityBlockers(
+          state,
+          command.payload.initiativeId,
+          profile,
+        );
+        if (blockers.length)
+          return failure(
+            state,
+            "INVALID_PAYLOAD",
+            blockers.map((item) => item.description).join(" "),
+            command.payload.initiativeId,
+          );
+      }
       break;
     case "REVIEW_PRIORITY_ASSESSMENT":
     case "OVERRIDE_PRIORITY_ASSESSMENT":
@@ -584,6 +739,13 @@ function applyCommand(nextState: DemoState, command: Command): string[] {
         assessedAt: command.issuedAt,
       };
       return [command.targetId, command.payload.initiativeId];
+    }
+    case "VERIFY_QUALIFICATION_ASSESSMENT": {
+      const item =
+        nextState.entities.qualificationAssessments[command.targetId];
+      item.verifiedByRoleAssignmentId = command.actorRoleAssignmentId;
+      item.verifiedAt = command.issuedAt;
+      return [item.id, item.initiativeId, command.actorRoleAssignmentId];
     }
     case "CREATE_COMPLETION_REQUIREMENT":
       nextState.entities.completionRequirements[command.targetId] = {

@@ -28,7 +28,6 @@ import {
   municipalities,
   qualificationRequirements,
   type Municipality,
-  type QualificationState,
   type SteeringProfile,
 } from "./scenario";
 import {
@@ -36,6 +35,7 @@ import {
   initializeDemoState,
   type Command,
   type CommandResult,
+  type DemoState,
 } from "./application";
 import { createId, type RoleAssignmentId } from "./domain";
 import { stage2Ids } from "./demo-data/stage2DemoData";
@@ -100,106 +100,6 @@ const organizations = [
   "Höglandsförbundet",
 ] as const;
 type Organization = InitiatingOrganization;
-const initialQualification = Object.fromEntries(
-  qualificationRequirements.map((requirement, index) => [
-    requirement,
-    index < 3,
-  ]),
-) as QualificationState;
-const completeQualification = Object.fromEntries(
-  qualificationRequirements.map((requirement) => [requirement, true]),
-) as QualificationState;
-const incompleteQualification = {
-  ...completeQualification,
-  "Informationsklassning genomförd": false,
-};
-const initialInitiatives: Initiative[] = [
-  {
-    id: "UTM-001",
-    title: "Manuell sammanställning tar tid inför beslut",
-    problem:
-      "Medarbetare söker och sammanställer samma information i flera steg.",
-    initiator: "Sävsjö",
-    participants: [...municipalities],
-    isDemo: true,
-    area: "Myndighetsprocess · Sävsjö",
-    effect: "8 400 tim/år",
-    evidence: "Hög",
-    time: "3–5 mån",
-    capacity: 2,
-    risk: "Medel",
-    scale: "Hög",
-    members: "5/5",
-    recommendation: "STARTA",
-    qualification: initialQualification,
-    selectedForPrioritization: false,
-    decision: null,
-    implementationStatus: "EJ_STARTAD",
-  },
-  {
-    id: "UTM-002",
-    title: "Ofullständiga ansökningar skapar väntan",
-    problem: "Fyra av tio syntetiska ansökningar behöver kompletteras.",
-    initiator: "Eksjö",
-    participants: ["Eksjö", "Sävsjö"],
-    isDemo: true,
-    area: "Samhällsprocess · Eksjö",
-    effect: "−14 dagar",
-    evidence: "Medel",
-    time: "2–4 mån",
-    capacity: 1,
-    risk: "Låg",
-    scale: "Medel",
-    members: "2/5",
-    recommendation: "STARTA",
-    qualification: completeQualification,
-    selectedForPrioritization: true,
-    decision: null,
-    implementationStatus: "EJ_STARTAD",
-  },
-  {
-    id: "UTM-003",
-    title: "Tidiga signaler leder inte till samordnad insats",
-    problem: "Olika arbetssätt fördröjer relevant återkoppling.",
-    initiator: "Aneby",
-    participants: ["Aneby", "Eksjö", "Sävsjö"],
-    isDemo: true,
-    area: "Välfärdsprocess · Aneby",
-    effect: "+12 % kvalitet",
-    evidence: "Låg",
-    time: "6–9 mån",
-    capacity: 2,
-    risk: "Medel",
-    scale: "Hög",
-    members: "3/5",
-    recommendation: "UTRED",
-    qualification: incompleteQualification,
-    selectedForPrioritization: false,
-    decision: null,
-    implementationStatus: "EJ_STARTAD",
-  },
-  {
-    id: "UTM-004",
-    title: "Manuell leverantörskontroll tar kapacitet",
-    problem: "Återkommande kontroller genomförs manuellt i flera system.",
-    initiator: "Nässjö",
-    participants: ["Nässjö"],
-    isDemo: true,
-    area: "Stödprocess · Nässjö",
-    effect: "1 600 tim/år",
-    evidence: "Medel",
-    time: "8–12 mån",
-    capacity: 3,
-    risk: "Hög",
-    scale: "Medel",
-    members: "1/5",
-    recommendation: "VÄNTA",
-    qualification: completeQualification,
-    selectedForPrioritization: false,
-    decision: null,
-    implementationStatus: "EJ_STARTAD",
-  },
-];
 const Badge = ({
   children,
   tone = "neutral",
@@ -323,6 +223,192 @@ function Sidebar({
     </>
   );
 }
+function DomainSidebar({
+  page,
+  setPage,
+  open,
+  setOpen,
+  state,
+  onCommand,
+}: {
+  page: Page;
+  setPage: (page: Page) => void;
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  state: DemoState;
+  onCommand: (command: Command) => CommandResult;
+}) {
+  const perspective = state.viewContext.selectedPerspective;
+  const actor = Object.keys(
+    state.entities.roleAssignments,
+  )[0] as RoleAssignmentId;
+  const setPerspective = (organizationId?: import("./domain").OrganizationId) =>
+    onCommand({
+      commandId: createId("Command", `navigation-perspective-${Date.now()}`),
+      actorRoleAssignmentId: actor,
+      issuedAt: new Date().toISOString(),
+      commandType: "SET_VIEW_PERSPECTIVE",
+      payload: {
+        perspective: organizationId
+          ? { kind: "ORGANIZATION", organizationId }
+          : { kind: "FEDERATED" },
+      },
+    });
+  return (
+    <>
+      <aside className={open ? "open" : ""}>
+        <div className="brand">
+          <div className="brandmark">
+            <Sparkles size={19} />
+          </div>
+          <div>
+            <strong>Transformation</strong>
+            <span>COCKPIT</span>
+          </div>
+          <button
+            aria-label="Stäng meny"
+            className="close"
+            onClick={() => setOpen(false)}
+          >
+            <X />
+          </button>
+        </div>
+        <label className="context">
+          <span>Visningsperspektiv (ändrar inte deltagande)</span>
+          <select
+            aria-label="Organisationsperspektiv"
+            value={
+              perspective.kind === "ORGANIZATION"
+                ? perspective.organizationId
+                : "FEDERATED"
+            }
+            onChange={(event) =>
+              setPerspective(
+                event.target.value === "FEDERATED"
+                  ? undefined
+                  : (event.target.value as import("./domain").OrganizationId),
+              )
+            }
+          >
+            <option value="FEDERATED">Federerad vy</option>
+            {Object.values(state.entities.organizations).map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="stage2-refs">
+          Perspektivet ändrar endast visningen; ingen filtrering eller omräkning
+          påstås.
+        </p>
+        <div className="navlabel">TRANSFORMATIONSFLÖDE</div>
+        <nav>
+          {nav.map(({ name, icon: Icon }) => (
+            <button
+              key={name}
+              className={page === name ? "active" : ""}
+              onClick={() => {
+                setPage(name);
+                setOpen(false);
+              }}
+            >
+              <Icon size={18} />
+              {name}
+            </button>
+          ))}
+        </nav>
+        <div className="adminnav">
+          <span>CONTROL PLANE</span>
+          <button
+            className={page === "Styrmodell" ? "active" : ""}
+            onClick={() => setPage("Styrmodell")}
+          >
+            <Settings2 size={18} />
+            Styrmodell / Inställningar
+          </button>
+        </div>
+        <div className="sidefoot">
+          <div className="avatar">DE</div>
+          <div>
+            <strong>Syntetisk demoanvändare</strong>
+            <span>Roll visas i respektive åtgärd</span>
+          </div>
+        </div>
+      </aside>
+      {open && <div className="scrim" onClick={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function DomainStart({
+  state,
+  go,
+  onCommands,
+}: {
+  state: DemoState;
+  go: (page: Page) => void;
+  onCommands: (commands: Command[]) => CommandResult;
+}) {
+  const actor = Object.keys(
+    state.entities.roleAssignments,
+  )[0] as RoleAssignmentId;
+  const initiatives = Object.values(state.entities.initiatives);
+  return (
+    <section className="stage2-workspace">
+      <span className="eyebrow">GEMENSAM ÄRENDEÖVERSIKT</span>
+      <h1>Från underlag till prioriteringsdiskussion</h1>
+      <p>
+        Översikten använder samma normaliserade syntetiska domändata som
+        arbetsytorna. Effektutfall och startbeslut ingår ännu inte.
+      </p>
+      <p>
+        {Object.keys(state.entities.challenges).length} utmaningar ·{" "}
+        {initiatives.length} initiativ
+      </p>
+      {initiatives.map((initiative) => (
+        <article className="stage2-potential" key={initiative.id}>
+          <h3>{initiative.title}</h3>
+          <p>
+            ChallengeId: {initiative.challengeId} · InitiativeId:{" "}
+            {initiative.id}
+          </p>
+          <button
+            onClick={() => {
+              const issuedAt = new Date().toISOString();
+              const result = onCommands([
+                {
+                  commandId: createId(
+                    "Command",
+                    `overview-challenge-${Date.now()}`,
+                  ),
+                  actorRoleAssignmentId: actor,
+                  issuedAt,
+                  commandType: "SET_ACTIVE_CHALLENGE",
+                  targetId: initiative.challengeId,
+                },
+                {
+                  commandId: createId(
+                    "Command",
+                    `overview-initiative-${Date.now()}`,
+                  ),
+                  actorRoleAssignmentId: actor,
+                  issuedAt,
+                  commandType: "SET_ACTIVE_INITIATIVE",
+                  targetId: initiative.id,
+                },
+              ]);
+              if (result.success) go("Utmaningar");
+            }}
+          >
+            Öppna gemensamt ärende
+          </button>
+        </article>
+      ))}
+    </section>
+  );
+}
+
 function Header({
   page,
   setOpen,
@@ -1618,9 +1704,11 @@ function initializeStage2View() {
 }
 
 export default function App() {
-  // Bevaras tills den äldre genomförandevyn uttryckligen migreras eller tas bort.
+  // Äldre komponenter hålls endast för regressionsskydd och används inte i demo-kedjan.
   void Delivery;
   void Governance;
+  void Sidebar;
+  void Start;
   const [page, setPage] = useState<Page>("Start");
   const [stage2State, setStage2State] = useState(initializeStage2View);
   const dispatchDomainCommand = (command: Command): CommandResult => {
@@ -1645,31 +1733,20 @@ export default function App() {
     };
   };
   const [menu, setMenu] = useState(false);
-  const [org, setOrg] = useState<Organization>(organizations[0]);
   const [newOpen, setNewOpen] = useState(false);
-  const [initiatives] = useState<Initiative[]>(initialInitiatives);
-  const [activeInitiativeId] = useState(initialInitiatives[0].id);
-  const [federatedView, setFederatedView] = useState(false);
-  const activeInitiative =
-    initiatives.find((item) => item.id === activeInitiativeId) ||
-    initiatives[0];
-  const usesDomainContext = [
-    "Utmaningar",
-    "Kvalificering",
-    "Effektpotential",
-    "Prioritering",
-    "Genomförande",
-    "Effekt",
-    "Lärande & återbruk",
-    "Styrmodell",
-  ].includes(page);
   const domainPerspective = stage2State.viewContext.selectedPerspective;
   const domainOrganization =
     domainPerspective.kind === "ORGANIZATION"
       ? stage2State.entities.organizations[domainPerspective.organizationId]
       : undefined;
   const content = {
-    Start: <Start go={setPage} initiatives={initiatives} />,
+    Start: (
+      <DomainStart
+        state={stage2State}
+        go={setPage}
+        onCommands={dispatchDomainCommands}
+      />
+    ),
     Utmaningar: <StrategicChallengeWorkspace state={stage2State} />,
     Kvalificering: (
       <QualificationWorkspace
@@ -1741,80 +1818,28 @@ export default function App() {
   }[page];
   return (
     <div className="app">
-      <Sidebar
+      <DomainSidebar
         page={page}
         setPage={setPage}
         open={menu}
         setOpen={setMenu}
-        org={org}
-        setOrg={(value) => {
-          setOrg(value);
-          setFederatedView(false);
-        }}
-        federatedView={federatedView}
-        setFederatedView={setFederatedView}
+        state={stage2State}
+        onCommand={dispatchDomainCommand}
       />
       <main>
         <Header page={page} setOpen={setMenu} onNew={() => setNewOpen(true)} />
         <div className="federated-strip">
           <Users size={15} />
           <span>
-            {usesDomainContext ? (
-              <>
-                <b>
-                  Du ser nu:{" "}
-                  {domainPerspective.kind === "FEDERATED"
-                    ? "Federerad vy"
-                    : domainOrganization?.name}
-                </b>{" "}
-                – samma perspektiv används i det aktiva domänärendet
-              </>
-            ) : federatedView ? (
-              <>
-                <b>Du ser nu: Federerad vy</b> – samlad bild för{" "}
-                {activeInitiative.participants.length
-                  ? activeInitiative.participants.join(", ")
-                  : "inga angivna deltagare"}
-              </>
-            ) : (
-              <>
-                <b>Du ser nu: {org}</b> – lokalt perspektiv
-              </>
-            )}
+            <b>
+              Du ser nu:{" "}
+              {domainPerspective.kind === "FEDERATED"
+                ? "Federerad vy"
+                : domainOrganization?.name}
+            </b>{" "}
+            – gemensam ärendeidentitet; perspektivet muterar inte deltagande
+            eller grunddata
           </span>
-          <button
-            onClick={() => {
-              if (!usesDomainContext) return setFederatedView(!federatedView);
-              const actorRoleAssignmentId = Object.keys(
-                stage2State.entities.roleAssignments,
-              )[0] as RoleAssignmentId;
-              dispatchDomainCommand({
-                commandId: createId("Command", `perspective-ui-${Date.now()}`),
-                actorRoleAssignmentId,
-                issuedAt: new Date().toISOString(),
-                commandType: "SET_VIEW_PERSPECTIVE",
-                payload: {
-                  perspective:
-                    domainPerspective.kind === "FEDERATED"
-                      ? {
-                          kind: "ORGANIZATION",
-                          organizationId: Object.keys(
-                            stage2State.entities.organizations,
-                          )[0] as import("./domain").OrganizationId,
-                        }
-                      : { kind: "FEDERATED" },
-                },
-              });
-            }}
-          >
-            {(
-              usesDomainContext
-                ? domainPerspective.kind === "FEDERATED"
-                : federatedView
-            )
-              ? "Visa lokalt"
-              : "Visa federerat"}
-          </button>
         </div>
         <div className="content">{content}</div>
         <footer className="disclaimer">

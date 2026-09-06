@@ -51,17 +51,61 @@ export interface PriorityCalculationInput {
   >;
   assessedAt: string;
 }
+export function priorityEligibilityBlockers(
+  state: DemoState,
+  initiativeId: InitiativeId,
+  profile: SteeringProfileVersion,
+) {
+  const blockers: Array<{
+    code: string;
+    description: string;
+    sourceRefs: string[];
+  }> = completionBlockersForStep(state, initiativeId, "PRIORITIZATION").map(
+    (item) => ({
+      code: "COMPLETION_REQUIRED",
+      description: item.missingItem,
+      sourceRefs: [item.id],
+    }),
+  );
+  if (!isInitiativeQualified(state, initiativeId)) {
+    blockers.push({
+      code: "QUALIFICATION_INCOMPLETE",
+      description: "Kvalificeringen måste slutföras före prioritering.",
+      sourceRefs: [initiativeId],
+    });
+  }
+  const potentials = Object.values(state.entities.effectPotentials).filter(
+    (item) => item.initiativeId === initiativeId,
+  );
+  const effectCriterionRequired = profile.criteria.some(
+    (criterion) => criterion.required && criterion.code === "EFFECT",
+  );
+  if (effectCriterionRequired && potentials.length === 0) {
+    blockers.push({
+      code: "EFFECT_POTENTIAL_MISSING",
+      description:
+        "Relevant bedömd effektpotential måste registreras före prioritering.",
+      sourceRefs: [profile.id, initiativeId],
+    });
+  }
+  return blockers;
+}
 export function calculatePriorityAssessment(
   state: DemoState,
   input: PriorityCalculationInput,
 ): PriorityAssessment {
-  const blockers = completionBlockersForStep(
+  const blockers = priorityEligibilityBlockers(
     state,
     input.initiativeId,
-    "PRIORITIZATION",
+    input.profile,
   );
-  const eligible =
-    isInitiativeQualified(state, input.initiativeId) && blockers.length === 0;
+  const eligible = blockers.length === 0;
+  const potentials = Object.values(state.entities.effectPotentials).filter(
+    (item) => item.initiativeId === input.initiativeId,
+  );
+  const qualificationAssessments = Object.values(
+    state.entities.qualificationAssessments,
+  ).filter((item) => item.initiativeId === input.initiativeId);
   const criterionAssessments = input.profile.criteria.map((criterion) => {
     const value = input.scores[criterion.code] ?? {
       score: 0,
@@ -110,6 +154,8 @@ export function calculatePriorityAssessment(
     humanRationale: blockers.length
       ? `Blockerat av ${blockers.length} kompletteringskrav.`
       : undefined,
+    effectPotentialIds: potentials.map((item) => item.id),
+    qualificationAssessmentIds: qualificationAssessments.map((item) => item.id),
   };
 }
 export const priorityAssessmentByInitiative = (

@@ -5,3 +5,6 @@ dist/
 
 # Generated review screenshots (kept outside Git)
 /artifacts/etapp-*.png
+
+# Playwright runtime output
+/test-results/

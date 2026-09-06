@@ -95,10 +95,12 @@ export type Command =
         evidenceRefs: string[];
         assumptions: string[];
         notApplicableRationale?: string;
-        verifiedByRoleAssignmentId?: RoleAssignmentId;
-        verifiedAt?: string;
         assessedAgainstConfigurationVersion: import("../domain").QualificationConfigurationId;
       };
+    })
+  | (CommandMetadata & {
+      commandType: "VERIFY_QUALIFICATION_ASSESSMENT";
+      targetId: import("../domain").QualificationAssessmentId;
     })
   | (CommandMetadata & {
       commandType: "CREATE_COMPLETION_REQUIREMENT";

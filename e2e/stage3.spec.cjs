@@ -29,7 +29,7 @@ test("stage 3 browser flow", async ({ page }) => {
   });
 });
 
-test("sammanhängande ärende från registrering genom etapp 3", async ({
+test("sammanhängande ärende med individuell bedömning och explicit potential", async ({
   page,
 }) => {
   await page.goto("http://127.0.0.1:5173/");
@@ -44,28 +44,100 @@ test("sammanhängande ärende från registrering genom etapp 3", async ({
   await page
     .getByRole("button", { name: "Registrera och kvalificera" })
     .click();
-  await expect(
-    page.getByText(/ChallengeId: CHALLENGE-DEMO-created-/),
-  ).toBeVisible();
   const identity = await page.locator(".stage2-identity").textContent();
+  const editor = page.getByRole("region", { name: "Bearbeta kvalificering" });
+  const criterion = editor.getByLabel("Kriterium");
+  const options = await criterion
+    .locator("option")
+    .evaluateAll((items) => items.map((item) => item.value));
 
-  await page
-    .getByRole("button", { name: "Bedöm alla återstående punkter" })
+  await editor.getByLabel("Bedömning").selectOption("INCOMPLETE");
+  await editor
+    .getByLabel("Sammanfattning")
+    .fill("Första punkten behöver mer underlag");
+  await editor.getByRole("button", { name: "Spara vald bedömning" }).click();
+  await criterion.selectOption(options[1]);
+  await expect(editor.getByLabel("Bedömning")).toHaveValue("INCOMPLETE");
+
+  for (const [index, code] of options.entries()) {
+    await criterion.selectOption(code);
+    await editor.getByLabel("Bedömning").selectOption("SATISFIED");
+    await editor
+      .getByLabel("Sammanfattning")
+      .fill(`Individuell syntetisk bedömning ${index + 1}`);
+    await editor.getByLabel(/Evidensreferenser/).fill(`EVIDENCE-${index + 1}`);
+    await editor.getByLabel(/Antaganden/).fill(`ASSUMPTION-${index + 1}`);
+    await editor.getByRole("button", { name: "Spara vald bedömning" }).click();
+    const verify = editor.getByRole("button", {
+      name: "Verifiera vald bedömning",
+    });
+    if (await verify.isVisible().catch(() => false)) await verify.click();
+  }
+
+  const completion = page.getByRole("region", {
+    name: "Hantera komplettering",
+  });
+  await completion.getByLabel("Vad saknas?").fill("Kriteriespecifik kontroll");
+  await completion
+    .getByLabel("Varför behövs det?")
+    .fill("Behövs för spårbar mänsklig prövning");
+  await completion
+    .getByRole("button", { name: /Skapa kriteriespecifikt/ })
     .click();
-  await expect(page.getByText("Samtliga bedömningar sparades.")).toBeVisible();
-  await page.getByRole("button", { name: "Skapa kompletteringskrav" }).click();
-  await page
-    .getByRole("button", { name: "Ange ansvarig, deadline och verifierare" })
+  await completion.getByRole("button", { name: /Spara vald ansvarig/ }).click();
+  await completion
+    .getByRole("button", { name: "Lämna in komplettering" })
     .click();
-  await page.getByRole("button", { name: "Lämna in komplettering" }).click();
-  await page.getByRole("button", { name: "Verifiera komplettering" }).click();
+  await completion
+    .getByRole("button", { name: "Verifiera komplettering" })
+    .click();
+
+  await page.getByRole("button", { name: "Prioritering" }).click();
+  await page
+    .getByRole("button", { name: /Beräkna nytt prioriteringsunderlag/ })
+    .click();
+  await expect(page.getByRole("status")).toContainText("effektpotential");
 
   await page.getByRole("button", { name: "Effektpotential" }).click();
   await expect(page.locator(".stage2-identity")).toHaveText(identity);
-  await page
+  const potential = page.getByRole("region", {
+    name: "Registrera effektpotential",
+  });
+  await potential.getByLabel("Effektkategori").selectOption("MONEY");
+  await potential.getByLabel("Mätetal").fill("MÖJLIG_KOSTNADSEFFEKT");
+  await potential.getByLabel("Enhet").fill("SEK/år");
+  await potential.getByLabel("Låg potential").fill("100000");
+  await potential.getByLabel("Förväntad potential").fill("150000");
+  await potential.getByLabel("Hög potential").fill("200000");
+  await potential.getByLabel("Evidens").fill("EVIDENCE-MONEY");
+  await potential.getByLabel("Antagande").fill("Syntetiskt volymantagande");
+  await potential
+    .getByLabel("Effekthemtagningsfönster")
+    .fill("Kalenderår 2027");
+  await potential.getByLabel("Tidigaste möjliga effekt").fill("2027-01-01");
+  await potential.getByLabel("Full potential").fill("2027-12-31");
+  await potential
     .getByRole("button", { name: "Registrera bedömd potential" })
     .click();
-  await expect(page.getByText("Potentialen registrerades.")).toBeVisible();
+  await expect(page.getByText(/150000 \/ 200000 SEK\/år/)).toBeVisible();
+
+  await potential.getByLabel("Effektkategori").selectOption("RELEASED_TIME");
+  await potential.getByLabel("Mätetal").fill("MÖJLIG_FRIGJORD_TID");
+  await potential.getByLabel("Enhet").fill("timmar/år");
+  await potential.getByLabel("Låg potential").fill("300");
+  await potential.getByLabel("Förväntad potential").fill("450");
+  await potential.getByLabel("Hög potential").fill("600");
+  await potential.getByLabel("Evidens").fill("EVIDENCE-TIME");
+  await potential
+    .getByLabel("Antagande")
+    .fill("Syntetiskt arbetsflödesantagande");
+  await potential.getByLabel("Effekthemtagningsfönster").fill("2028–2029");
+  await potential.getByLabel("Tidigaste möjliga effekt").fill("2028-02-01");
+  await potential.getByLabel("Full potential").fill("2029-06-30");
+  await potential
+    .getByRole("button", { name: "Registrera bedömd potential" })
+    .click();
+  await expect(page.getByText(/450 \/ 600 timmar\/år/)).toBeVisible();
 
   await page.getByRole("button", { name: "Prioritering" }).click();
   await expect(page.locator(".stage2-identity")).toHaveText(identity);
@@ -81,15 +153,16 @@ test("sammanhängande ärende från registrering genom etapp 3", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: /Styrmodell/ }).click();
-  const effect = page.getByLabel("Effekt");
-  const evidence = page.getByLabel("Evidens");
-  await effect.fill(String(Number(await effect.inputValue()) + 1));
-  await evidence.fill(String(Number(await evidence.inputValue()) - 1));
+  const effectWeight = page.getByLabel("Effekt");
+  const evidenceWeight = page.getByLabel("Evidens");
+  await effectWeight.fill(String(Number(await effectWeight.inputValue()) + 1));
+  await evidenceWeight.fill(
+    String(Number(await evidenceWeight.inputValue()) - 1),
+  );
   await page
     .getByRole("button", { name: "Skapa och aktivera ny profilversion" })
     .click();
   await expect(page.getByText(/Profilversion 2 aktiverades/)).toBeVisible();
-
   await page.getByRole("button", { name: "Prioritering" }).click();
   await page
     .getByRole("button", { name: /Beräkna nytt prioriteringsunderlag/ })
@@ -99,15 +172,7 @@ test("sammanhängande ärende från registrering genom etapp 3", async ({
   ).toBeVisible();
 
   await page.getByRole("button", { name: "Genomförande" }).click();
-  await page
-    .getByRole("button", { name: "Lägg till ny förutsättning" })
-    .click();
-  await expect(
-    page.getByText("Ny lokal syntetisk förutsättning"),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Ingen gemensam investering är kopplad till vald kontext."),
-  ).toBeVisible();
+  await expect(page.getByText(/INITIATIVE-DEMO-created-/)).toBeVisible();
   await page
     .getByRole("button", { name: "Annat initiativ som återanvänder E" })
     .click();

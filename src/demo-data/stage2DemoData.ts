@@ -230,6 +230,14 @@ export function addStage2DemoData(state: DemoState): DemoState {
             : undefined,
       humanRecommendation: index === 2 ? "INVESTIGATE" : undefined,
       previousSystemRecommendation: index ? "START" : undefined,
+      effectPotentialIds: Object.values(entities.effectPotentials)
+        .filter((item) => item.initiativeId === initiativeId)
+        .map((item) => item.id),
+      qualificationAssessmentIds: Object.values(
+        entities.qualificationAssessments,
+      )
+        .filter((item) => item.initiativeId === initiativeId)
+        .map((item) => item.id),
     };
   });
   const portfolioPotentialId = createId("EffectPotential", "potential-002");
@@ -245,5 +253,10 @@ export function addStage2DemoData(state: DemoState): DemoState {
     expectedValue: 7,
     upperBound: 10,
   };
+  Object.values(entities.priorityAssessments).forEach((assessment) => {
+    assessment.effectPotentialIds = Object.values(entities.effectPotentials)
+      .filter((item) => item.initiativeId === assessment.initiativeId)
+      .map((item) => item.id);
+  });
   return state;
 }

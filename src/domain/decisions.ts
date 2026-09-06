@@ -3,12 +3,14 @@ import type {
   ChangeProposalId,
   DecisionFunctionId,
   DecisionVersionId,
+  EffectPotentialId,
   HumanDecisionId,
   InitiativeId,
   PriorityAssessmentId,
   PersonId,
   MandateId,
   RoleAssignmentId,
+  QualificationAssessmentId,
   SteeringProfileVersionId,
 } from "./ids";
 
@@ -51,6 +53,9 @@ export interface PriorityAssessment {
   humanRationale?: string;
   humanRecommendation?: PriorityRecommendation;
   previousSystemRecommendation?: PriorityRecommendation;
+  /** Immutable source snapshot: later source updates do not rewrite this assessment. */
+  effectPotentialIds: EffectPotentialId[];
+  qualificationAssessmentIds: QualificationAssessmentId[];
 }
 export interface HumanDecision {
   id: HumanDecisionId;

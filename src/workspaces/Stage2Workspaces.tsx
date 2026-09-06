@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { HelpCircle } from "lucide-react";
 import {
   effectPotentialLabel,
@@ -6,6 +6,8 @@ import {
   type InitiativeId,
   createId,
   type RoleAssignmentId,
+  type QualificationAssessmentStatus,
+  type BusinessId,
 } from "../domain";
 import type { Command, CommandResult, DemoState } from "../application";
 import {
@@ -93,39 +95,84 @@ export function QualificationWorkspace({
   state,
   initiativeId,
   onCommand,
-  onCommands,
 }: {
   state: DemoState;
   initiativeId: InitiativeId;
   onCommand?: (command: Command) => CommandResult;
   onCommands?: (commands: Command[]) => CommandResult;
 }) {
-  const [summary, setSummary] = useState("Syntetiskt bedömningsunderlag");
-  const [evidence, setEvidence] = useState("SYNTHETIC-USER-EVIDENCE");
-  const [assumption, setAssumption] = useState("Syntetiskt användarantagande");
-  const [feedback, setFeedback] = useState("");
-  const [deadline, setDeadline] = useState("2027-03-31");
-  const requirements = completionRequirementsByInitiative(state, initiativeId);
-  const areaStatuses = deriveQualificationAreaStatuses(state, initiativeId);
-  const actorRoleAssignmentId = Object.keys(
-    state.entities.roleAssignments,
-  )[1] as RoleAssignmentId;
   const configuration = Object.values(
     state.entities.qualificationConfigurations,
   ).find((item) => item.status === "ACTIVE");
+  const criteria = configuration?.criteria ?? [];
+  const assessments = Object.values(
+    state.entities.qualificationAssessments,
+  ).filter((item) => item.initiativeId === initiativeId);
+  const roles = Object.values(state.entities.roleAssignments);
+  const roleLabel = (id: RoleAssignmentId) => {
+    const assignment = state.entities.roleAssignments[id];
+    const person = state.entities.people[assignment.personId];
+    const role = state.entities.roleDefinitions[assignment.roleDefinitionId];
+    return `${person.displayName} – ${role.name}`;
+  };
+  const specialists = roles.filter(
+    (assignment) =>
+      state.entities.roleDefinitions[assignment.roleDefinitionId]?.roleKind ===
+      "SPECIALIST",
+  );
+  const [criterionCode, setCriterionCode] = useState(
+    criteria[0]?.criterionCode ?? "",
+  );
+  const criterion = criteria.find(
+    (item) => item.criterionCode === criterionCode,
+  );
+  const existing = assessments.find(
+    (item) => item.criterionCode === criterionCode,
+  );
+  const [status, setStatus] =
+    useState<QualificationAssessmentStatus>("INCOMPLETE");
+  const [summary, setSummary] = useState("");
+  const [evidence, setEvidence] = useState("");
+  const [assumption, setAssumption] = useState("");
+  const [assessorId, setAssessorId] = useState<RoleAssignmentId>(roles[0]?.id);
+  const [verifierId, setVerifierId] = useState<RoleAssignmentId>(
+    specialists[0]?.id,
+  );
+  const [feedback, setFeedback] = useState("");
+  const [missingItem, setMissingItem] = useState("");
+  const [reasonRequired, setReasonRequired] = useState("");
+  const [deadline, setDeadline] = useState("2027-03-31");
+  const [responsibleId, setResponsibleId] = useState<RoleAssignmentId>(
+    roles[0]?.id,
+  );
+  const requirements = completionRequirementsByInitiative(state, initiativeId);
+  const areaStatuses = deriveQualificationAreaStatuses(state, initiativeId);
   const activeRequirement = requirements.find(
     (item) => !["VERIFIED", "NOT_APPLICABLE"].includes(item.status),
   );
-  const run = (command: Command) => {
+
+  useEffect(() => {
+    setStatus(existing?.status ?? "INCOMPLETE");
+    setSummary(existing?.summary ?? "");
+    setEvidence(existing?.evidenceRefs.join(", ") ?? "");
+    setAssumption(existing?.assumptions.join(", ") ?? "");
+    if (existing) setAssessorId(existing.assessedByRoleAssignmentId);
+  }, [criterionCode, existing]);
+
+  const run = (
+    command: Command,
+    successMessage = "Ändringen sparades i det gemensamma ärendet.",
+  ) => {
     const result = onCommand?.(command);
     setFeedback(
       result?.success
-        ? "Ändringen sparades i det gemensamma ärendet."
+        ? successMessage
         : result && !result.success
           ? result.errors.map((error) => error.description).join(" ")
           : "",
     );
   };
+  const now = () => new Date().toISOString();
   return (
     <section className="stage2-workspace">
       <Stage2Identity state={state} />
@@ -134,157 +181,287 @@ export function QualificationWorkspace({
       <Help term="verifierare" />
       <Help term="deadline" />
       <h2>Sex kvalificeringsområden</h2>
-      {onCommand && configuration && (
+      {onCommand && configuration && criterion && (
         <section className="stage2-editor" aria-label="Bearbeta kvalificering">
-          <h3>Bearbeta återstående bedömningspunkter</h3>
+          <h3>Bedöm en punkt i taget</h3>
+          <label>
+            Kriterium
+            <select
+              aria-label="Kriterium"
+              value={criterionCode}
+              onChange={(e) => setCriterionCode(e.target.value)}
+            >
+              {criteria.map((item) => (
+                <option key={item.criterionCode} value={item.criterionCode}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p>
+            <b>{criterion.name}</b> – {criterion.helpText}
+          </p>
+          <label>
+            Bedömning
+            <select
+              aria-label="Bedömning"
+              value={status}
+              onChange={(e) =>
+                setStatus(e.target.value as QualificationAssessmentStatus)
+              }
+            >
+              {[
+                "NOT_ASSESSED",
+                "INCOMPLETE",
+                "SATISFIED",
+                "NOT_SATISFIED",
+                "NOT_APPLICABLE",
+              ].map((value) => (
+                <option key={value}>{value}</option>
+              ))}
+            </select>
+          </label>
           <label>
             Sammanfattning
             <input
               value={summary}
-              onChange={(event) => setSummary(event.target.value)}
+              onChange={(e) => setSummary(e.target.value)}
             />
           </label>
           <label>
-            Evidensreferens
+            Evidensreferenser, kommaseparerade
             <input
               value={evidence}
-              onChange={(event) => setEvidence(event.target.value)}
+              onChange={(e) => setEvidence(e.target.value)}
             />
           </label>
           <label>
-            Antagande
+            Antaganden, kommaseparerade
             <input
               value={assumption}
-              onChange={(event) => setAssumption(event.target.value)}
+              onChange={(e) => setAssumption(e.target.value)}
             />
           </label>
+          <label>
+            Bedömare
+            <select
+              aria-label="Bedömare"
+              value={assessorId}
+              onChange={(e) =>
+                setAssessorId(e.target.value as RoleAssignmentId)
+              }
+            >
+              {roles.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {roleLabel(item.id)}
+                </option>
+              ))}
+            </select>
+          </label>
           <button
-            disabled={!summary.trim() || !evidence.trim()}
-            onClick={() => {
-              const existing = Object.values(
-                state.entities.qualificationAssessments,
-              )
-                .filter((item) => item.initiativeId === initiativeId)
-                .map((item) => item.criterionCode);
-              const commands = configuration.criteria
-                .filter(
-                  (criterion) => !existing.includes(criterion.criterionCode),
-                )
-                .map(
-                  (criterion, index): Command => ({
-                    commandId: createId(
-                      "Command",
-                      `ui-qualification-${Date.now()}-${index}`,
-                    ),
-                    actorRoleAssignmentId,
-                    issuedAt: new Date().toISOString(),
-                    commandType: "UPSERT_QUALIFICATION_ASSESSMENT",
-                    targetId: createId(
+            onClick={() =>
+              run(
+                {
+                  commandId: createId("Command", `qualification-${Date.now()}`),
+                  actorRoleAssignmentId: assessorId,
+                  issuedAt: now(),
+                  commandType: "UPSERT_QUALIFICATION_ASSESSMENT",
+                  targetId:
+                    existing?.id ??
+                    createId(
                       "QualificationAssessment",
-                      `ui-${initiativeId}-${index}`.replace(
+                      `ui-${initiativeId}-${criterion.criterionCode}`.replace(
                         /[^a-z0-9-]/gi,
                         "-",
                       ),
                     ),
-                    payload: {
-                      initiativeId,
-                      qualificationArea: criterion.qualificationArea,
-                      criterionCode: criterion.criterionCode,
-                      summary,
-                      status: "SATISFIED",
-                      mandatory: criterion.mandatory,
-                      requiresVerification: criterion.requiresVerification,
-                      evidenceRefs: [evidence],
-                      assumptions: [assumption],
-                      verifiedByRoleAssignmentId: criterion.requiresVerification
-                        ? actorRoleAssignmentId
-                        : undefined,
-                      verifiedAt: criterion.requiresVerification
-                        ? new Date().toISOString()
-                        : undefined,
-                      assessedAgainstConfigurationVersion: configuration.id,
-                    },
-                  }),
-                );
-              const result = onCommands?.(commands);
-              setFeedback(
-                result?.success
-                  ? "Samtliga bedömningar sparades."
-                  : result && !result.success
-                    ? result.errors.map((error) => error.description).join(" ")
-                    : "",
-              );
-            }}
+                  payload: {
+                    initiativeId,
+                    qualificationArea: criterion.qualificationArea,
+                    criterionCode: criterion.criterionCode,
+                    summary,
+                    status,
+                    mandatory: criterion.mandatory,
+                    requiresVerification: criterion.requiresVerification,
+                    evidenceRefs: evidence
+                      .split(",")
+                      .map((x) => x.trim())
+                      .filter(Boolean),
+                    assumptions: assumption
+                      .split(",")
+                      .map((x) => x.trim())
+                      .filter(Boolean),
+                    notApplicableRationale:
+                      status === "NOT_APPLICABLE" ? summary : undefined,
+                    assessedAgainstConfigurationVersion: configuration.id,
+                  },
+                },
+                "Bedömningen sparades utan automatisk verifiering.",
+              )
+            }
           >
-            Bedöm alla återstående punkter
+            Spara vald bedömning
           </button>
+          {criterion.requiresVerification && existing && (
+            <>
+              <label>
+                Specialistverifierare
+                <select
+                  aria-label="Specialistverifierare"
+                  value={verifierId}
+                  onChange={(e) =>
+                    setVerifierId(e.target.value as RoleAssignmentId)
+                  }
+                >
+                  {specialists.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {roleLabel(item.id)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                onClick={() =>
+                  run(
+                    {
+                      commandId: createId(
+                        "Command",
+                        `verify-assessment-${Date.now()}`,
+                      ),
+                      actorRoleAssignmentId: verifierId,
+                      issuedAt: now(),
+                      commandType: "VERIFY_QUALIFICATION_ASSESSMENT",
+                      targetId: existing.id,
+                    },
+                    "Specialistverifieringen registrerades.",
+                  )
+                }
+              >
+                Verifiera vald bedömning
+              </button>
+            </>
+          )}
           <p role="status">{feedback}</p>
         </section>
       )}
-      {onCommand && (
+      {onCommand && criterion && (
         <section className="stage2-editor" aria-label="Hantera komplettering">
           <h3>Kompletteringsansvar</h3>
           {!activeRequirement ? (
-            <button
-              onClick={() =>
-                run({
-                  commandId: createId("Command", `completion-${Date.now()}`),
-                  actorRoleAssignmentId,
-                  issuedAt: new Date().toISOString(),
-                  commandType: "CREATE_COMPLETION_REQUIREMENT",
-                  targetId: createId(
-                    "CompletionRequirement",
-                    `completion-${Date.now()}`,
-                  ),
-                  payload: {
-                    initiativeId,
-                    missingItem: "Kompletterande syntetiskt underlag",
-                    reasonRequired: "Behövs för transparent kvalificering",
-                    blocks: ["QUALIFICATION"],
-                  },
-                })
-              }
-            >
-              Skapa kompletteringskrav
-            </button>
+            <>
+              <label>
+                Vad saknas?
+                <input
+                  value={missingItem}
+                  onChange={(e) => setMissingItem(e.target.value)}
+                />
+              </label>
+              <label>
+                Varför behövs det?
+                <input
+                  value={reasonRequired}
+                  onChange={(e) => setReasonRequired(e.target.value)}
+                />
+              </label>
+              <button
+                disabled={
+                  !existing || !missingItem.trim() || !reasonRequired.trim()
+                }
+                onClick={() =>
+                  run({
+                    commandId: createId("Command", `completion-${Date.now()}`),
+                    actorRoleAssignmentId: assessorId,
+                    issuedAt: now(),
+                    commandType: "CREATE_COMPLETION_REQUIREMENT",
+                    targetId: createId(
+                      "CompletionRequirement",
+                      `completion-${Date.now()}`,
+                    ),
+                    payload: {
+                      initiativeId,
+                      qualificationAssessmentId: existing?.id,
+                      missingItem,
+                      reasonRequired,
+                      blocks: ["QUALIFICATION"],
+                    },
+                  })
+                }
+              >
+                Skapa kriteriespecifikt kompletteringskrav
+              </button>
+            </>
           ) : (
             <>
+              <label>
+                Ansvarig
+                <select
+                  aria-label="Kompletteringsansvarig"
+                  value={responsibleId}
+                  onChange={(e) =>
+                    setResponsibleId(e.target.value as RoleAssignmentId)
+                  }
+                >
+                  {roles.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {roleLabel(item.id)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Verifierare
+                <select
+                  aria-label="Kompletteringsverifierare"
+                  value={verifierId}
+                  onChange={(e) =>
+                    setVerifierId(e.target.value as RoleAssignmentId)
+                  }
+                >
+                  {specialists.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {roleLabel(item.id)}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label>
                 Deadline
                 <input
                   type="date"
                   value={deadline}
-                  onChange={(event) => setDeadline(event.target.value)}
+                  onChange={(e) => setDeadline(e.target.value)}
                 />
               </label>
               <button
                 onClick={() =>
                   run({
                     commandId: createId("Command", `assign-${Date.now()}`),
-                    actorRoleAssignmentId,
-                    issuedAt: new Date().toISOString(),
+                    actorRoleAssignmentId: assessorId,
+                    issuedAt: now(),
                     commandType: "ASSIGN_COMPLETION_RESPONSIBILITY",
                     targetId: activeRequirement.id,
                     payload: {
-                      responsibleRoleAssignmentId: actorRoleAssignmentId,
-                      verifierRoleAssignmentId: actorRoleAssignmentId,
+                      responsibleRoleAssignmentId: responsibleId,
+                      verifierRoleAssignmentId: verifierId,
                       deadline,
                     },
                   })
                 }
               >
-                Ange ansvarig, deadline och verifierare
+                Spara vald ansvarig, deadline och verifierare
               </button>
               <button
                 onClick={() =>
                   run({
                     commandId: createId("Command", `submit-${Date.now()}`),
-                    actorRoleAssignmentId,
-                    issuedAt: new Date().toISOString(),
+                    actorRoleAssignmentId: responsibleId,
+                    issuedAt: now(),
                     commandType: "SUBMIT_COMPLETION_REQUIREMENT",
                     targetId: activeRequirement.id,
                     payload: {
-                      submittedEvidenceRefs: [evidence],
+                      submittedEvidenceRefs: evidence
+                        .split(",")
+                        .filter(Boolean),
                       resolutionSummary: summary,
                     },
                   })
@@ -296,8 +473,8 @@ export function QualificationWorkspace({
                 onClick={() =>
                   run({
                     commandId: createId("Command", `verify-${Date.now()}`),
-                    actorRoleAssignmentId,
-                    issuedAt: new Date().toISOString(),
+                    actorRoleAssignmentId: verifierId,
+                    issuedAt: now(),
                     commandType: "VERIFY_COMPLETION_REQUIREMENT",
                     targetId: activeRequirement.id,
                     payload: { resolutionSummary: summary },
@@ -311,61 +488,59 @@ export function QualificationWorkspace({
         </section>
       )}
       <div className="stage2-areas">
-        {qualificationAreasByInitiative(state, initiativeId).map((group) => (
-          <details className="stage2-area" key={group.area}>
-            <summary>
-              <span>{qualificationAreaLabels[group.area]}</span>
-              <strong>
-                {
-                  areaStatuses.find((item) => item.area === group.area)
-                    ?.satisfiedMandatoryCount
-                }{" "}
-                /{" "}
-                {
-                  areaStatuses.find((item) => item.area === group.area)
-                    ?.totalMandatoryCount
-                }{" "}
-                ·{" "}
-                {areaStatuses.find((item) => item.area === group.area)?.status}
-              </strong>
-            </summary>
-            <p>
-              Återstår:{" "}
-              {areaStatuses
-                .find((item) => item.area === group.area)
-                ?.remainingCriterionCodes.join(", ") || "Inga"}
-            </p>
-            <p>
-              Kräver verifiering:{" "}
-              {areaStatuses
-                .find((item) => item.area === group.area)
-                ?.verificationCriterionCodes.join(", ") || "Inga"}
-            </p>
-            {group.assessments.map((item) => (
-              <div key={item.id}>
-                <p>
-                  {item.summary} · {item.status}
-                </p>
-                <small>
-                  Verifiering:{" "}
-                  {item.verifiedByRoleAssignmentId ?? "Ej verifierad"}
-                </small>
-              </div>
-            ))}
-            {requirements
-              .filter(
-                (item) =>
-                  item.qualificationAssessmentId &&
-                  group.assessments.some(
-                    (a) => a.id === item.qualificationAssessmentId,
-                  ),
-              )
-              .map((item) => (
-                <CompletionCard key={item.id} item={item} />
-              ))}
-            <SourceRefs ids={group.sourceRefs} />
-          </details>
-        ))}
+        {qualificationAreasByInitiative(state, initiativeId).map((group) => {
+          const area = areaStatuses.find((item) => item.area === group.area);
+          return (
+            <details className="stage2-area" key={group.area}>
+              <summary>
+                <span>{qualificationAreaLabels[group.area]}</span>
+                <strong>
+                  {area?.satisfiedMandatoryCount} / {area?.totalMandatoryCount}{" "}
+                  · {area?.status}
+                </strong>
+              </summary>
+              <p>
+                Återstår: {area?.remainingCriterionCodes.join(", ") || "Inga"}
+              </p>
+              <p>
+                Kräver verifiering:{" "}
+                {area?.verificationCriterionCodes.join(", ") || "Inga"}
+              </p>
+              {criteria
+                .filter((item) => item.qualificationArea === group.area)
+                .map((item) => {
+                  const value = assessments.find(
+                    (a) => a.criterionCode === item.criterionCode,
+                  );
+                  return (
+                    <div key={item.criterionCode}>
+                      <b>{item.name}</b>
+                      <p>
+                        {value?.summary || "Ej bedömd"} ·{" "}
+                        {value?.status || "NOT_ASSESSED"}
+                      </p>
+                      <small>
+                        Verifiering:{" "}
+                        {value?.verifiedByRoleAssignmentId ?? "Ej verifierad"}
+                      </small>
+                    </div>
+                  );
+                })}
+              {requirements
+                .filter(
+                  (item) =>
+                    item.qualificationAssessmentId &&
+                    group.assessments.some(
+                      (a) => a.id === item.qualificationAssessmentId,
+                    ),
+                )
+                .map((item) => (
+                  <CompletionCard key={item.id} item={item} />
+                ))}
+              <SourceRefs ids={group.sourceRefs} />
+            </details>
+          );
+        })}
       </div>
       {requirements
         .filter((item) => !item.qualificationAssessmentId)
@@ -406,13 +581,43 @@ export function EffectPotentialWorkspace({
   initiativeId: InitiativeId;
   onCommand?: (command: Command) => CommandResult;
 }) {
-  const [expectedValue, setExpectedValue] = useState(100);
-  const [evidence, setEvidence] = useState("SYNTHETIC-POTENTIAL-EVIDENCE");
-  const [assumption, setAssumption] = useState("Syntetiskt volymantagande");
+  const roles = Object.values(state.entities.roleAssignments);
+  const businesses = Object.values(state.entities.businesses);
+  const [recipientKind, setRecipientKind] = useState<"BUSINESS" | "SCENARIO">(
+    "BUSINESS",
+  );
+  const [businessId, setBusinessId] = useState<BusinessId>(businesses[0]?.id);
+  const [scenario, setScenario] = useState("");
+  const [category, setCategory] = useState<
+    "MONEY" | "RELEASED_TIME" | "QUALITY" | "OTHER_BUSINESS_EFFECT"
+  >("QUALITY");
+  const [measure, setMeasure] = useState("");
+  const [unit, setUnit] = useState("");
+  const [lower, setLower] = useState(0);
+  const [expected, setExpected] = useState(0);
+  const [upper, setUpper] = useState(0);
+  const [evidence, setEvidence] = useState("");
+  const [assumption, setAssumption] = useState("");
+  const [uncertainty, setUncertainty] = useState<"LOW" | "MEDIUM" | "HIGH">(
+    "MEDIUM",
+  );
+  const [window, setWindow] = useState("");
+  const [earliest, setEarliest] = useState("");
+  const [full, setFull] = useState("");
+  const [assessorIds, setAssessorIds] = useState<RoleAssignmentId[]>(
+    roles[0] ? [roles[0].id] : [],
+  );
   const [feedback, setFeedback] = useState("");
-  const actorRoleAssignmentId = Object.keys(
-    state.entities.roleAssignments,
-  )[1] as RoleAssignmentId;
+  const roleLabel = (id: RoleAssignmentId) => {
+    const a = state.entities.roleAssignments[id];
+    return `${state.entities.people[a.personId].displayName} – ${state.entities.roleDefinitions[a.roleDefinitionId].name}`;
+  };
+  const toggleAssessor = (id: RoleAssignmentId) =>
+    setAssessorIds((current) =>
+      current.includes(id)
+        ? current.filter((value) => value !== id)
+        : [...current, id],
+    );
   return (
     <section className="stage2-workspace">
       <Stage2Identity state={state} />
@@ -427,33 +632,159 @@ export function EffectPotentialWorkspace({
           className="stage2-editor"
           aria-label="Registrera effektpotential"
         >
+          <p>
+            Alla startvärden är synliga och sparas först när du aktivt väljer
+            Registrera.
+          </p>
           <label>
-            Förväntat kvalitetsindex
+            Mottagartyp
+            <select
+              value={recipientKind}
+              onChange={(e) =>
+                setRecipientKind(e.target.value as "BUSINESS" | "SCENARIO")
+              }
+            >
+              <option value="BUSINESS">Verksamhet</option>
+              <option value="SCENARIO">Scenario</option>
+            </select>
+          </label>
+          {recipientKind === "BUSINESS" ? (
+            <label>
+              Mottagande verksamhet
+              <select
+                aria-label="Mottagande verksamhet"
+                value={businessId}
+                onChange={(e) => setBusinessId(e.target.value as BusinessId)}
+              >
+                {businesses.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label>
+              Mottagarscenario
+              <input
+                value={scenario}
+                onChange={(e) => setScenario(e.target.value)}
+              />
+            </label>
+          )}
+          <label>
+            Effektkategori
+            <select
+              aria-label="Effektkategori"
+              value={category}
+              onChange={(e) => setCategory(e.target.value as typeof category)}
+            >
+              <option>MONEY</option>
+              <option>RELEASED_TIME</option>
+              <option>QUALITY</option>
+              <option>OTHER_BUSINESS_EFFECT</option>
+            </select>
+          </label>
+          <label>
+            Mätetal
+            <input
+              value={measure}
+              onChange={(e) => setMeasure(e.target.value)}
+            />
+          </label>
+          <label>
+            Enhet
+            <input value={unit} onChange={(e) => setUnit(e.target.value)} />
+          </label>
+          <label>
+            Låg potential
             <input
               type="number"
-              value={expectedValue}
-              onChange={(event) => setExpectedValue(Number(event.target.value))}
+              value={lower}
+              onChange={(e) => setLower(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Förväntad potential
+            <input
+              type="number"
+              value={expected}
+              onChange={(e) => setExpected(Number(e.target.value))}
+            />
+          </label>
+          <label>
+            Hög potential
+            <input
+              type="number"
+              value={upper}
+              onChange={(e) => setUpper(Number(e.target.value))}
             />
           </label>
           <label>
             Evidens
             <input
               value={evidence}
-              onChange={(event) => setEvidence(event.target.value)}
+              onChange={(e) => setEvidence(e.target.value)}
             />
           </label>
           <label>
             Antagande
             <input
               value={assumption}
-              onChange={(event) => setAssumption(event.target.value)}
+              onChange={(e) => setAssumption(e.target.value)}
             />
           </label>
+          <label>
+            Osäkerhet
+            <select
+              value={uncertainty}
+              onChange={(e) =>
+                setUncertainty(e.target.value as typeof uncertainty)
+              }
+            >
+              <option>LOW</option>
+              <option>MEDIUM</option>
+              <option>HIGH</option>
+            </select>
+          </label>
+          <label>
+            Effekthemtagningsfönster
+            <input value={window} onChange={(e) => setWindow(e.target.value)} />
+          </label>
+          <label>
+            Tidigaste möjliga effekt
+            <input
+              type="date"
+              value={earliest}
+              onChange={(e) => setEarliest(e.target.value)}
+            />
+          </label>
+          <label>
+            Full potential
+            <input
+              type="date"
+              value={full}
+              onChange={(e) => setFull(e.target.value)}
+            />
+          </label>
+          <fieldset>
+            <legend>Medverkande bedömare</legend>
+            {roles.map((item) => (
+              <label key={item.id}>
+                <input
+                  type="checkbox"
+                  checked={assessorIds.includes(item.id)}
+                  onChange={() => toggleAssessor(item.id)}
+                />
+                {roleLabel(item.id)}
+              </label>
+            ))}
+          </fieldset>
           <button
             onClick={() => {
               const result = onCommand({
                 commandId: createId("Command", `potential-${Date.now()}`),
-                actorRoleAssignmentId,
+                actorRoleAssignmentId: assessorIds[0],
                 issuedAt: new Date().toISOString(),
                 commandType: "RECORD_EFFECT_POTENTIAL",
                 targetId: createId(
@@ -462,26 +793,41 @@ export function EffectPotentialWorkspace({
                 ),
                 payload: {
                   initiativeId,
-                  recipientScenario: "Syntetiskt mottagarscenario",
-                  category: "QUALITY",
-                  effectMeasureCode: "QUALITY_INDEX",
-                  unit: "index",
-                  lowerBound: Math.max(0, expectedValue - 10),
-                  expectedValue,
-                  upperBound: expectedValue + 10,
-                  evidenceRefs: [evidence],
-                  assumptions: [assumption],
-                  uncertainty: "MEDIUM",
-                  realizationWindow: "12 månader",
-                  earliestPossibleEffectDate: "2027-01-01",
-                  fullPotentialDate: "2027-12-31",
-                  scope: "LOCAL",
-                  assessmentVersion: 1,
+                  recipientBusinessId:
+                    recipientKind === "BUSINESS" ? businessId : undefined,
+                  recipientScenario:
+                    recipientKind === "SCENARIO" ? scenario : undefined,
+                  category,
+                  effectMeasureCode: measure,
+                  unit,
+                  lowerBound: lower,
+                  expectedValue: expected,
+                  upperBound: upper,
+                  evidenceRefs: evidence
+                    .split(",")
+                    .map((x) => x.trim())
+                    .filter(Boolean),
+                  assumptions: assumption
+                    .split(",")
+                    .map((x) => x.trim())
+                    .filter(Boolean),
+                  uncertainty,
+                  realizationWindow: window,
+                  earliestPossibleEffectDate: earliest,
+                  fullPotentialDate: full,
+                  scope:
+                    recipientKind === "BUSINESS"
+                      ? "LOCAL"
+                      : "FEDERATED_SCENARIO",
+                  assessedByRoleAssignmentIds: assessorIds,
+                  assessmentVersion:
+                    effectPotentialsByInitiative(state, initiativeId).length +
+                    1,
                 },
               });
               setFeedback(
                 result.success
-                  ? "Potentialen registrerades."
+                  ? "Potentialen registrerades med angivna förutsättningar."
                   : result.errors.map((error) => error.description).join(" "),
               );
             }}
@@ -500,8 +846,8 @@ export function EffectPotentialWorkspace({
               : item.recipientScenario}
           </h3>
           <b>
-            {item.lowerBound} / {item.expectedValue} / {item.upperBound}{" "}
-            {item.unit}
+            {item.effectMeasureCode}: {item.lowerBound} / {item.expectedValue} /{" "}
+            {item.upperBound} {item.unit}
           </b>
           <p>
             {item.realizationWindow} · {item.uncertainty} osäkerhet
@@ -514,7 +860,8 @@ export function EffectPotentialWorkspace({
             Bedömd {item.assessedAt} · version {item.assessmentVersion}
           </p>
           <p>
-            Ansvariga bedömare: {item.assessedByRoleAssignmentIds.join(", ")}
+            Ansvariga bedömare:{" "}
+            {item.assessedByRoleAssignmentIds.map(roleLabel).join(", ")}
           </p>
           <p>Evidens: {item.evidenceRefs.join(", ")}</p>
           <p>Antaganden: {item.assumptions.join(", ")}</p>
@@ -754,6 +1101,8 @@ export function PriorityWorkspace({
             ids={[
               assessment.id,
               assessment.steeringProfileVersionId,
+              ...assessment.effectPotentialIds,
+              ...assessment.qualificationAssessmentIds,
               ...assessment.criterionAssessments.flatMap((x) => x.evidenceRefs),
             ]}
           />

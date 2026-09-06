@@ -34,3 +34,31 @@ describe("referenceStory", () => {
     expect(state.entities.measurementPoints).toEqual({});
   });
 });
+
+describe("strategicComparison", () => {
+  it("jämför tre fiktiva värdeskapande initiativ med versionsbundna källor", async () => {
+    const { strategicComparison } = await import("./referenceStorySelectors");
+    const comparison = strategicComparison(baseDemoState());
+    expect(comparison).toHaveLength(3);
+    expect(comparison.every((item) => item.profile.versionNumber === 1)).toBe(
+      true,
+    );
+    expect(comparison.every((item) => item.potentials.length > 0)).toBe(true);
+    expect(
+      comparison.every((item) =>
+        item.sourceRefs.includes(item.assessment.steeringProfileVersionId),
+      ),
+    ).toBe(true);
+  });
+
+  it("räknar den delade kostnaden en gång per vald berättelse", () => {
+    const state = baseDemoState();
+    const main = referenceStory(state, stage3Ids.valueInitiative)!;
+    const reuse = referenceStory(state, stage3Ids.reuseInitiative)!;
+    expect(main.costBreakdown.oneTimeAmount).toBe(1_440_000);
+    expect(reuse.costBreakdown.oneTimeAmount).toBe(900_000);
+    expect(
+      main.costBreakdown.sourceRefs.filter((id) => id === stage3Ids.sharedCost),
+    ).toHaveLength(1);
+  });
+});

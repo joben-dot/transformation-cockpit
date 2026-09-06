@@ -3,13 +3,16 @@
 En ny, avgränsad produktingång för strategiskt stöd till en digitaliserings- och
 transformationsportfölj. All visad verksamhetsdata är syntetisk.
 
-## Vad den första vyn demonstrerar
+## Vad det aktuella steget demonstrerar
 
 - Ett stabilt `ChallengeId` och `InitiativeId` genom en sammanhängande referensberättelse.
 - Icke-bindande effektpotential, separat per effektkategori och måttenhet.
 - Befintliga förmågor, möjliggörande initiativ och verksamhetsförändringar som
   delar i en riktad förutsättningsgraf.
 - En topologiskt härledd ordning som uttryckligen inte är startgodkännande.
+- En strategisk jämförelse av tre initiativ med kriteriebidrag, osäkerhet och versionsbunden styrprofil.
+- Interaktioner för ny potentialversion, nytt viktscenario, beroendefördjupning, ansvar och återanvänd förutsättning; samtliga går genom validerade commands.
+- En kontextbunden kostnadsbild där delade kostnadsposter räknas en gång.
 - Källidentiteter tillbaka till samma normaliserade grunddata.
 - En ärlig gräns mot ännu ej implementerade effektåtaganden, startbeslut,
   beslutsversioner, mätpunkter, realiserad effekt och strategisk översikt.
@@ -19,9 +22,10 @@ används inte av den nya ingången.
 
 ## Arkitektur och avgränsad återanvändning
 
-Applikationen är React, TypeScript och Vite. Den nya ingången komponerar en
-läsmodell genom `referenceStory` från normaliserat `DemoState`; UI:t innehåller
-inte egna kopior av ärende-, potential- eller grafdata.
+Applikationen är React, TypeScript och Vite. Ingången komponerar läsmodeller
+genom `referenceStory` och `strategicComparison` från normaliserat `DemoState`.
+Skrivningar går genom `demoReducer`; UI:t innehåller inte egna kopior av ärende-,
+potential-, prioriterings-, kostnads- eller grafdata.
 
 Följande delar återanvänds eftersom de redan har testade kontrakt som motsvarar
 målmodellen:
@@ -87,8 +91,8 @@ domäninställningar krävs.
 
 ## Nuvarande begränsningar
 
-- Den första vyn är läsande; command-drivna arbetsflöden exponeras igen först när
-  respektive fortsatta processdel migreras till den nya produkten.
+- Det aktuella steget stödjer endast avgränsade scenario-, potential-, ansvar- och
+  förutsättningscommands; det är inte ett komplett berednings- eller beslutsflöde.
 - Effektpotential är en bedömning och inget lokalt effektåtagande.
 - Startbeslut, låst beslutsbaslinje, prognoser, mätpunkter, realiserad effekt,
   kontrollrum och lärande är uttryckligen inte implementerade i denna vy.

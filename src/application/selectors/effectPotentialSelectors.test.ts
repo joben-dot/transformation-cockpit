@@ -51,7 +51,20 @@ describe("bedömd effektpotential", () => {
       baseDemoState(),
       stage2Ids.calculatedInitiative,
     );
-    expect(Object.keys(groups)).toEqual(["QUALITY:CORRECT_FIRST_TIME:procent"]);
+    expect(Object.keys(groups)).toEqual(
+      expect.arrayContaining([
+        "QUALITY:CORRECT_FIRST_TIME:procentenheter",
+        "MONEY:UNDVIKBAR_DRIFTKOSTNAD:SEK/år",
+        "RELEASED_TIME:FRIGJORD_PLANERINGSKAPACITET:timmar/år",
+      ]),
+    );
+    expect(groups["MONEY:UNDVIKBAR_DRIFTKOSTNAD:SEK/år"].expectedValue).toBe(
+      260000,
+    );
+    expect(
+      groups["RELEASED_TIME:FRIGJORD_PLANERINGSKAPACITET:timmar/år"]
+        .expectedValue,
+    ).toBe(1300);
   });
   it("summerar inte olika effektmått bara för att enheten är samma", () => {
     const state = baseDemoState();
@@ -65,9 +78,16 @@ describe("bedömd effektpotential", () => {
       id,
       effectMeasureCode: "SATISFIED_RECIPIENTS",
     };
+    const groups = groupEffectPotentials(state, stage2Ids.calculatedInitiative);
     expect(
-      Object.keys(groupEffectPotentials(state, stage2Ids.calculatedInitiative)),
-    ).toHaveLength(2);
+      groups["QUALITY:CORRECT_FIRST_TIME:procentenheter"].expectedValue,
+    ).toBe(7);
+    expect(
+      groups["QUALITY:SATISFIED_RECIPIENTS:procentenheter"].expectedValue,
+    ).toBe(original.expectedValue);
+    expect(
+      Object.keys(groups).filter((key) => key.startsWith("QUALITY:")).length,
+    ).toBe(2);
   });
   it("låter federerat perspektiv vara frikopplat från lokala potentialposter", () => {
     const state = baseDemoState();

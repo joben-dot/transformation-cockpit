@@ -129,7 +129,7 @@ export function addStage3DemoData(state: DemoState) {
       description: `Syntetisk förutsättning ${title.toLocaleLowerCase("sv-SE")}.`,
       nodeKind,
       responsibleRoleAssignmentId:
-        index === 2 ? undefined : roleAssignments[index % 2].id,
+        index === 2 ? roleAssignments[1].id : roleAssignments[index % 2].id,
       plannedPeriod: {
         from: `2026-${index < 5 ? "10" : "11"}-01`,
         to: `2026-${index < 5 ? "10" : "11"}-28`,

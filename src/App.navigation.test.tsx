@@ -14,15 +14,17 @@ describe("den nya informationsarkitekturen", () => {
     const links = renderer.root.findAllByType("a");
     expect(links.map((link) => text(link))).toEqual([
       "Transformation Cockpit",
+      "Prioritering",
       "Effektpotential",
       "Förutsättningar",
-      "Fortsatt process",
+      "Kostnader",
     ]);
     expect(links.map((link) => link.props.href)).toEqual([
       "#top",
+      "#comparison",
       "#potential",
       "#conditions",
-      "#roadmap",
+      "#costs",
     ]);
   });
 });

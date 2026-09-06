@@ -12,13 +12,18 @@ describe("den nya produktens ingång", () => {
       "Bedömd potential – inte beslutad effekthemtagning.",
     );
     expect(html).toContain(stage3Ids.sharedNode);
+    expect(html).toContain("Planerare i den fiktiva omsorgsverksamheten");
+    expect(html).toContain("UNDVIKBAR_DRIFTKOSTNAD");
+    expect(html).toContain("FRIGJORD_PLANERINGSKAPACITET");
+    expect(html).toContain("procentenheter");
   });
 
   it("visar processgränsen utan beslut eller realiserade resultat", () => {
     const html = renderToStaticMarkup(<App />);
-    expect(html).toContain("Inga startbeslut eller realiserade effekter visas");
-    expect(html).toContain("Ej implementerad");
+    expect(html).toContain("Prioritering är inte startbeslut");
+    expect(html).toContain("Inte implementerat i denna leverans");
     expect(html).not.toContain("STARTA");
+    expect(html).toContain("Prioritering är inte startbeslut");
     expect(html).not.toContain("5 700 h/år");
   });
 

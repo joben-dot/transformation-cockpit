@@ -32,17 +32,17 @@ const states = [
   {
     id: stage2Ids.calculatedInitiative,
     token: "105",
-    title: "Samlad syntetisk planering",
+    title: "Bättre planering i fiktiv omsorg",
   },
   {
     id: stage2Ids.acceptedInitiative,
     token: "106",
-    title: "Tydligare fiktiv vägledning",
+    title: "Samordnad fiktiv serviceväg",
   },
   {
     id: stage2Ids.overriddenInitiative,
     token: "107",
-    title: "Automatiserad demokontroll",
+    title: "Digital fiktiv avtalsuppföljning",
   },
 ] as const;
 
@@ -54,8 +54,13 @@ export function addStage2DemoData(state: DemoState): DemoState {
       id: challengeId,
       title: item.title,
       problemStatement:
-        "Ett helt fiktivt verksamhetsproblem behöver hanteras strategiskt.",
-      currentState: "Syntetiskt nuläge med manuella moment.",
+        item.id === stage2Ids.calculatedInitiative
+          ? "Planerare i den fiktiva omsorgsverksamheten sammanställer bemanning och behov manuellt, vilket ger sena omplaneringar."
+          : `Det fiktiva verksamhetsproblemet ${item.title.toLocaleLowerCase("sv-SE")} behöver hanteras strategiskt.`,
+      currentState:
+        item.id === stage2Ids.calculatedInitiative
+          ? "Veckoplanering bygger på manuella utdrag och lokala listor; avvikelser upptäcks sent."
+          : "Syntetiskt nuläge med manuella moment.",
       source: "Syntetisk analys",
       initiatorRoleAssignmentId:
         roleAssignments[initiativeIndex % roleAssignments.length].id,
@@ -70,9 +75,15 @@ export function addStage2DemoData(state: DemoState): DemoState {
       id: item.id,
       challengeId,
       title: item.title,
-      purpose: "Skapa ett prövbart syntetiskt arbetssätt.",
-      desiredEndState: "Ett tydligt, verifierbart framtida läge.",
-      initiativeKind: initiativeIndex === 4 ? "ENABLING" : "VALUE_CREATING",
+      purpose:
+        item.id === stage2Ids.calculatedInitiative
+          ? "Införa ett verksamhetsnära planeringsstöd och ett gemensamt arbetssätt för tidigare omplanering."
+          : `Pröva ett tydligt syntetiskt arbetssätt för ${item.title.toLocaleLowerCase("sv-SE")}.`,
+      desiredEndState:
+        item.id === stage2Ids.calculatedInitiative
+          ? "Planerare använder kvalitetssäkrat underlag och gemensamma rutiner; effekt följs senare lokalt."
+          : "Ett tydligt, verifierbart framtida läge.",
+      initiativeKind: "VALUE_CREATING",
       scope: "Fiktiv verksamhetsövergripande avgränsning.",
       createdAt: `2026-09-${10 + initiativeIndex}T09:00:00Z`,
     };
@@ -248,11 +259,95 @@ export function addStage2DemoData(state: DemoState): DemoState {
     recipientBusinessId: businessIds.response,
     category: "QUALITY",
     effectMeasureCode: "CORRECT_FIRST_TIME",
-    unit: "procent",
+    unit: "procentenheter",
     lowerBound: 4,
     expectedValue: 7,
     upperBound: 10,
+    assumptions: [
+      "Kvalitetsmåttet avser förändring i procentenheter, inte relativ procent.",
+    ],
   };
+  const addPotential = (
+    token: string,
+    initiativeId: typeof stage2Ids.calculatedInitiative,
+    category: "MONEY" | "RELEASED_TIME" | "QUALITY",
+    measure: string,
+    unit: string,
+    values: [number, number, number],
+    window: string,
+    assumptions: string[],
+  ) => {
+    const id = createId("EffectPotential", token);
+    entities.effectPotentials[id] = {
+      id,
+      initiativeId,
+      recipientBusinessId: businessIds.response,
+      category,
+      effectMeasureCode: measure,
+      unit,
+      lowerBound: values[0],
+      expectedValue: values[1],
+      upperBound: values[2],
+      evidenceRefs: [`EVIDENCE-DEMO-${token.toUpperCase()}`],
+      assumptions,
+      uncertainty: "MEDIUM",
+      realizationWindow: window,
+      earliestPossibleEffectDate: "2027-04-01",
+      fullPotentialDate: "2028-12-31",
+      scope: "LOCAL",
+      assessedByRoleAssignmentIds: [
+        roleAssignments[0].id,
+        roleAssignments[1].id,
+      ],
+      assessedAt: "2026-09-22T08:00:00Z",
+      assessmentVersion: 1,
+    };
+  };
+  addPotential(
+    "planning-money",
+    stage2Ids.calculatedInitiative,
+    "MONEY",
+    "UNDVIKBAR_DRIFTKOSTNAD",
+    "SEK/år",
+    [180000, 260000, 340000],
+    "Tre kalenderår 2027–2029",
+    [
+      "Ekonomisk potential avser undvikbara externa kostnader; frigjord tid har inte monetariserats.",
+    ],
+  );
+  addPotential(
+    "planning-time",
+    stage2Ids.calculatedInitiative,
+    "RELEASED_TIME",
+    "FRIGJORD_PLANERINGSKAPACITET",
+    "timmar/år",
+    [900, 1300, 1700],
+    "12–24 månader",
+    [
+      "Frigjord tid kan omdisponeras till planering och är inte en kontant besparing.",
+    ],
+  );
+  addPotential(
+    "service-quality",
+    stage2Ids.acceptedInitiative,
+    "QUALITY",
+    "KORREKT_VID_FÖRSTA_KONTAKT",
+    "procentenheter",
+    [2, 4, 6],
+    "6–12 månader",
+    ["Måttet avser förändring i procentenheter, inte relativ procent."],
+  );
+  addPotential(
+    "contract-money",
+    stage2Ids.overriddenInitiative,
+    "MONEY",
+    "UNDVIKBAR_KONTROLLKOSTNAD",
+    "SEK/år",
+    [90000, 140000, 190000],
+    "18–30 månader",
+    ["Potentialen bygger på fiktiv ärendevolym och är inte ett budgetbeslut."],
+  );
+
   Object.values(entities.priorityAssessments).forEach((assessment) => {
     assessment.effectPotentialIds = Object.values(entities.effectPotentials)
       .filter((item) => item.initiativeId === assessment.initiativeId)

@@ -970,3 +970,12 @@ button:focus-visible,summary:focus-visible{outline:3px solid #42a8ad;outline-off
 @media(max-width:650px){.location-trail{padding:16px;font-size:17px;gap:10px}.location-caption{flex-basis:100%}.product-header .nav-button{font-size:17px;padding:10px}.product-header .nav-button[aria-current=page]{padding:10px}.product-header nav{gap:7px}}
 .case-picker select{font:inherit;font-size:20px;line-height:1.5;min-height:52px;padding:12px 15px;border:1px solid #aebfb4;border-radius:9px;background:#fff;color:#263f31}
 .work-tabs button{font:inherit;font-size:18px;min-height:48px;padding:12px 18px;border-radius:9px;cursor:pointer}
+
+/* Headings share the text inset used by the cards and list rows below them. */
+.product-shell main{--content-inset:26px}
+.overview-head,.case-detail-head,.flow-intro{padding-inline:var(--content-inset)}
+.hero:not(.cockpit-hero),.story-heading{padding-inline:var(--content-inset)}
+.section-block>h2,.section-block>h3,.section-block>p{margin-inline:var(--content-inset)}
+.effect-workspace>.case-picker{display:block;max-width:none;padding-inline:var(--content-inset)}
+.case-workspace>.back-link,.effect-workspace>.back-link{margin-left:var(--content-inset)}
+@media(max-width:650px){.product-shell main{--content-inset:18px}.case-row{padding-inline:18px!important}.overview-head,.case-detail-head{gap:20px}}

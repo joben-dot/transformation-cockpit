@@ -43,3 +43,11 @@ Do not claim that this scaffold guarantees an easy or cost-free conversion to pr
 The default case view is now FlowOverview. It contains no inputs: eight derived status rows link to scoped detail work. Green reports recorded evidence or a decision, never an editable completion flag or permission to start. The existing command validation remains authoritative. Completed material opens as a read-only summary; editing is an explicit disclosure. A recorded start opens decision history. Qualification points and optional editors are collapsed individually. Comparison, potential, prerequisites and costs have separate tabs.
 
 The main element has its own bounded-width rule (not an adjacent-header selector), an 18px base size and responsive side whitespace. Demo clock settings are collapsed. Flow navigation tests cover a form-free overview, preserved case identity and separation of potential from commitments, human start and actual effect.
+
+## Cockpit and ordering (presentation revision)
+
+ControlRoom is now the landing view: an overview with category-separated potential examples, derived priority scores, open work, cross-initiative prerequisites and real session audit events. Effect follow-up remains a separate tab with the existing economics/measurement calculations. No demo outcomes or fake activity were introduced.
+
+`cockpitSelectors.ts` decorates case projections for display: latest non-draft assessment under the active profile, current potential references, eligibility, then descending score, with creation time and case number for ties. Stale/ineligible/unassessed cases retain identity and remain visible without a ranking score. Alternative deadline/age sorting changes only presentation. This is a calculated discussion order, not a new formal portfolio decision.
+
+Dependency cards traverse registered graph predecessors across initiative ownership and keep node-start requirements separate from later milestones. Availability is never a human start decision or a realized effect. DataProvenance describes actual demo sourcing, documented assessment authors, effect owners and the absence of external feeds. Detail forms are single-column and larger; their existing validation and accept rules remain unchanged.

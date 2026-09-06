@@ -2,12 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import App from "./App";
 
-describe("ärendeöversikten", () => {
-  it("är startvy och beskriver arbete utan prioriteringspoäng", () => {
+describe("kontrollrummet", () => {
+  it("är startvy och skiljer möjlig effekt från uppföljning", () => {
     const html = renderToStaticMarkup(<App />);
-    expect(html).toContain("Vad behöver ledningens uppmärksamhet?");
-    expect(html).toContain("8 av 8");
-    expect(html).toContain("Ansvarig saknas");
+    expect(html).toContain("Gemensam riktning. Synliga framsteg.");
+    expect(html).toContain("Det här ligger högst");
+    expect(html).toContain("Ansvarig behöver utses");
     expect(html).toContain("Prioritering är inte startbeslut");
     expect(html).not.toContain("sr-only");
     expect(html).not.toContain("INITIATIVE-DEMO-initiative-104");

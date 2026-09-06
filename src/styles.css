@@ -968,3 +968,5 @@ button:focus-visible,summary:focus-visible{outline:3px solid #42a8ad;outline-off
 .product-header .nav-button{padding:12px 14px;border:2px solid transparent;border-radius:10px;font-size:18px;min-height:48px}
 .product-header .nav-button[aria-current=page]{padding:12px 14px;color:white;background:#176a53;border:2px solid #12513f;box-shadow:0 3px 0 #0d4935;font-weight:700}
 @media(max-width:650px){.location-trail{padding:16px;font-size:17px;gap:10px}.location-caption{flex-basis:100%}.product-header .nav-button{font-size:17px;padding:10px}.product-header .nav-button[aria-current=page]{padding:10px}.product-header nav{gap:7px}}
+.case-picker select{font:inherit;font-size:20px;line-height:1.5;min-height:52px;padding:12px 15px;border:1px solid #aebfb4;border-radius:9px;background:#fff;color:#263f31}
+.work-tabs button{font:inherit;font-size:18px;min-height:48px;padding:12px 18px;border-radius:9px;cursor:pointer}

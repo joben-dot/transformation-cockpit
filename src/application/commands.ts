@@ -28,7 +28,7 @@ interface CommandMetadata {
   issuedAt: string;
 }
 
-export type Command =
+export type Command = import("./transformationCommands").TransformationCommand
   | (CommandMetadata & {
       commandType: "SET_ACTIVE_CHALLENGE";
       targetId: ChallengeId;
@@ -57,6 +57,13 @@ export type Command =
         strategicHandlingReason: string;
         nominationStatus: NominationStatus;
       };
+    })
+  | (CommandMetadata & {
+      commandType: "UPDATE_STRATEGIC_CHALLENGE";
+      targetId: ChallengeId;
+      payload: Partial<Pick<import("../domain").StrategicChallenge,
+        "title" | "problemStatement" | "currentState" | "source" |
+        "strategicRelevance" | "strategicHandlingReason" | "nominationStatus" | "businessCase">>;
     })
   | (CommandMetadata & {
       commandType: "CREATE_INITIATIVE_FROM_CHALLENGE";
@@ -106,11 +113,15 @@ export type Command =
       commandType: "CREATE_COMPLETION_REQUIREMENT";
       targetId: import("../domain").CompletionRequirementId;
       payload: {
-        initiativeId: InitiativeId;
+        initiativeId?: InitiativeId;
+        challengeId?: ChallengeId;
         qualificationAssessmentId?: import("../domain").QualificationAssessmentId;
         missingItem: string;
         reasonRequired: string;
         blocks: CompletionBlock[];
+        responsibleRoleAssignmentId?: RoleAssignmentId;
+        verifierRoleAssignmentId?: RoleAssignmentId;
+        deadline?: string;
       };
     })
   | (CommandMetadata & {

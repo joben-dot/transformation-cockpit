@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import {
   ArrowRight,
   Blocks,
@@ -27,6 +27,13 @@ import {
   type RoleAssignmentId,
 } from "./domain";
 import { stage3Ids } from "./demo-data/stage3DemoData";
+import { CaseWorkspace, type CaseNavigationContext } from "./workspaces/CaseWorkspace";
+
+import { PrerequisiteEditor } from "./workspaces/PrerequisiteEditor";
+import { EffectWorkspace } from "./workspaces/EffectWorkspace";
+import { ControlRoom } from "./workspaces/ControlRoom";
+import { GovernanceWorkspace } from "./workspaces/GovernanceWorkspace";
+import { validDate } from "./application/selectors/transformationSelectors";
 
 const initialState = initializeDemoState();
 const statusLabel = {
@@ -73,6 +80,12 @@ function commandError(result: CommandResult) {
 
 export default function App() {
   const [state, setState] = useState<DemoState>(initialState);
+  const [showPortfolio, setShowPortfolio] = useState(false);
+  const [workArea, setWorkArea] = useState<"cases"|"effects"|"control"|"governance">("cases");
+  const [day,setDay]=useState("2026-09-06");
+  const stateRef=useRef(state);
+  stateRef.current=state;
+  const [caseContext, setCaseContext] = useState<CaseNavigationContext>({ query: "", stepFilter: "ALL" });
   const activeProfile = Object.values(
     state.entities.steeringProfileVersions,
   ).find((item) => item.status === "ACTIVE")!;
@@ -86,6 +99,11 @@ export default function App() {
     () => strategicComparison(state, comparisonProfileId),
     [state, comparisonProfileId],
   );
+  const availableComparisons = useMemo(() => strategicComparison(state, activeProfile.id), [state, activeProfile.id]);
+  const [comparisonSelection, setComparisonSelection] = useState<InitiativeId[]>(
+    () => strategicComparison(initialState, activeProfile.id).map((item) => item.initiative.id),
+  );
+  const displayedComparisons = comparisons.filter((item) => comparisonSelection.includes(item.initiative.id));
   const [selectedInitiativeId, setSelectedInitiativeId] =
     useState<InitiativeId>(stage3Ids.valueInitiative);
   const story = referenceStory(state, selectedInitiativeId);
@@ -131,21 +149,23 @@ export default function App() {
   const [neededAt, setNeededAt] = useState("2026-11-30");
 
   const dispatch = (command: Command) => {
-    const result = demoReducer(state, command);
-    if (result.success) setState(result.nextState);
+    const dated={...command,issuedAt:`${day}T${new Date().toISOString().slice(11)}`};
+    const result = demoReducer(stateRef.current, dated);
+    if (result.success) {stateRef.current=result.nextState;setState(result.nextState);}
     setFeedback(commandError(result));
     return result;
   };
   const dispatchMany = (commands: Command[]) => {
-    let next = state;
+    let next = stateRef.current;
     for (const command of commands) {
-      const result = demoReducer(next, command);
+      const result = demoReducer(next, {...command,issuedAt:`${day}T${new Date().toISOString().slice(11)}`});
       if (!result.success) {
         setFeedback(commandError(result));
         return result;
       }
       next = result.nextState;
     }
+    stateRef.current=next;
     setState(next);
     setFeedback("Nytt versionsbundet jämförelseunderlag skapades.");
     return {
@@ -183,23 +203,20 @@ export default function App() {
     setFeedback("");
   };
 
+  const openEffects=(id:InitiativeId)=>{selectInitiative(id);setWorkArea("effects");};
+  const openCase=(id:InitiativeId)=>{setCaseContext({...caseContext,activeId:state.entities.initiatives[id].challengeId});setWorkArea("cases");setShowPortfolio(false);};
+  const header=<><header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Arbetsytor"><button className="nav-button" onClick={()=>{setWorkArea("cases");setShowPortfolio(false);}}>Ärenden</button><button className="nav-button" onClick={()=>{setWorkArea("cases");setShowPortfolio(true);}}>Prioritering</button><button className="nav-button" onClick={()=>setWorkArea("effects")}>Effekt och beslut</button><button className="nav-button" onClick={()=>setWorkArea("control")}>Kontrollrum</button><button className="nav-button" onClick={()=>setWorkArea("governance")}>Metod och styrning</button></nav><span className="demo-badge">Syntetisk demo</span></header><div className="demo-clock"><label>Demodatum <input type="date" value={day} min={state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06"} onChange={e=>{const value=e.target.value;const last=state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06";if(validDate(value)&&value>=last)setDay(value);}}/></label><span>Flytta tiden framåt för att demonstrera planerade mätningar. Ingen verklig mätdata.</span><button className="text-button" onClick={()=>{if(window.confirm("Återställ alla egna demoändringar?")){stateRef.current=initializeDemoState();setState(stateRef.current);setDay("2026-09-06");setFeedback("");setCaseContext({query:"",stepFilter:"ALL"});setWorkArea("cases");setShowPortfolio(false);}}}>Återställ demo</button></div></>;
+  const footer=<footer>Prioritering är inte startbeslut · All data och alla namn är syntetiska · Ändringar gäller denna session · Ingen backend, verklig autentisering, extern AI eller integration är ansluten</footer>;
+  if(workArea!=="cases")return <div className="product-shell">{header}<main id="top">{workArea==="effects"?<EffectWorkspace key={selectedInitiativeId} state={state} dispatch={dispatch} day={day} initialId={selectedInitiativeId} openCase={openCase}/>:workArea==="control"?<ControlRoom state={state} day={day} open={openEffects}/>:<GovernanceWorkspace state={state} dispatch={dispatch} day={day}/>}</main>{footer}</div>;
+  if (!showPortfolio) return (
+    <div className="product-shell">{header}
+      <main id="top"><CaseWorkspace key={caseContext.activeId ?? "overview"} state={state} dispatch={dispatch} day={day} context={caseContext} setContext={setCaseContext} feedback={feedback} openPortfolio={(id) => { selectInitiative(id); setShowPortfolio(true); }}/>{caseContext.activeId&&state.entities.challenges[caseContext.activeId]?.relatedInitiativeIds[0]&&<button className="secondary-action" onClick={()=>openEffects(state.entities.challenges[caseContext.activeId!].relatedInitiativeIds[0])}>Fortsätt till lokala åtaganden och startklarhet</button>}</main>{footer}
+    </div>
+  );
+
   return (
     <div className="product-shell">
-      <header className="product-header">
-        <a className="brand" href="#top">
-          <span>
-            <Sparkles size={18} />
-          </span>
-          <b>Transformation Cockpit</b>
-        </a>
-        <nav aria-label="Sidinnehåll">
-          <a href="#comparison">Prioritering</a>
-          <a href="#potential">Effektpotential</a>
-          <a href="#conditions">Förutsättningar</a>
-          <a href="#costs">Kostnader</a>
-        </nav>
-        <span className="demo-badge">Syntetisk demo</span>
-      </header>
+      {header}
       <main id="top">
         <section className="hero">
           <div>
@@ -226,7 +243,7 @@ export default function App() {
           <div className="section-title">
             <div>
               <p className="eyebrow">STRATEGISK JÄMFÖRELSE</p>
-              <h2>Prioriteringsunderlag för tre initiativ</h2>
+              <h2>Prioriteringsunderlag · {displayedComparisons.length} valda initiativ</h2>
             </div>
             <span className="nonbinding">
               {comparisonProfile.demoAssumption}
@@ -236,8 +253,9 @@ export default function App() {
             Ledningen behöver se både kriteriernas bidrag och osäkerheten.
             Poängen stödjer prioriteringsdiskussionen men godkänner inte start.
           </Help>
+          <fieldset className="comparison-selection"><legend>Välj kvalificerade initiativ att jämföra</legend>{availableComparisons.map((item) => <label key={item.initiative.id}><input type="checkbox" checked={comparisonSelection.includes(item.initiative.id)} onChange={(event) => setComparisonSelection(event.target.checked ? [...comparisonSelection, item.initiative.id] : comparisonSelection.filter((id) => id !== item.initiative.id))}/>{item.initiative.title}</label>)}</fieldset>
           <div className="comparison-grid">
-            {comparisons.map((item) => (
+            {displayedComparisons.map((item) => (
               <button
                 className={`comparison-card ${item.initiative.id === selectedInitiativeId ? "selected" : ""}`}
                 key={item.initiative.id}
@@ -356,7 +374,7 @@ export default function App() {
                     },
                   },
                 ];
-                comparisons.forEach((item, index) =>
+                availableComparisons.filter((item) => comparisonSelection.includes(item.initiative.id)).forEach((item, index) =>
                   commands.push({
                     commandId: createId(
                       "Command",
@@ -384,7 +402,7 @@ export default function App() {
           </div>
           <div className="contributions">
             <h3>Bidrag för valt initiativ</h3>
-            {comparisons
+            {displayedComparisons
               .find((item) => item.initiative.id === selectedInitiativeId)
               ?.assessment.criterionAssessments.map((criterion) => (
                 <div key={criterion.criterionCode}>
@@ -775,6 +793,7 @@ export default function App() {
           )}
         </section>
 
+        <PrerequisiteEditor key={selectedInitiativeId} state={state} dispatch={dispatch} day={day} id={selectedInitiativeId}/>
         <section id="costs" className="section-block">
           <div className="section-title">
             <div>
@@ -841,20 +860,7 @@ export default function App() {
         <p role="status" className="feedback">
           {feedback}
         </p>
-        <section className="section-block roadmap">
-          <p className="eyebrow">SENARE STEG</p>
-          <h2>Inte implementerat i denna leverans</h2>
-          <p>
-            Lokala effektåtaganden, mandatprövad startgrind, låst
-            beslutsbaslinje, ändringsstyrning, prognos, verifierad mätning och
-            härlett kontrollrum.
-          </p>
-          <p>
-            Rapportpresentationen kvarstår som leveranskrav;
-            rapportöverensstämmelse har inte verifierats eftersom
-            rapportunderlaget saknas här.
-          </p>
-        </section>
+        <section className="section-block"><h2>Nästa steg: verksamhetens eget åtagande</h2><p>Den här potentialen är ett beslutsunderlag. Varje lokal verksamhet måste separat ange effekt, baseline, ansvar och mättidpunkter.</p><button onClick={()=>openEffects(selectedInitiativeId)}>Öppna lokala effektåtaganden och startklarhet</button></section>
       </main>
       <footer>
         All data och alla namn är syntetiska · Ingen backend, autentisering,

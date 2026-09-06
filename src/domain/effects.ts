@@ -46,6 +46,7 @@ export interface EffectPotential {
   monetizationAssumption?: MonetizationAssumption;
 }
 export interface LocalEffectCommitment {
+  details?: import("./transformation").CommitmentDetails;
   id: EffectCommitmentId;
   initiativeId: InitiativeId;
   recipientBusinessId: BusinessId;

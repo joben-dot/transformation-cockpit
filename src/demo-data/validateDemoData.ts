@@ -282,9 +282,9 @@ export function validateDemoState(state: DemoState): DemoValidationError[] {
   });
   Object.values(entities.completionRequirements).forEach((requirement) => {
     requireReference(
-      Boolean(entities.initiatives[requirement.initiativeId]),
-      `completionRequirements.${requirement.id}.initiativeId`,
-      requirement.initiativeId,
+      Boolean((requirement.initiativeId && entities.initiatives[requirement.initiativeId]) || (requirement.challengeId && entities.challenges[requirement.challengeId])),
+      `completionRequirements.${requirement.id}.caseReference`,
+      requirement.initiativeId ?? requirement.challengeId ?? "missing",
     );
     if (requirement.qualificationAssessmentId)
       requireReference(

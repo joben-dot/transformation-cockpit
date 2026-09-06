@@ -14,4 +14,19 @@ export interface StrategicChallenge {
   nominationStatus: NominationStatus;
   relatedInitiativeIds: InitiativeId[];
   createdAt: IsoDateTime;
+  /** Evolving preparation material. Empty values are valid while the case is a draft. */
+  businessCase?: {
+    templateId: string;
+    purpose: string;
+    desiredState: string;
+    scope: string;
+    alternatives: string;
+    doNothingConsequence: string;
+    evidence: string;
+    assumptions: string;
+    uncertainty: string;
+    timeHorizon: string;
+    knownPrerequisites: string;
+    knownRisks: string;
+  };
 }

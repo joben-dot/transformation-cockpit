@@ -5,5 +5,6 @@ export * from "./effectPotentialSelectors";
 export * from "./prioritySelectors";
 export * from "./executionSelectors";
 export * from "./referenceStorySelectors";
+export * from "./caseSelectors";
 export * from "./capacitySelectors";
 export * from "./costSelectors";

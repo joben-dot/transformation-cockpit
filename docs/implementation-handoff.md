@@ -51,3 +51,14 @@ ControlRoom is now the landing view: an overview with category-separated potenti
 `cockpitSelectors.ts` decorates case projections for display: latest non-draft assessment under the active profile, current potential references, eligibility, then descending score, with creation time and case number for ties. Stale/ineligible/unassessed cases retain identity and remain visible without a ranking score. Alternative deadline/age sorting changes only presentation. This is a calculated discussion order, not a new formal portfolio decision.
 
 Dependency cards traverse registered graph predecessors across initiative ownership and keep node-start requirements separate from later milestones. Availability is never a human start decision or a realized effect. DataProvenance describes actual demo sourcing, documented assessment authors, effect owners and the absence of external feeds. Detail forms are single-column and larger; their existing validation and accept rules remain unchanged.
+
+
+## Readability, location and phase examples (6 September 2026)
+
+- UI initialization/reset uses `createPresentationDemoState`; compact `initializeDemoState` remains the independent domain-test fixture.
+- 18 challenges cover all seven list phases, at least two per phase. Six later examples are generated through real acceptance, start, forecast, change, measurement, verification and closure commands. One measurement awaits verification; one closed case misses its goal and quality limit. Dates are historical relative to 2026-09-06. All records remain fictional, disclosed in the footer.
+- Names/descriptions read naturally. Identifiers and synthetic flags are retained. Display-text cleanup occurs before any new decision snapshot is created.
+- `LocationTrail` gives workspace/case/section context. Effect tabs use the actual selected section; breadcrumbs and content cannot drift apart. Returning to the list retains its search and filter. Main navigation has a stronger selected state.
+- Larger text, desktop margins around 3vw and responsive stacked layouts. Vertical reading is preferred to shrinking text.
+- Control-room financial follow-up initially uses the common 2026 effect window when these new commitments are present; rates and cumulative calendar-year plans remain separate. The candidate ranking on the overview excludes already started cases.
+- Continue with user review of functionality tomorrow. Preserve hard start gates, local ownership, frozen decisions, cost deduplication and the distinction between potential, forecast and verified effect.

@@ -7,7 +7,7 @@ import { referenceCommitment } from "../demo-data/referenceCommitment";
 
 const text=(n:unknown):string=>typeof n==="string"?n:n&&typeof n==="object"&&"children" in n?(n as {children:unknown[]}).children.map(text).join(""):"";
 it("visar ett läsbart flöde utan formulär och bevarar ärendet vid fördjupning",()=>{
-  const root=create(<App/>).root;
+  const root=create(<App demoState={initializeDemoState()}/>).root;
   act(()=>root.findAllByType("button").find(b=>text(b)==="Ärenden")!.props.onClick());
   act(()=>root.findAllByType("button").find(b=>b.props.role==="row"&&text(b).includes("Digital fiktiv avtalsuppföljning"))!.props.onClick());
   const flow=()=>root.findByProps({"aria-label":"Ärendets sammanfattade flöde"});

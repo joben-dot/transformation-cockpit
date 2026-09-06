@@ -1,7 +1,7 @@
 import { FlowOverview } from "./FlowOverview";
 import type { FlowStepKey } from "../application/selectors/flowSelectors";
 import { referenceCommitment } from "../demo-data/referenceCommitment";
-import { useState } from "react";
+import { useState, useLayoutEffect } from "react";
 import { createId, type BusinessId, type EffectCommitmentId, type InitiativeId, type LocalEffectCommitment, type PriorityAssessmentId, type RoleAssignmentId } from "../domain";
 import type { Command } from "../application";
 import { acceptedCommitment, activeCommitments, commitmentBlockers, effectOutcome, latestDecision, preparedEconomics, startBlockers, transformationStage } from "../application/selectors/transformationSelectors";
@@ -11,6 +11,7 @@ import { format, roleName, token } from "./transformationHelpers";
 export function EffectWorkspace(props: WorkProps & {initialId?:InitiativeId;initialSection?:FlowStepKey;openCase:(id:InitiativeId,section?:FlowStepKey)=>void;openPortfolio?:(id:InitiativeId)=>void}) {
   const [id,setId]=useState(props.initialId??Object.values(props.state.entities.initiatives)[0].id);
   const [section,setSection]=useState<FlowStepKey|undefined>(props.initialSection);
+  useLayoutEffect(()=>{if(typeof window!=="undefined")window.scrollTo(0,0);},[section,id]);
   const initiative=props.state.entities.initiatives[id];
   const open=(key:FlowStepKey)=>{
     if(["material","qualification","potential","priority"].includes(key))props.openCase(id,key);

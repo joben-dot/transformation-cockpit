@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState, useRef, useLayoutEffect } from "react";
 import {
   ArrowRight,
   Blocks,
@@ -90,6 +90,7 @@ export default function App() {
   const stateRef=useRef(state);
   stateRef.current=state;
   const [caseContext, setCaseContext] = useState<CaseNavigationContext>({ query: "", stepFilter: "ALL" });
+  useLayoutEffect(()=>{if(typeof window!=="undefined")window.scrollTo(0,0);},[workArea,showPortfolio,portfolioSection]);
   const activeProfile = Object.values(
     state.entities.steeringProfileVersions,
   ).find((item) => item.status === "ACTIVE")!;

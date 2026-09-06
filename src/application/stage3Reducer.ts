@@ -156,6 +156,8 @@ export function reduceStage3Command(
     case "CHANGE_CAPACITY_PERIOD": {
       const demand = next.entities.capacityDemands[command.targetId];
       if (!demand) return fail(state, "Kapacitetsbehovet saknas.");
+      if (command.payload.period.from > command.payload.period.to)
+        return fail(state, "Kapacitetsperiodens start måste vara före slutet.");
       demand.period = command.payload.period;
       affected.push(demand.id);
       break;
@@ -181,6 +183,35 @@ export function reduceStage3Command(
         );
       if (!state.entities.executionNodes[command.payload.executionNodeId])
         return fail(state, "Kostnadens genomförandenod saknas.");
+      if (!state.entities.initiatives[command.payload.initiativeId])
+        return fail(state, "Kostnadens initiativ saknas.");
+      if (command.payload.period.from > command.payload.period.to)
+        return fail(state, "Kostnadsperiodens start måste vara före slutet.");
+      if (
+        command.payload.amount < 0 ||
+        !Number.isFinite(command.payload.amount)
+      )
+        return fail(
+          state,
+          "Kostnadsbeloppet måste vara ett giltigt positivt tal.",
+        );
+      if (command.payload.supersedesCostEntryId) {
+        const superseded =
+          state.entities.costEntries[command.payload.supersedesCostEntryId];
+        if (!superseded)
+          return fail(state, "Kostnadsposten som ska ersättas saknas.");
+        if (
+          superseded.economicStatus === "ACTUAL" ||
+          superseded.originReference !== command.payload.originReference ||
+          superseded.economicStatus !== command.payload.economicStatus ||
+          superseded.recurrence !== command.payload.recurrence ||
+          command.payload.assessmentVersion <= superseded.assessmentVersion
+        )
+          return fail(
+            state,
+            "Ersättningen måste avse samma kostnadsbedömning och en högre version.",
+          );
+      }
       next.entities.costEntries[command.targetId] = {
         id: command.targetId,
         ...command.payload,

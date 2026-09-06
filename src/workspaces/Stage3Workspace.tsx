@@ -3,6 +3,7 @@ import {
   allocationSummary,
   capacityStatus,
   costBreakdownWithoutProjection,
+  costsByOrigin,
   costSummary,
   prerequisiteGraph,
   reusedPrerequisites,
@@ -24,18 +25,20 @@ export function Stage3Workspace({
   const graph = prerequisiteGraph(state, initiativeId);
   const order = topologicalExecutionOrder(state, initiativeId);
   const capacities = capacityStatus(state, initiativeId);
-  const sharedCost = state.entities.costEntries[stage3Ids.sharedCost];
+  const relevantCosts = costsByOrigin(state, [initiativeId]);
+  const sharedCost = relevantCosts.find(
+    (entry) => entry.category === "COMMON_INVESTMENT",
+  );
+  const activeDemand = capacities[0]?.demand;
   const costBreakdown = costBreakdownWithoutProjection(
     state,
-    [stage3Ids.valueInitiative, stage3Ids.enablingInitiative],
+    [initiativeId],
     "ESTIMATE",
   );
-  const partialHorizon = costSummary(
-    state,
-    [stage3Ids.valueInitiative, stage3Ids.enablingInitiative],
-    "ESTIMATE",
-    { from: "2026-10-01", to: "2026-12-31" },
-  );
+  const partialHorizon = costSummary(state, [initiativeId], "ESTIMATE", {
+    from: "2026-10-01",
+    to: "2026-12-31",
+  });
   const activeRule = Object.values(state.entities.allocationRuleVersions).find(
     (rule) => rule.status === "ACTIVE",
   )!;
@@ -190,14 +193,14 @@ export function Stage3Workspace({
           {item.demand.unit} · {item.demand.period.from}–{item.demand.period.to}
         </p>
       ))}
-      {state.entities.capacityDemands[stage3Ids.capacityDemand] && (
+      {activeDemand && (
         <button
           onClick={() =>
             onCommand({
               ...meta,
               commandId: createId("Command", "move-capacity-period-ui"),
               commandType: "CHANGE_CAPACITY_PERIOD",
-              targetId: stage3Ids.capacityDemand,
+              targetId: activeDemand.id,
               payload: { period: { from: "2027-01-01", to: "2027-03-31" } },
             })
           }
@@ -216,49 +219,56 @@ export function Stage3Workspace({
         drift: {costBreakdown.recurringAnnualAmount.toLocaleString("sv-SE")} SEK
         per år. Budget, prognos och utfall summeras separat.
       </p>
-      <p>
-        Gemensam investering: {sharedCost.amount.toLocaleString("sv-SE")} SEK ·
-        ursprung {sharedCost.originReference}. Teknisk leverans är inte
-        realiserad verksamhetseffekt.
-      </p>
-      <div className="stage2-actions">
-        {Object.values(state.entities.allocationRuleVersions).map((rule) => (
-          <button
-            key={rule.id}
-            onClick={() =>
-              onCommand({
-                ...meta,
-                commandId: createId(
-                  "Command",
-                  `allocation-${rule.versionNumber}`,
-                ),
-                commandType: "CALCULATE_COST_ALLOCATION",
-                targetId: sharedCost.id,
-                payload: {
-                  ruleVersionId: rule.id,
-                  scenarioId: "UI-SCENARIO",
-                  dimension: "ORGANIZATION",
-                },
-              })
-            }
-          >
-            {rule.name}
-          </button>
-        ))}
-      </div>
+      {sharedCost ? (
+        <p>
+          Gemensam investering: {sharedCost.amount.toLocaleString("sv-SE")} SEK
+          · ursprung {sharedCost.originReference}. Teknisk leverans är inte
+          realiserad verksamhetseffekt.
+        </p>
+      ) : (
+        <p>Ingen gemensam investering är kopplad till vald kontext.</p>
+      )}
+      {sharedCost && (
+        <div className="stage2-actions">
+          {Object.values(state.entities.allocationRuleVersions).map((rule) => (
+            <button
+              key={rule.id}
+              onClick={() =>
+                onCommand({
+                  ...meta,
+                  commandId: createId(
+                    "Command",
+                    `allocation-${rule.versionNumber}`,
+                  ),
+                  commandType: "CALCULATE_COST_ALLOCATION",
+                  targetId: sharedCost.id,
+                  payload: {
+                    ruleVersionId: rule.id,
+                    scenarioId: "UI-SCENARIO",
+                    dimension: "ORGANIZATION",
+                  },
+                })
+              }
+            >
+              {rule.name}
+            </button>
+          ))}
+        </div>
+      )}
       <p>
         {activeRule.demoAssumption} Allokering fördelar befintlig kostnad och
         skapar ingen ny kostnad.
       </p>
-      {allocationSummary(state, sharedCost.id, "UI-SCENARIO").allocations.map(
-        (part) => (
-          <p key={part.id}>
-            {part.organizationId}:{" "}
-            {part.allocatedAmount.toLocaleString("sv-SE")} SEK (
-            {(part.share * 100).toFixed(1)} %)
-          </p>
-        ),
-      )}
+      {sharedCost &&
+        allocationSummary(state, sharedCost.id, "UI-SCENARIO").allocations.map(
+          (part) => (
+            <p key={part.id}>
+              {part.organizationId}:{" "}
+              {part.allocatedAmount.toLocaleString("sv-SE")} SEK (
+              {(part.share * 100).toFixed(1)} %)
+            </p>
+          ),
+        )}
     </section>
   );
 }

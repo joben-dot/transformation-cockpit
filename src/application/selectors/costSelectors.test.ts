@@ -10,6 +10,7 @@ import {
   calculateAllocationForRule,
   costsByOrigin,
   costSummary,
+  costBreakdownWithoutProjection,
 } from "./costSelectors";
 describe("kostnadsursprung och allokering", () => {
   it("räknar gemensamt kostnadsursprung en gång i samlad vy", () => {
@@ -393,4 +394,37 @@ describe("ofullständig kostnadshorisont", () => {
       }),
     ]);
   });
+});
+
+describe("ersättningskedja över ändrad period", () => {
+  it("räknar endast version 2 när den uttryckligen ersätter version 1", () => {
+    const state = baseDemoState();
+    const oldEntry = state.entities.costEntries[stage3Ids.sharedCost];
+    oldEntry.period = { from: "2026-01-01", to: "2026-12-31" };
+    const replacementId = createId("CostEntry", "shared-replacement-period");
+    state.entities.costEntries[replacementId] = {
+      ...oldEntry,
+      id: replacementId,
+      amount: 1_000_000,
+      period: { from: "2027-01-01", to: "2027-12-31" },
+      assessmentVersion: 2,
+      supersedesCostEntryId: oldEntry.id,
+    };
+    const result = costsByOrigin(state, [stage3Ids.valueInitiative]).filter(
+      (entry) => entry.originReference === oldEntry.originReference,
+    );
+    expect(result.map((entry) => entry.amount)).toEqual([1_000_000]);
+    expect(result.map((entry) => entry.id)).toContain(replacementId);
+    expect(result.map((entry) => entry.id)).not.toContain(oldEntry.id);
+  });
+});
+
+it("härleder 900 000 SEK för återanvändningsinitiativets aktiva kontext", () => {
+  const state = baseDemoState();
+  const result = costBreakdownWithoutProjection(
+    state,
+    [stage3Ids.reuseInitiative],
+    "ESTIMATE",
+  );
+  expect(result.oneTimeAmount).toBe(900_000);
 });

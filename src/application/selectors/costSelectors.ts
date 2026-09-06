@@ -30,9 +30,19 @@ export function costEntriesForInitiatives(
 /** Actual partial postings are additive. For assessments, only the latest version of the same origin/status/period is current. */
 export function currentCostEntries(entries: CostEntry[]) {
   const actual = entries.filter((entry) => entry.economicStatus === "ACTUAL");
+  const supersededIds = new Set(
+    entries.flatMap((entry) =>
+      entry.economicStatus !== "ACTUAL" && entry.supersedesCostEntryId
+        ? [entry.supersedesCostEntryId]
+        : [],
+    ),
+  );
   const versioned = new Map<string, CostEntry>();
   entries
-    .filter((entry) => entry.economicStatus !== "ACTUAL")
+    .filter(
+      (entry) =>
+        entry.economicStatus !== "ACTUAL" && !supersededIds.has(entry.id),
+    )
     .forEach((entry) => {
       const key = [
         entry.originReference,

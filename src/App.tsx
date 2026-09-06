@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import {
   calculateParticipationScenario,
-  defaultSteeringProfile,
   isQualified,
   municipalities,
   qualificationRequirements,
@@ -32,7 +31,12 @@ import {
   type QualificationState,
   type SteeringProfile,
 } from "./scenario";
-import { demoReducer, initializeDemoState, type Command } from "./application";
+import {
+  demoReducer,
+  initializeDemoState,
+  type Command,
+  type CommandResult,
+} from "./application";
 import { createId, type RoleAssignmentId } from "./domain";
 import { stage2Ids } from "./demo-data/stage2DemoData";
 import { Stage3Workspace } from "./workspaces/Stage3Workspace";
@@ -41,9 +45,9 @@ import {
   QualificationWorkspace,
   EffectPotentialWorkspace,
   PriorityWorkspace,
+  SteeringProfileWorkspace,
 } from "./workspaces/Stage2Workspaces";
 import {
-  createInitiative,
   implementationInitiatives,
   lifecycleStatus,
   qualifiedInitiatives,
@@ -1492,15 +1496,22 @@ function Governance({
 function NewChallenge({
   close,
   open,
-  defaultOrganization,
+  state,
 }: {
   close: () => void;
-  open: (title: string, problem: string, organization: Organization) => void;
-  defaultOrganization: Organization;
+  open: (
+    title: string,
+    problem: string,
+    organizationId: import("./domain").OrganizationId,
+  ) => void;
+  state: ReturnType<typeof initializeDemoState>;
 }) {
   const [title, setTitle] = useState("");
   const [problem, setProblem] = useState("");
-  const [organization, setOrganization] = useState(defaultOrganization);
+  const domainOrganizations = Object.values(state.entities.organizations);
+  const [organizationId, setOrganizationId] = useState(
+    domainOrganizations[0]?.id,
+  );
   return (
     <div className="modalback">
       <section className="modal">
@@ -1523,13 +1534,17 @@ function NewChallenge({
         <label>
           Organisation
           <select
-            value={organization}
+            value={organizationId}
             onChange={(event) =>
-              setOrganization(event.target.value as Organization)
+              setOrganizationId(
+                event.target.value as import("./domain").OrganizationId,
+              )
             }
           >
-            {organizations.map((name) => (
-              <option key={name}>{name}</option>
+            {domainOrganizations.map((organization) => (
+              <option key={organization.id} value={organization.id}>
+                {organization.name}
+              </option>
             ))}
           </select>
         </label>
@@ -1542,7 +1557,10 @@ function NewChallenge({
           <button
             className="primary"
             disabled={!title.trim() || !problem.trim()}
-            onClick={() => open(title.trim(), problem.trim(), organization)}
+            onClick={() =>
+              organizationId &&
+              open(title.trim(), problem.trim(), organizationId)
+            }
           >
             Registrera och kvalificera
           </button>
@@ -1552,18 +1570,25 @@ function NewChallenge({
   );
 }
 
-function NotMigrated({ children }: { children: React.ReactNode }) {
+function FutureStagePlaceholder({
+  state,
+  title,
+}: {
+  state: ReturnType<typeof initializeDemoState>;
+  title: string;
+}) {
   return (
-    <>
-      <section className="selection-explainer">
-        <AlertTriangle size={16} />
-        <span>
-          <b>Ännu inte migrerad</b> Denna senare arbetsyta använder äldre,
-          frikopplad demodata och ingår inte i etapp 2.
-        </span>
-      </section>
-      {children}
-    </>
+    <section className="stage2-workspace">
+      <p className="stage2-identity">
+        ChallengeId: {state.viewContext.activeChallengeId ?? "Saknas"} ·
+        InitiativeId: {state.viewContext.activeInitiativeId ?? "Saknas"}
+      </p>
+      <h2>{title}</h2>
+      <p>
+        Arbetsytan är ännu inte implementerad i den gemensamma domänen. Inga
+        äldre eller frikopplade resultat visas för det aktiva ärendet.
+      </p>
+    </section>
   );
 }
 
@@ -1592,142 +1617,128 @@ function initializeStage2View() {
   return challengeResult.success ? challengeResult.nextState : state;
 }
 
-function applyPriorityAction(
-  state: ReturnType<typeof initializeDemoState>,
-  action: "ACCEPT" | "OVERRIDE" | "REJECT" | "RETURN",
-) {
-  const metadata = {
-    commandId: createId("Command", `ui-priority-${Date.now()}`),
-    actorRoleAssignmentId: Object.keys(
-      state.entities.roleAssignments,
-    )[2] as RoleAssignmentId,
-    issuedAt: new Date().toISOString(),
-    targetId: createId("PriorityAssessment", "priority-1"),
-  };
-  const commands: Record<typeof action, Command> = {
-    ACCEPT: {
-      ...metadata,
-      commandType: "REVIEW_PRIORITY_ASSESSMENT",
-      payload: { rationale: "Mänskligt granskat och accepterat i demo." },
-    },
-    OVERRIDE: {
-      ...metadata,
-      commandType: "OVERRIDE_PRIORITY_ASSESSMENT",
-      payload: {
-        recommendation: "INVESTIGATE",
-        rationale: "Mänsklig kapacitetsbedömning kräver fortsatt utredning.",
-      },
-    },
-    REJECT: {
-      ...metadata,
-      commandType: "REJECT_PRIORITY_ASSESSMENT",
-      payload: {
-        rationale: "Underlaget bedöms otillräckligt i demonstrationen.",
-      },
-    },
-    RETURN: {
-      ...metadata,
-      commandType: "RETURN_PRIORITY_ASSESSMENT_FOR_COMPLETION",
-      payload: { rationale: "Kompletterande evidens behöver tas fram." },
-    },
-  };
-  const result = demoReducer(state, commands[action]);
-  return result.success ? result.nextState : state;
-}
-
 export default function App() {
   // Bevaras tills den äldre genomförandevyn uttryckligen migreras eller tas bort.
   void Delivery;
+  void Governance;
   const [page, setPage] = useState<Page>("Start");
   const [stage2State, setStage2State] = useState(initializeStage2View);
+  const dispatchDomainCommand = (command: Command): CommandResult => {
+    const result = demoReducer(stage2State, command);
+    if (result.success) setStage2State(result.nextState);
+    return result;
+  };
+  const dispatchDomainCommands = (commands: Command[]): CommandResult => {
+    let next = stage2State;
+    for (const command of commands) {
+      const result = demoReducer(next, command);
+      if (!result.success) return { ...result, nextState: stage2State };
+      next = result.nextState;
+    }
+    setStage2State(next);
+    return {
+      success: true,
+      nextState: next,
+      affectedEntityIds: commands.flatMap((command) => [
+        "targetId" in command ? command.targetId : command.commandId,
+      ]),
+    };
+  };
   const [menu, setMenu] = useState(false);
   const [org, setOrg] = useState<Organization>(organizations[0]);
   const [newOpen, setNewOpen] = useState(false);
-  const [initiatives, setInitiatives] =
-    useState<Initiative[]>(initialInitiatives);
-  const [activeInitiativeId, setActiveInitiativeId] = useState(
-    initialInitiatives[0].id,
-  );
-  const [weights, setWeights] = useState<SteeringProfile>(
-    defaultSteeringProfile,
-  );
+  const [initiatives] = useState<Initiative[]>(initialInitiatives);
+  const [activeInitiativeId] = useState(initialInitiatives[0].id);
   const [federatedView, setFederatedView] = useState(false);
   const activeInitiative =
     initiatives.find((item) => item.id === activeInitiativeId) ||
     initiatives[0];
-  const content = useMemo(
-    () =>
-      ({
-        Start: <Start go={setPage} initiatives={initiatives} />,
-        Utmaningar: <StrategicChallengeWorkspace state={stage2State} />,
-        Kvalificering: (
-          <QualificationWorkspace
-            state={stage2State}
-            initiativeId={stage2State.viewContext.activeInitiativeId!}
-          />
-        ),
-        Effektpotential: (
-          <EffectPotentialWorkspace
-            state={stage2State}
-            initiativeId={stage2State.viewContext.activeInitiativeId!}
-          />
-        ),
-        Prioritering: (
-          <PriorityWorkspace
-            state={stage2State}
-            initiativeId={stage2State.viewContext.activeInitiativeId!}
-            onHumanAction={(action) =>
-              setStage2State((current) => applyPriorityAction(current, action))
+  const usesDomainContext = [
+    "Utmaningar",
+    "Kvalificering",
+    "Effektpotential",
+    "Prioritering",
+    "Genomförande",
+    "Effekt",
+    "Lärande & återbruk",
+    "Styrmodell",
+  ].includes(page);
+  const domainPerspective = stage2State.viewContext.selectedPerspective;
+  const domainOrganization =
+    domainPerspective.kind === "ORGANIZATION"
+      ? stage2State.entities.organizations[domainPerspective.organizationId]
+      : undefined;
+  const content = {
+    Start: <Start go={setPage} initiatives={initiatives} />,
+    Utmaningar: <StrategicChallengeWorkspace state={stage2State} />,
+    Kvalificering: (
+      <QualificationWorkspace
+        state={stage2State}
+        initiativeId={stage2State.viewContext.activeInitiativeId!}
+        onCommand={dispatchDomainCommand}
+        onCommands={dispatchDomainCommands}
+      />
+    ),
+    Effektpotential: (
+      <EffectPotentialWorkspace
+        state={stage2State}
+        initiativeId={stage2State.viewContext.activeInitiativeId!}
+        onCommand={dispatchDomainCommand}
+      />
+    ),
+    Prioritering: (
+      <PriorityWorkspace
+        state={stage2State}
+        initiativeId={stage2State.viewContext.activeInitiativeId!}
+        onHumanAction={(action) => dispatchDomainCommand(action)}
+      />
+    ),
+    Genomförande: (
+      <Stage3Workspace
+        state={stage2State}
+        onCommand={(command) =>
+          setStage2State((current) => {
+            const result = demoReducer(current, command);
+            if (!result.success) return current;
+            if (command.commandType !== "SET_ACTIVE_INITIATIVE") {
+              return result.nextState;
             }
-          />
-        ),
-        Genomförande: (
-          <Stage3Workspace
-            state={stage2State}
-            onCommand={(command) =>
-              setStage2State((current) => {
-                const result = demoReducer(current, command);
-                if (!result.success) return current;
-                if (command.commandType !== "SET_ACTIVE_INITIATIVE") {
-                  return result.nextState;
-                }
-                const challengeId =
-                  result.nextState.entities.initiatives[command.targetId]
-                    .challengeId;
-                const challengeResult = demoReducer(result.nextState, {
-                  commandId: createId(
-                    "Command",
-                    `stage3-challenge-${challengeId}`.replace(
-                      /[^a-z0-9-]/gi,
-                      "-",
-                    ),
-                  ),
-                  actorRoleAssignmentId: command.actorRoleAssignmentId,
-                  issuedAt: command.issuedAt,
-                  commandType: "SET_ACTIVE_CHALLENGE",
-                  targetId: challengeId,
-                });
-                return challengeResult.success
-                  ? challengeResult.nextState
-                  : current;
-              })
-            }
-          />
-        ),
-        Effekt: (
-          <NotMigrated>
-            <Effect initiative={activeInitiative} />
-          </NotMigrated>
-        ),
-        "Lärande & återbruk": (
-          <NotMigrated>
-            <Learning initiative={activeInitiative} />
-          </NotMigrated>
-        ),
-        Styrmodell: <Governance weights={weights} setWeights={setWeights} />,
-      })[page],
-    [page, initiatives, activeInitiative, weights, stage2State],
-  );
+            const challengeId =
+              result.nextState.entities.initiatives[command.targetId]
+                .challengeId;
+            const challengeResult = demoReducer(result.nextState, {
+              commandId: createId(
+                "Command",
+                `stage3-challenge-${challengeId}`.replace(/[^a-z0-9-]/gi, "-"),
+              ),
+              actorRoleAssignmentId: command.actorRoleAssignmentId,
+              issuedAt: command.issuedAt,
+              commandType: "SET_ACTIVE_CHALLENGE",
+              targetId: challengeId,
+            });
+            return challengeResult.success
+              ? challengeResult.nextState
+              : current;
+          })
+        }
+      />
+    ),
+    Effekt: (
+      <FutureStagePlaceholder state={stage2State} title="Effektuppföljning" />
+    ),
+    "Lärande & återbruk": (
+      <FutureStagePlaceholder
+        state={stage2State}
+        title="Lärande och återbruk"
+      />
+    ),
+    Styrmodell: (
+      <SteeringProfileWorkspace
+        state={stage2State}
+        onCommands={dispatchDomainCommands}
+      />
+    ),
+  }[page];
   return (
     <div className="app">
       <Sidebar
@@ -1748,7 +1759,17 @@ export default function App() {
         <div className="federated-strip">
           <Users size={15} />
           <span>
-            {federatedView ? (
+            {usesDomainContext ? (
+              <>
+                <b>
+                  Du ser nu:{" "}
+                  {domainPerspective.kind === "FEDERATED"
+                    ? "Federerad vy"
+                    : domainOrganization?.name}
+                </b>{" "}
+                – samma perspektiv används i det aktiva domänärendet
+              </>
+            ) : federatedView ? (
               <>
                 <b>Du ser nu: Federerad vy</b> – samlad bild för{" "}
                 {activeInitiative.participants.length
@@ -1761,8 +1782,38 @@ export default function App() {
               </>
             )}
           </span>
-          <button onClick={() => setFederatedView(!federatedView)}>
-            {federatedView ? "Visa lokalt" : "Visa federerat"}
+          <button
+            onClick={() => {
+              if (!usesDomainContext) return setFederatedView(!federatedView);
+              const actorRoleAssignmentId = Object.keys(
+                stage2State.entities.roleAssignments,
+              )[0] as RoleAssignmentId;
+              dispatchDomainCommand({
+                commandId: createId("Command", `perspective-ui-${Date.now()}`),
+                actorRoleAssignmentId,
+                issuedAt: new Date().toISOString(),
+                commandType: "SET_VIEW_PERSPECTIVE",
+                payload: {
+                  perspective:
+                    domainPerspective.kind === "FEDERATED"
+                      ? {
+                          kind: "ORGANIZATION",
+                          organizationId: Object.keys(
+                            stage2State.entities.organizations,
+                          )[0] as import("./domain").OrganizationId,
+                        }
+                      : { kind: "FEDERATED" },
+                },
+              });
+            }}
+          >
+            {(
+              usesDomainContext
+                ? domainPerspective.kind === "FEDERATED"
+                : federatedView
+            )
+              ? "Visa lokalt"
+              : "Visa federerat"}
           </button>
         </div>
         <div className="content">{content}</div>
@@ -1774,13 +1825,85 @@ export default function App() {
       </main>
       {newOpen && (
         <NewChallenge
-          defaultOrganization={org}
+          state={stage2State}
           close={() => setNewOpen(false)}
-          open={(title, problem, organization) => {
-            const id = `UTM-${String(Math.max(0, ...initiatives.map((item) => Number(item.id.replace("UTM-", "")) || 0)) + 1).padStart(3, "0")}`;
-            const item = createInitiative(id, title, problem, organization);
-            setInitiatives((items) => [...items, item]);
-            setActiveInitiativeId(id);
+          open={(title, problem, organizationId) => {
+            const token = Date.now().toString(36);
+            const challengeId = createId("Challenge", `created-${token}`);
+            const initiativeId = createId("Initiative", `created-${token}`);
+            const actorRoleAssignmentId = Object.keys(
+              stage2State.entities.roleAssignments,
+            )[0] as RoleAssignmentId;
+            const issuedAt = new Date().toISOString();
+            const commands: Command[] = [
+              {
+                commandId: createId("Command", `create-challenge-${token}`),
+                actorRoleAssignmentId,
+                issuedAt,
+                commandType: "CREATE_STRATEGIC_CHALLENGE",
+                targetId: challengeId,
+                payload: {
+                  title,
+                  problemStatement: problem,
+                  currentState:
+                    "Nuläge behöver kompletteras i kvalificeringen.",
+                  source: "Registrerat syntetiskt användarunderlag",
+                  strategicRelevance: "Bedöms i fortsatt kvalificering.",
+                  strategicHandlingReason:
+                    "Registrerat för gemensam bedömning.",
+                  nominationStatus: "NOMINATED",
+                },
+              },
+              {
+                commandId: createId("Command", `create-initiative-${token}`),
+                actorRoleAssignmentId,
+                issuedAt,
+                commandType: "CREATE_INITIATIVE_FROM_CHALLENGE",
+                targetId: initiativeId,
+                payload: {
+                  challengeId,
+                  title,
+                  purpose: problem,
+                  desiredEndState:
+                    "Önskat slutläge kompletteras under kvalificering.",
+                  initiativeKind: "VALUE_CREATING",
+                  scope: "Syntetiskt registrerat ärende",
+                },
+              },
+              {
+                commandId: createId("Command", `active-challenge-${token}`),
+                actorRoleAssignmentId,
+                issuedAt,
+                commandType: "SET_ACTIVE_CHALLENGE",
+                targetId: challengeId,
+              },
+              {
+                commandId: createId("Command", `active-initiative-${token}`),
+                actorRoleAssignmentId,
+                issuedAt,
+                commandType: "SET_ACTIVE_INITIATIVE",
+                targetId: initiativeId,
+              },
+              {
+                commandId: createId("Command", `perspective-${token}`),
+                actorRoleAssignmentId,
+                issuedAt,
+                commandType: "SET_VIEW_PERSPECTIVE",
+                payload: {
+                  perspective: { kind: "ORGANIZATION", organizationId },
+                },
+              },
+            ];
+            setStage2State((current) => {
+              let failed = false;
+              const next = commands.reduce((nextState, command) => {
+                if (failed) return nextState;
+                const result = demoReducer(nextState, command);
+                if (!result.success) failed = true;
+                return result.success ? result.nextState : nextState;
+              }, current);
+              return failed ? current : next;
+            });
             setNewOpen(false);
             setPage("Kvalificering");
           }}

@@ -148,6 +148,9 @@ describe("etapp 2 commands", () => {
     );
     const result = demoReducer(state, {
       ...meta(state),
+      actorRoleAssignmentId:
+        state.entities.completionRequirements[stage2Ids.waitingRequirement]
+          .verifierRoleAssignmentId!,
       commandType: "VERIFY_COMPLETION_REQUIREMENT",
       targetId: stage2Ids.waitingRequirement,
       payload: { resolutionSummary: "Behörigt verifierat." },

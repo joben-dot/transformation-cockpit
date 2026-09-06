@@ -95,7 +95,7 @@ domäninställningar krävs.
 ## Nuvarande begränsningar
 
 - All data är syntetisk och lagras enbart i klientkoden; ändringar sparas inte.
-- Knappar för att skapa och redigera objekt är visuella prototypytor och saknar formulärflöden.
+- Etapp 1–3 har enkla command-drivna formulärflöden; senare arbetsytor är tydligt märkta platshållare utan frikopplade resultat.
 - Behörigheter, autentisering, notifieringar, export, API-integrationer och revisionslogg ingår inte.
 - Prioriteringspoäng och effekter är demonstrativa, inte en validerad kommunal beräkningsmodell. Deltagarscenariot skiljer mellan fast, organisationsspecifik och deltagarskalande kostnad.
 - Alternativkostnaden, den tekniska skulden och andra följder för en kommun som väljer att stå utanför modelleras inte i denna iteration; det är en framtida modellfråga.

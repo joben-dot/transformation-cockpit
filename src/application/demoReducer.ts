@@ -15,6 +15,7 @@ import {
 } from "./selectors/prioritySelectors";
 import { priorityReviewMandateScope } from "../domain";
 import { reduceStage3Command } from "./stage3Reducer";
+import { validateStage3State } from "./validateStage3State";
 
 const failure = (
   state: DemoState,
@@ -333,6 +334,19 @@ function validateCommand(
           command.payload.responsibleRoleAssignmentId,
         );
       if (
+        command.commandType === "ASSIGN_COMPLETION_RESPONSIBILITY" &&
+        command.payload.verifierRoleAssignmentId &&
+        !state.entities.roleAssignments[
+          command.payload.verifierRoleAssignmentId
+        ]
+      )
+        return failure(
+          state,
+          "INVALID_REFERENCE",
+          "Verifierarens rollrelation finns inte.",
+          command.payload.verifierRoleAssignmentId,
+        );
+      if (
         command.commandType === "SUBMIT_COMPLETION_REQUIREMENT" &&
         (!["REQUESTED", "IN_PROGRESS", "REJECTED"].includes(
           requirement.status,
@@ -347,12 +361,14 @@ function validateCommand(
         );
       if (
         command.commandType === "VERIFY_COMPLETION_REQUIREMENT" &&
-        requirement.status !== "SUBMITTED"
+        (requirement.status !== "SUBMITTED" ||
+          requirement.verifierRoleAssignmentId !==
+            command.actorRoleAssignmentId)
       )
         return failure(
           state,
           "INVALID_PAYLOAD",
-          "Endast ett inskickat krav kan verifieras.",
+          "Endast utsedd verifierare kan verifiera ett inskickat krav.",
           command.targetId,
         );
       if (
@@ -744,15 +760,27 @@ function applyCommand(nextState: DemoState, command: Command): string[] {
 }
 
 export function demoReducer(state: DemoState, command: Command): CommandResult {
-  const stage3Result = reduceStage3Command(state, command);
-  if (stage3Result) return stage3Result;
   const invalidCurrentState = validateDemoState(state);
-  if (invalidCurrentState.length)
+  const invalidStage3State = validateStage3State(state);
+  if (invalidCurrentState.length || invalidStage3State.length)
     return failure(
       state,
       "POST_STATE_INVALID",
-      "Utgångsläget har bruten referensintegritet.",
+      invalidCurrentState[0]?.description ?? invalidStage3State[0],
     );
+  const stage3Result = reduceStage3Command(state, command);
+  if (stage3Result) {
+    if (!stage3Result.success) return stage3Result;
+    const errors = validateDemoState(stage3Result.nextState);
+    if (errors.length)
+      return failure(
+        state,
+        "POST_STATE_INVALID",
+        errors[0].description,
+        errors[0].entityId,
+      );
+    return stage3Result;
+  }
   const commandError = validateCommand(state, command);
   if (commandError) return commandError;
 

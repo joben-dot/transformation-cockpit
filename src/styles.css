@@ -760,3 +760,14 @@ footer {
 .comparison-card {
   min-height: 235px;
 }
+.inline-feedback { min-height: 20px; color: #126b59; font-weight: 700; }
+.inline-feedback:empty { display: none; }
+.material-form, .potential-form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.material-form label, .potential-form label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; }
+.material-form textarea { min-height: 70px; padding: 9px; border: 1px solid #c8d6d1; border-radius: 7px; }
+.qualification-editor { margin-top: 20px; }
+.criterion { display: grid; grid-template-columns: 1.4fr 1fr 1fr auto auto; gap: 9px; align-items: center; padding: 11px 0; border-top: 1px solid #e0e7e4; }
+.criterion > div { display: grid; gap: 4px; }.criterion small { color: #64736f; }
+@media(max-width:900px){.material-form,.potential-form,.criterion{grid-template-columns:1fr}}
+.requirement-assignment { display:grid; gap:7px; border-top:1px solid #dec98f; padding-top:8px; }
+button:disabled { opacity:.5; cursor:not-allowed; }

@@ -113,12 +113,14 @@ export type Command =
       commandType: "CREATE_COMPLETION_REQUIREMENT";
       targetId: import("../domain").CompletionRequirementId;
       payload: {
-        initiativeId: InitiativeId;
+        initiativeId?: InitiativeId;
+        challengeId?: ChallengeId;
         qualificationAssessmentId?: import("../domain").QualificationAssessmentId;
         missingItem: string;
         reasonRequired: string;
         blocks: CompletionBlock[];
         responsibleRoleAssignmentId?: RoleAssignmentId;
+        verifierRoleAssignmentId?: RoleAssignmentId;
         deadline?: string;
       };
     })

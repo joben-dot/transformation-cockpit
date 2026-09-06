@@ -73,7 +73,8 @@ export type CompletionRequirementStatus =
   | "NOT_APPLICABLE";
 export interface CompletionRequirement {
   id: CompletionRequirementId;
-  initiativeId: InitiativeId;
+  initiativeId?: InitiativeId;
+  challengeId?: import("./ids").ChallengeId;
   qualificationAssessmentId?: QualificationAssessmentId;
   missingItem: string;
   reasonRequired: string;

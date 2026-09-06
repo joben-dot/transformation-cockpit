@@ -27,7 +27,7 @@ import {
   type RoleAssignmentId,
 } from "./domain";
 import { stage3Ids } from "./demo-data/stage3DemoData";
-import { CaseWorkspace } from "./workspaces/CaseWorkspace";
+import { CaseWorkspace, type CaseNavigationContext } from "./workspaces/CaseWorkspace";
 
 const initialState = initializeDemoState();
 const statusLabel = {
@@ -75,6 +75,7 @@ function commandError(result: CommandResult) {
 export default function App() {
   const [state, setState] = useState<DemoState>(initialState);
   const [showPortfolio, setShowPortfolio] = useState(false);
+  const [caseContext, setCaseContext] = useState<CaseNavigationContext>({ query: "", stepFilter: "ALL" });
   const activeProfile = Object.values(
     state.entities.steeringProfileVersions,
   ).find((item) => item.status === "ACTIVE")!;
@@ -88,6 +89,7 @@ export default function App() {
     () => strategicComparison(state, comparisonProfileId),
     [state, comparisonProfileId],
   );
+  const availableComparisons = useMemo(() => strategicComparison(state, activeProfile.id), [state, activeProfile.id]);
   const [comparisonSelection, setComparisonSelection] = useState<InitiativeId[]>(
     () => strategicComparison(initialState, activeProfile.id).map((item) => item.initiative.id),
   );
@@ -191,9 +193,9 @@ export default function App() {
 
   if (!showPortfolio) return (
     <div className="product-shell">
-      <header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Länkade delar"><a href="#comparison">Prioritering</a><a href="#potential">Effektpotential</a><a href="#conditions">Förutsättningar</a><a href="#costs">Kostnader</a></nav><span className="demo-badge">Syntetisk demo</span></header>
-      <main id="top"><CaseWorkspace state={state} dispatch={dispatch} openPortfolio={(id) => { selectInitiative(id); setShowPortfolio(true); setTimeout(() => document.querySelector("#potential")?.scrollIntoView(), 0); }}/></main>
-      <footer>Prioritering är inte startbeslut · Inte implementerat i denna leverans: effektåtagande, startbeslut och verifierad effekt. Ändringar sparas endast i demosessionen · Ingen backend eller verklig autentisering<span className="sr-only">{stage3Ids.valueInitiative} CHALLENGE-DEMO-challenge-105 {stage3Ids.sharedNode} Bedömd potential – inte beslutad effekthemtagning. Planerare i den fiktiva omsorgsverksamheten UNDVIKBAR_DRIFTKOSTNAD FRIGJORD_PLANERINGSKAPACITET procentenheter</span></footer>
+      <header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Länkade delar"><button className="nav-button" onClick={()=>setShowPortfolio(true)}>Prioritering</button><button className="nav-button" onClick={()=>{setShowPortfolio(true);setTimeout(()=>document.querySelector("#potential")?.scrollIntoView(),0)}}>Effektpotential</button><button className="nav-button" onClick={()=>{setShowPortfolio(true);setTimeout(()=>document.querySelector("#conditions")?.scrollIntoView(),0)}}>Förutsättningar</button><button className="nav-button" onClick={()=>{setShowPortfolio(true);setTimeout(()=>document.querySelector("#costs")?.scrollIntoView(),0)}}>Kostnader</button></nav><span className="demo-badge">Syntetisk demo</span></header>
+      <main id="top"><CaseWorkspace state={state} dispatch={dispatch} context={caseContext} setContext={setCaseContext} feedback={feedback} openPortfolio={(id) => { selectInitiative(id); setShowPortfolio(true); setTimeout(() => document.querySelector("#potential")?.scrollIntoView(), 0); }}/></main>
+      <footer>Prioritering är inte startbeslut · Inte implementerat i denna leverans: effektåtagande, startbeslut och verifierad effekt. Ändringar sparas endast i demosessionen · Ingen backend eller verklig autentisering</footer>
     </div>
   );
 
@@ -251,7 +253,7 @@ export default function App() {
             Ledningen behöver se både kriteriernas bidrag och osäkerheten.
             Poängen stödjer prioriteringsdiskussionen men godkänner inte start.
           </Help>
-          <fieldset className="comparison-selection"><legend>Välj kvalificerade initiativ att jämföra</legend>{comparisons.map((item) => <label key={item.initiative.id}><input type="checkbox" checked={comparisonSelection.includes(item.initiative.id)} onChange={(event) => setComparisonSelection(event.target.checked ? [...comparisonSelection, item.initiative.id] : comparisonSelection.filter((id) => id !== item.initiative.id))}/>{item.initiative.title}</label>)}</fieldset>
+          <fieldset className="comparison-selection"><legend>Välj kvalificerade initiativ att jämföra</legend>{availableComparisons.map((item) => <label key={item.initiative.id}><input type="checkbox" checked={comparisonSelection.includes(item.initiative.id)} onChange={(event) => setComparisonSelection(event.target.checked ? [...comparisonSelection, item.initiative.id] : comparisonSelection.filter((id) => id !== item.initiative.id))}/>{item.initiative.title}</label>)}</fieldset>
           <div className="comparison-grid">
             {displayedComparisons.map((item) => (
               <button
@@ -372,7 +374,7 @@ export default function App() {
                     },
                   },
                 ];
-                displayedComparisons.forEach((item, index) =>
+                availableComparisons.filter((item) => comparisonSelection.includes(item.initiative.id)).forEach((item, index) =>
                   commands.push({
                     commandId: createId(
                       "Command",

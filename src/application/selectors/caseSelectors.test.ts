@@ -9,6 +9,7 @@ describe("caseOverview", () => {
     const items = caseOverview(state);
     expect(items).toHaveLength(8);
     expect(items.every((item) => !Object.prototype.hasOwnProperty.call(item, "priorityScore"))).toBe(true);
+    expect(items.some((item) => item.responsible === "Ansvarig saknas")).toBe(true);
     expect(items.find((item) => item.initiativeId === stage2Ids.waitingInitiative)).toMatchObject({
       step: "BEREDNING",
       obstacle: "Behörig juridisk verifiering",

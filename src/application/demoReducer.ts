@@ -337,15 +337,24 @@ function validateCommand(
           "Kompletteringskravets ID används redan.",
           command.targetId,
         );
-      if (!state.entities.initiatives[command.payload.initiativeId])
+      if (!command.payload.initiativeId && !command.payload.challengeId)
+        return failure(state, "INVALID_PAYLOAD", "Kompletteringskravet måste kopplas till ett ärende eller initiativ.", command.targetId);
+      if (command.payload.initiativeId && !state.entities.initiatives[command.payload.initiativeId])
         return failure(
           state,
           "INVALID_REFERENCE",
           "Initiativet finns inte.",
           command.payload.initiativeId,
         );
+      if (command.payload.challengeId && !state.entities.challenges[command.payload.challengeId])
+        return failure(state, "INVALID_REFERENCE", "Utmaningen finns inte.", command.payload.challengeId);
       if (command.payload.responsibleRoleAssignmentId && !state.entities.roleAssignments[command.payload.responsibleRoleAssignmentId])
         return failure(state, "INVALID_REFERENCE", "Ansvarig rollrelation finns inte.", command.payload.responsibleRoleAssignmentId);
+      if (command.payload.verifierRoleAssignmentId) {
+        const verifier = state.entities.roleAssignments[command.payload.verifierRoleAssignmentId];
+        if (!verifier || state.entities.roleDefinitions[verifier.roleDefinitionId]?.roleKind !== "SPECIALIST")
+          return failure(state, "INVALID_REFERENCE", "Vald verifierare måste ha specialistroll.", command.payload.verifierRoleAssignmentId);
+      }
       if (command.payload.qualificationAssessmentId) {
         const assessment =
           state.entities.qualificationAssessments[
@@ -422,7 +431,8 @@ function validateCommand(
       }
       if (
         command.commandType === "SUBMIT_COMPLETION_REQUIREMENT" &&
-        (!["REQUESTED", "IN_PROGRESS", "REJECTED"].includes(
+        (requirement.responsibleRoleAssignmentId !== command.actorRoleAssignmentId ||
+          !["REQUESTED", "IN_PROGRESS", "REJECTED"].includes(
           requirement.status,
         ) ||
           !command.payload.submittedEvidenceRefs.length)
@@ -430,7 +440,7 @@ function validateCommand(
         return failure(
           state,
           "INVALID_PAYLOAD",
-          "Kravet måste vara tilldelat och ha evidens före inskick.",
+          "Endast utsedd kompletteringsansvarig kan skicka ett tilldelat krav med evidens.",
           command.targetId,
         );
       if (
@@ -813,6 +823,11 @@ function applyCommand(nextState: DemoState, command: Command): string[] {
       nextState.entities.challenges[
         initiative.challengeId
       ].relatedInitiativeIds.push(initiative.id);
+      Object.values(nextState.entities.completionRequirements)
+        .filter((requirement) => requirement.challengeId === initiative.challengeId && !requirement.initiativeId)
+        .forEach((requirement) => {
+          requirement.initiativeId = initiative.id;
+        });
       return [initiative.id, initiative.challengeId];
     }
     case "ADD_PARTICIPATION": {
@@ -847,11 +862,11 @@ function applyCommand(nextState: DemoState, command: Command): string[] {
         submittedEvidenceRefs: [],
         createdAt: command.issuedAt,
       };
-      return [command.targetId, command.payload.initiativeId];
+      return [command.targetId, command.payload.initiativeId ?? command.payload.challengeId!];
     case "ASSIGN_COMPLETION_RESPONSIBILITY": {
       const item = nextState.entities.completionRequirements[command.targetId];
       Object.assign(item, command.payload, { status: "REQUESTED" });
-      return [item.id, item.initiativeId];
+      return [item.id, item.initiativeId ?? item.challengeId!];
     }
     case "SUBMIT_COMPLETION_REQUIREMENT": {
       const item = nextState.entities.completionRequirements[command.targetId];
@@ -859,7 +874,7 @@ function applyCommand(nextState: DemoState, command: Command): string[] {
         status: "SUBMITTED",
         completedAt: command.issuedAt,
       });
-      return [item.id, item.initiativeId];
+      return [item.id, item.initiativeId ?? item.challengeId!];
     }
     case "VERIFY_COMPLETION_REQUIREMENT": {
       const item = nextState.entities.completionRequirements[command.targetId];
@@ -868,7 +883,7 @@ function applyCommand(nextState: DemoState, command: Command): string[] {
         verifierRoleAssignmentId: command.actorRoleAssignmentId,
         verifiedAt: command.issuedAt,
       });
-      return [item.id, item.initiativeId];
+      return [item.id, item.initiativeId ?? item.challengeId!];
     }
     case "REJECT_COMPLETION_REQUIREMENT": {
       const item = nextState.entities.completionRequirements[command.targetId];
@@ -877,7 +892,7 @@ function applyCommand(nextState: DemoState, command: Command): string[] {
         resolutionSummary: command.payload.reason,
         verifierRoleAssignmentId: command.actorRoleAssignmentId,
       });
-      return [item.id, item.initiativeId];
+      return [item.id, item.initiativeId ?? item.challengeId!];
     }
     case "RECORD_EFFECT_POTENTIAL":
       nextState.entities.effectPotentials[command.targetId] = {

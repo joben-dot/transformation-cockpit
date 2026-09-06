@@ -2,9 +2,10 @@ const { test, expect } = require("@playwright/test");
 
 test("demonstrerbart strategiskt prioriteringsunderlag", async ({ page }) => {
   await page.goto("http://127.0.0.1:5173/");
+  await page.getByRole("button", { name: "Prioritering" }).click();
   await expect(
     page.getByRole("heading", {
-      name: "Prioriteringsunderlag för tre initiativ",
+      name: "Prioriteringsunderlag · 3 valda initiativ",
     }),
   ).toBeVisible();
   const comparisons = page.locator(".comparison-card");

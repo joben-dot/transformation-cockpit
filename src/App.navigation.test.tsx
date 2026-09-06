@@ -1,4 +1,4 @@
-import { create } from "react-test-renderer";
+import { act, create } from "react-test-renderer";
 import { describe, expect, it } from "vitest";
 import App from "./App";
 
@@ -8,23 +8,27 @@ const text = (value: unknown): string => {
   return (value as { children: unknown[] }).children.map(text).join("");
 };
 
-describe("den nya informationsarkitekturen", () => {
-  it("erbjuder endast länkar till den sammanhängande första vyn", () => {
+describe("navigation från arbetslistan", () => {
+  it("öppnar verkligt renderad prioriteringsvy och kan återgå", () => {
     const renderer = create(<App />);
-    const links = renderer.root.findAllByType("a");
-    expect(links.map((link) => text(link))).toEqual([
-      "Transformation Cockpit",
-      "Prioritering",
-      "Effektpotential",
-      "Förutsättningar",
-      "Kostnader",
-    ]);
-    expect(links.map((link) => link.props.href)).toEqual([
-      "#top",
-      "#comparison",
-      "#potential",
-      "#conditions",
-      "#costs",
-    ]);
+    const priority = renderer.root.findAllByType("button").find((button) => text(button) === "Prioritering")!;
+    act(() => priority.props.onClick());
+    expect(renderer.root.findAllByType("h2").map(text)).toContain("Prioriteringsunderlag · 3 valda initiativ");
+    const back = renderer.root.findAllByType("button").find((button) => text(button) === "Ärenden")!;
+    act(() => back.props.onClick());
+    expect(renderer.root.findAllByType("h1").map(text)).toContain("Vad behöver ledningens uppmärksamhet?");
+  });
+
+  it("behåller bortvalda kandidater till nästa scenario", () => {
+    const renderer = create(<App />);
+    act(() => renderer.root.findAllByType("button").find((button) => text(button) === "Prioritering")!.props.onClick());
+    let choices = renderer.root.findAllByType("input").filter((input) => input.props.type === "checkbox");
+    expect(choices).toHaveLength(3);
+    act(() => choices[2].props.onChange({ target: { checked: false } }));
+    act(() => renderer.root.findAllByType("button").find((button) => text(button) === "Skapa nytt prioriteringsscenario")!.props.onClick());
+    choices = renderer.root.findAllByType("input").filter((input) => input.props.type === "checkbox");
+    expect(choices).toHaveLength(3);
+    act(() => choices[2].props.onChange({ target: { checked: true } }));
+    expect(renderer.root.findAllByType("input").filter((input) => input.props.type === "checkbox" && input.props.checked)).toHaveLength(3);
   });
 });

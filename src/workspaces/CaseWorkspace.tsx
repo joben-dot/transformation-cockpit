@@ -1,8 +1,9 @@
+import { cockpitCases } from "../application/selectors/cockpitSelectors";
+import { DataProvenance } from "./DataProvenance";
 import { useMemo, useState, useLayoutEffect } from "react";
 import { ArrowLeft, ChevronRight, Plus, Search } from "lucide-react";
 import {
   activeQualificationConfiguration,
-  caseOverview,
 } from "../application/selectors";
 import type { Command, CommandResult, DemoState } from "../application";
 import {
@@ -44,6 +45,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
 }) {
   const [detail, setDetail] = useState<FlowStepKey | undefined>(initialSection);
   useLayoutEffect(()=>{if(typeof window!=="undefined")window.scrollTo(0,0);},[detail,context.activeId]);
+  const [sort,setSort]=useState("priority");
   const [showNew, setShowNew] = useState(false);
   const [form, setForm] = useState(() => {
     const saved = context.activeId ? state.entities.challenges[context.activeId] : undefined;
@@ -52,7 +54,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
   const [requirement, setRequirement] = useState({ missing: "", reason: "", responsible: "", verifier: "", deadline: "" });
   const [answers, setAnswers] = useState<Record<string, { summary: string; evidence: string }>>({});
   const [initiativeDraft, setInitiativeDraft] = useState({ title: "", purpose: "", desiredEndState: "", scope: "" });
-  const items = useMemo(() => caseOverview(state, day), [state, day]);
+  const items = useMemo(() => cockpitCases(state, day), [state, day]);
   const active = context.activeId ? items.find((item) => item.challengeId === context.activeId) : undefined;
   const challenge = active ? state.entities.challenges[active.challengeId] : undefined;
   const initiative = active?.initiativeId ? state.entities.initiatives[active.initiativeId] : undefined;
@@ -83,6 +85,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
       <button className="back-link" onClick={() => setDetail(undefined)}><ArrowLeft size={16}/> Till ärendets flöde</button>
       <div className="case-detail-head"><div><p className="eyebrow">{active.caseNumber} · {stepLabels[active.step]}</p><h1>{active.title}</h1><p>{challenge.problemStatement || "Problemformulering saknas."}</p></div><span className="demo-role">Fiktiv demosession<small>Roll används per handling – ingen verklig autentisering</small></span></div>
 
+      {initiative&&<DataProvenance state={state} id={initiative.id}/>}
       <p role="status" className="inline-feedback">{feedback}</p>
       <div className="case-columns detail-level">
         {detail==="material"&&<article className="card"><p className="eyebrow">GEMENSAMT UNDERLAG</p><h2>Utmaning och businesscase</h2><p className="template-note">Demonstrationsmall v1 · konfigurerbar struktur · inte verifierad som PPS-komplett</p>
@@ -110,11 +113,14 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
   }
 
   const filtered = items.filter((item) => (context.stepFilter === "ALL" || item.step === context.stepFilter) && `${item.caseNumber} ${item.title} ${item.area}`.toLocaleLowerCase("sv").includes(context.query.toLocaleLowerCase("sv")));
-  return <section className="case-workspace" aria-label="Ärendeöversikt"><div className="overview-head"><div><p className="eyebrow">STRATEGISKA ÄRENDEN</p><h1>Vad behöver ledningens uppmärksamhet?</h1><p>Härledda processteg, faktiska hinder och ägare till nästa handling. Arbetslistan är inte en prioriteringsranking.</p></div><button onClick={()=>{setForm({...emptyCase});setShowNew(!showNew)}}><Plus size={17}/> Registrera utmaning</button></div>
+  if(sort==="oldest")filtered.sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.caseNumber.localeCompare(b.caseNumber));
+  if(sort==="deadline")filtered.sort((a,b)=>(a.dueDate??"9999").localeCompare(b.dueDate??"9999"));
+  return <section className="case-workspace" aria-label="Ärendeöversikt"><div className="overview-head"><div><p className="eyebrow">STRATEGISKA ÄRENDEN</p><h1>Vad behöver ledningens uppmärksamhet?</h1><p>Prioriterade ärenden först. Följ nästa steg, ansvar och vad som behöver bli klart före genomförande.</p></div><button onClick={()=>{setForm({...emptyCase});setShowNew(!showNew)}}><Plus size={17}/> Registrera utmaning</button></div>
     <p role="status" className="inline-feedback">{feedback}</p>
     {showNew && <form className="new-case" onSubmit={(event)=>{event.preventDefault();const id=createId("Challenge",`user-${Date.now()}`);const result=send({commandType:"CREATE_STRATEGIC_CHALLENGE",targetId:id,payload:{title:form.title,problemStatement:form.problemStatement,currentState:form.currentState,source:"Registrerad i demosessionen",strategicRelevance:form.strategicRelevance,strategicHandlingReason:form.strategicHandlingReason,nominationStatus:"DRAFT"}});if(result.success){setShowNew(false);setContext({...context,activeId:id});}}}><h2>Nytt utkast</h2><p>Tomma uppgifter får sparas och kompletteras senare.</p><label>Titel<input value={form.title} onChange={(event)=>setForm({...form,title:event.target.value})}/></label><label>Problem<textarea value={form.problemStatement} onChange={(event)=>setForm({...form,problemStatement:event.target.value})}/></label><button>Spara utkast i demosessionen</button></form>}
-    <div className="case-toolbar"><label><Search size={16}/><input aria-label="Sök ärenden" placeholder="Sök nummer, titel eller område" value={context.query} onChange={(event)=>setContext({...context,query:event.target.value})}/></label><select aria-label="Filtrera processteg" value={context.stepFilter} onChange={(event)=>setContext({...context,stepFilter:event.target.value})}><option value="ALL">Alla processteg</option>{Object.entries(stepLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><span>Sorterad: äldsta först · {filtered.length} av {items.length}</span></div>
-    <div className="case-table" role="table"><div className="case-row case-header" role="row"><span>Ärende</span><span>Steg</span><span>Nästa åtgärd</span><span>Ansvar och datum</span></div>{filtered.map((item)=><button className="case-row" role="row" key={item.challengeId} onClick={()=>openCase(item.challengeId)}><span><b>{item.caseNumber}</b><strong>{item.title}</strong><small>{item.area}</small></span><span><i>{stepLabels[item.step]}</i></span><span><strong>{item.nextAction}</strong></span><span><b>{item.responsible}</b><small>{item.dueDate??"Datum saknas"} {item.overdue&&<em>Försenad</em>}</small></span></button>)}</div><p className="session-note">Demodatum: {day}. Ändringar finns bara i demosessionen.</p></section>;
+    <div className="case-toolbar"><label><Search size={16}/><input aria-label="Sök ärenden" placeholder="Sök nummer, titel eller område" value={context.query} onChange={(event)=>setContext({...context,query:event.target.value})}/></label><select aria-label="Filtrera processteg" value={context.stepFilter} onChange={(event)=>setContext({...context,stepFilter:event.target.value})}><option value="ALL">Alla processteg</option>{Object.entries(stepLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><select aria-label="Sortera ärendelistan" value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Prioriteringsunderlag – högst först</option><option value="deadline">Nästa åtgärdsdatum</option><option value="oldest">Äldsta ärende först</option></select><span>{filtered.length} av {items.length}</span></div>
+    <p className="sort-explanation">{sort==="priority"?"Sortering: senaste giltiga underlag i aktiv styrprofil, högst poäng först. Lika poäng: äldsta ärendet först. Övriga ärenden visas därefter utan placering. Prioritet är inte startbeslut eller körordning.":sort==="deadline"?"Sortering: tidigaste dokumenterade åtgärdsdatum först. Saknade datum visas sist. Detta ändrar inte prioriteringen.":"Sortering: registreringsdatum, äldsta först. Detta ändrar inte prioriteringen."}</p>
+    <div className="case-table" role="table"><div className="case-row case-header" role="row"><span>Ärende</span><span>Steg</span><span>Nästa åtgärd</span><span>Ansvar och datum</span></div>{filtered.map((item)=><button className="case-row" role="row" key={item.challengeId} onClick={()=>openCase(item.challengeId)}><span><b>{item.caseNumber}</b><strong>{item.title}</strong><small>{item.area}</small><small className="list-priority">{item.priorityScore!==undefined?`${item.priorityScore} / 100 · ${item.assessment?.status==="CALCULATED"?"granskning återstår":"granskat underlag"}`:item.stale?"Ny bedömning behövs":"Ingen prioriteringsplacering ännu"}</small><span className="open-affordance">Öppna ärende <ChevronRight size={16}/></span></span><span><i>{stepLabels[item.step]}</i></span><span><strong>{item.nextAction}</strong></span><span><b>{item.responsible}</b><small>{item.dueDate??"Datum saknas"} {item.overdue&&<em>Försenad</em>}</small></span></button>)}</div><p className="session-note">Demodatum: {day}. Ändringar finns bara i demosessionen.</p></section>;
 }
 
 function RoleSelect({label,value,state,onChange}:{label:string;value:string;state:DemoState;onChange:(value:string)=>void}) { return <label>{label}<select value={value} onChange={(event)=>onChange(event.target.value)}><option value="">Ansvarig saknas</option>{Object.values(state.entities.roleAssignments).map((assignment)=><option key={assignment.id} value={assignment.id}>{state.entities.people[assignment.personId].displayName} · {state.entities.roleDefinitions[assignment.roleDefinitionId].name}</option>)}</select></label> }

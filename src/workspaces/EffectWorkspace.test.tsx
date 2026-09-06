@@ -41,5 +41,5 @@ it("går genom synliga formulär från lokalt utkast till start, verifierad mät
   expect(text(root)).toContain("Ej uppmätt");
   enter("Aktiv person för",roleAssignments[1].id,"select");check("Jag har kontrollerat mätningen");click("Verifiera mätpunkt som specialist");
   expect(text(root)).toMatch(/150\s000/);
-  click("Kontrollrum");expect(text(root)).toContain("Digital fiktiv avtalsuppföljning");expect(text(root)).toContain("Under mätning");expect(text(root)).toMatch(/150\s000/);
+  click("Kontrollrum");click("Effektuppföljning");expect(text(root)).toContain("Digital fiktiv avtalsuppföljning");expect(text(root)).toContain("Under mätning");expect(text(root)).toMatch(/150\s000/);
 });

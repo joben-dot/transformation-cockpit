@@ -1,3 +1,4 @@
+import { DataProvenance } from "./DataProvenance";
 import { FlowOverview } from "./FlowOverview";
 import type { FlowStepKey } from "../application/selectors/flowSelectors";
 import { referenceCommitment } from "../demo-data/referenceCommitment";
@@ -27,7 +28,7 @@ function EffectCase({state,dispatch,day,id,initialTab}:WorkProps & {id:Initiativ
   const props={state,dispatch:send,day};
   const commitments=Object.values(state.entities.effectCommitments).filter(c=>c.initiativeId===id);
   const versions=Object.values(state.entities.decisionVersions).filter(v=>v.initiativeId===id).sort((a,b)=>b.versionNumber-a.versionNumber);
-  return <section className="section-block"><nav className="work-tabs" aria-label="Effektkedja">{[["commitments","1. Lokala åtaganden"],["decision","2. Start och beslut"],["measurement","3. Förändring och mätning"],["history","4. Beslutshistorik"]].map(([key,label])=><button key={key} aria-pressed={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</nav><p role="status" className="feedback">{feedback}</p>
+  return <section className="section-block"><nav className="work-tabs" aria-label="Effektkedja">{[["commitments","1. Lokala åtaganden"],["decision","2. Start och beslut"],["measurement","3. Förändring och mätning"],["history","4. Beslutshistorik"]].map(([key,label])=><button key={key} aria-pressed={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</nav><DataProvenance state={state} id={id}/><p role="status" className="feedback">{feedback}</p>
     {tab==="commitments"&&<><h2>Beslutad effekthemtagning per verksamhet</h2><Why>Potentialen hjälper oss att prioritera. Här anger varje mottagande verksamhet själv vilket utfall den åtar sig, vilka förändringar som krävs och vem som ansvarar. Syntetiska roller används för att demonstrera aktiva handlingar; verklig autentisering är inte ansluten.</Why><RecipientForm {...props} id={id}/><CommitmentForm {...props} id={id}/>{commitments.map(c=><CommitmentCard key={c.id} {...props} commitment={c}/>)}</>}
     {tab==="decision"&&<DecisionForm {...props} id={id}/>}
     {tab==="measurement"&&<><h2>Förändra, mät och verifiera</h2><Why>Teknik och projektleverans möjliggör förändring. Realiserad effekt visas först när en beslutad lokal mätpunkt har rapporterats och verifierats. Prognoser ändrar aldrig målet.</Why>{!versions.length&&<p className="gate blocked">Inget startbeslut finns. Slutför lokala åtaganden och pröva startklarheten först.</p>}{activeCommitments(state,id).map(c=><MeasurementCard key={c.id} {...props} commitment={c}/>)}{versions.length>0&&<CloseForm {...props} id={id}/>}</>}

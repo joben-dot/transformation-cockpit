@@ -979,3 +979,5 @@ button:focus-visible,summary:focus-visible{outline:3px solid #42a8ad;outline-off
 .effect-workspace>.case-picker{display:block;max-width:none;padding-inline:var(--content-inset)}
 .case-workspace>.back-link,.effect-workspace>.back-link{margin-left:var(--content-inset)}
 @media(max-width:650px){.product-shell main{--content-inset:18px}.case-row{padding-inline:18px!important}.overview-head,.case-detail-head{gap:20px}}
+.card dl{grid-template-columns:minmax(190px,220px) minmax(0,1fr)}
+@media(max-width:650px){.card dl{grid-template-columns:1fr}}

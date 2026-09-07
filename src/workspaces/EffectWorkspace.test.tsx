@@ -36,9 +36,9 @@ it("går genom synliga formulär från lokalt utkast till start, verifierad mät
   expect(text(root)).toContain("Underlaget är komplett");
   enter("Beslutsmotivering","Syntetiskt aktivt startbeslut");check("Jag fattar aktivt beslut");submit("Fatta startbeslut");
   click("4. Beslutshistorik");expect(text(root)).toContain("Beslutsversion 1");expect(text(root)).toContain("Syntetiskt aktivt startbeslut");
-  click("3. Förändring och mätning");enter("Demodatum","2026-12-31");
+  click("3. Förändring och mätning");enter("Demodatum","2026-12-31");click("Tillämpa demodatum");
   enter("Aktiv person för",referenceCommitment.details.changeResponsibleId,"select");enter("Förändringen genomförd","2026-12-31");enter("Evidens för att arbetssättet","Syntetisk rutin används");submit("Bekräfta genomförd förändring");
-  enter("Demodatum","2027-12-31");enter("Beslutad mättidpunkt","2027-12-31","select");enter("Uppmätt nivå","450000");enter("Mätunderlag och evidens","Syntetiskt mätuttag");enter("Uppmätt kvalitet och underlag","Alla kritiska tjänster omfattas");enter("Uppfylls beslutad kvalitetsgräns?","yes","select");submit("Rapportera mätpunkt för verifiering");
+  enter("Demodatum","2027-12-31");click("Tillämpa demodatum");enter("Beslutad mättidpunkt","2027-12-31","select");enter("Uppmätt nivå","450000");enter("Mätunderlag och evidens","Syntetiskt mätuttag");enter("Uppmätt kvalitet och underlag","Alla kritiska tjänster omfattas");enter("Uppfylls beslutad kvalitetsgräns?","yes","select");submit("Rapportera mätpunkt för verifiering");
   expect(text(root)).toContain("Ej uppmätt");
   enter("Aktiv person för",roleAssignments[1].id,"select");check("Jag har kontrollerat mätningen");click("Verifiera mätpunkt som specialist");
   expect(text(root)).toMatch(/150\s000/);

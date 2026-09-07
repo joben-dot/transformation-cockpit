@@ -4,6 +4,8 @@ import type { Command } from "../application/commands";
 import type { DemoState } from "../application/demoState";
 import { createId, type InitiativeId, type RoleAssignmentId } from "../domain";
 import { referenceCommitment } from "./referenceCommitment";
+import { stage3Ids } from "./stage3DemoData";
+import { organizationIds } from "./organizations";
 import { roleAssignments } from "./peopleAndRoles";
 import { stage2Ids } from "./stage2DemoData";
 
@@ -27,10 +29,39 @@ export function createPresentationDemoState(): DemoState {
   const names = ["Alex Berg","Robin Lind","Kim Lund","Sam Holm"];
   Object.values(state.entities.people).forEach((p,i) => {p.displayName=names[i]??`Lou Andersson ${i}`;});
   Object.values(state.entities.participations).forEach(p => { if(p.validFrom>"2026-09-01")p.validFrom="2026-09-01"; });
+  Object.values(state.entities.businessAreas).forEach(a=>a.name="Gemensam service och administration");
+  const areaDefinitions=[
+    ["vard","Vård","Kommunal hälso- och sjukvård","Elin Sjö"],
+    ["skola","Skola","Grundskola","Noah Strand"],
+    ["omsorg","Omsorg","Äldreomsorg","Mika Holm"],
+    ["samhallsbyggnad","Samhällsbyggnad","Bygglov och samhällsplanering","Ida Ek"],
+    ["fritid","Fritid och kultur","Lokaler och fritidsverksamhet","Lova Vik"],
+    ["socialt","Socialt stöd","Individ- och familjeomsorg","Emil Dal"],
+    ["miljo","Miljö och hållbarhet","Energi och miljö","Alva Lind"],
+    ["it","IT och digitalisering","Gemensam IT","Olle Gran"],
+  ] as const;
+  const areaBusiness:Record<string,import("../domain").BusinessId>={},areaOwner:Record<string,RoleAssignmentId>={};
+  const ownerTemplate=state.entities.roleAssignments[referenceCommitment.details.ownerRoleAssignmentId];
+  for(const [slug,name,businessName,personName] of areaDefinitions){
+    const areaId=createId("BusinessArea",`area-${slug}`),businessId=createId("Business",`business-${slug}`),unitId=createId("OrganizationalUnit",`unit-${slug}`),personId=createId("Person",`person-${slug}`),positionId=createId("Position",`position-${slug}`),roleId=createId("RoleAssignment",`owner-${slug}`),mandateId=createId("Mandate",`owner-mandate-${slug}`);
+    state.entities.businessAreas[areaId]={id:areaId,name};
+    state.entities.organizationalUnits[unitId]={id:unitId,organizationId:organizationIds.south,name:`${name} – verksamhetsledning`};
+    state.entities.businesses[businessId]={id:businessId,organizationId:organizationIds.south,organizationalUnitId:unitId,businessAreaId:areaId,name:businessName};
+    state.entities.people[personId]={id:personId,displayName:personName,isSynthetic:true};
+    state.entities.positions[positionId]={id:positionId,organizationId:organizationIds.south,organizationalUnitId:unitId,name:`Verksamhetschef ${name.toLocaleLowerCase("sv-SE")}`};
+    state.entities.roleAssignments[roleId]={...ownerTemplate,id:roleId,personId,positionId,businessId,organizationId:organizationIds.south,organizationalUnitId:unitId};
+    state.entities.mandates[mandateId]={id:mandateId,roleAssignmentId:roleId,scope:"ACCEPT_LOCAL_EFFECT",validFrom:"2026-01-01"};
+    areaBusiness[slug]=businessId;areaOwner[slug]=roleId;
+  }
   let sequence=0;
   const specialist=roleAssignments[1].id, decision=roleAssignments[2].id, operator=roleAssignments[0].id;
   const meta=(actor:RoleAssignmentId=specialist,date="2026-01-26")=>({commandId:createId("Command",`example-${++sequence}`),actorRoleAssignmentId:actor,issuedAt:`${date}T12:00:00Z`});
   const apply=(command:Command)=>{const result=demoReducer(state,command);if(!result.success)throw new Error(`${command.commandType}: ${result.errors.map(e=>e.description).join(" | ")}`);state=result.nextState;};
+  // Classify the original reference initiatives before deriving any new histories.
+  for(const p of Object.values(state.entities.participations).filter(p=>p.initiativeId===stage2Ids.overriddenInitiative&&p.businessId)){p.businessId=areaBusiness.omsorg;p.organizationId=organizationIds.south;}
+  for(const p of Object.values(state.entities.effectPotentials).filter(p=>p.initiativeId===stage2Ids.overriddenInitiative&&p.recipientBusinessId)){p.recipientBusinessId=areaBusiness.omsorg;}
+  const itParticipation=createId("Participation","it-enabling-initiator");
+  state.entities.participations[itParticipation]={id:itParticipation,initiativeId:stage3Ids.enablingInitiative,organizationId:organizationIds.south,businessId:areaBusiness.it,participantKind:"INITIATOR",validFrom:"2026-01-01"};
   const source=stage2Ids.overriddenInitiative;
   const sourceChallenge=state.entities.initiatives[source].challengeId;
   const template=structuredClone(state.entities);
@@ -56,29 +87,37 @@ export function createPresentationDemoState(): DemoState {
     return id;
   };
   const examples = [
-    {slug:"inkop",title:"Samordnade inköp av förbrukningsmaterial",metric:"Årlig kostnad för förbrukningsmaterial",category:"MONEY",baseline:900000,target:680000,value:700000,phase:"ongoing"},
-    {slug:"bemanning",title:"Mindre dubbelarbete i bemanningsplaneringen",metric:"Tid för manuell bemanningsplanering",category:"RELEASED_TIME",baseline:1800,target:1100,value:1200,phase:"ongoing"},
+    {slug:"paminnelser",title:"Färre uteblivna besök med tydliga påminnelser",metric:"Andel genomförda bokade besök",category:"QUALITY",baseline:80,target:92,value:88,phase:"ready"},
+    {slug:"bestallning",title:"Samlad beställning av arbetsmaterial i omsorgen",metric:"Tid för beställning och rättningar",category:"RELEASED_TIME",baseline:900,target:600,value:650,phase:"ready"},
+    {slug:"inkop",title:"Samordnade inköp av skolmaterial",metric:"Årlig kostnad för skolmaterial",category:"MONEY",baseline:900000,target:680000,value:700000,phase:"ongoing"},
+    {slug:"bemanning",title:"Mindre dubbelarbete i äldreomsorgens bemanning",metric:"Tid för manuell bemanningsplanering",category:"RELEASED_TIME",baseline:1800,target:1100,value:1200,phase:"ongoing"},
     {slug:"bokning",title:"Effektivare bokning av gemensamma lokaler",metric:"Tid för lokalbokning och rättningar",category:"RELEASED_TIME",baseline:1200,target:800,value:930,phase:"measuring"},
-    {slug:"ansokan",title:"Fler kompletta ansökningar från början",metric:"Andel kompletta ansökningar vid första kontakt",category:"QUALITY",baseline:62,target:85,value:79,phase:"unverified"},
+    {slug:"ansokan",title:"Fler kompletta bygglovsansökningar från början",metric:"Andel kompletta bygglovsansökningar vid första kontakt",category:"QUALITY",baseline:62,target:85,value:79,phase:"unverified"},
     {slug:"licens",title:"Rätt antal licenser i verksamheten",metric:"Årlig kostnad för verksamhetslicenser",category:"MONEY",baseline:600000,target:420000,value:400000,phase:"closed"},
     {slug:"aterkoppling",title:"Tydligare återkoppling efter serviceärenden",metric:"Andel ärenden med återkoppling inom två dagar",category:"QUALITY",baseline:65,target:90,value:82,phase:"closed"},
+    {slug:"vardbesok",title:"Samordnad planering av hemsjukvårdens besök",metric:"Tid för omplanering av vårdbesök",category:"RELEASED_TIME",baseline:1400,target:900,value:1020,phase:"measuring"},
+    {slug:"stod",title:"Snabbare första bedömning av stödbehov",metric:"Andel första bedömningar inom fem arbetsdagar",category:"QUALITY",baseline:60,target:85,value:78,phase:"measuring"},
+    {slug:"energifoljd",title:"Behovsstyrd uppvärmning av verksamhetslokaler",metric:"Årlig energikostnad för det avgränsade lokalbeståndet",category:"MONEY",baseline:850000,target:640000,value:650000,phase:"closed"},
   ] as const;
+  const exampleAreas:Record<string,string>={paminnelser:"vard",bestallning:"omsorg",inkop:"skola",bemanning:"omsorg",bokning:"fritid",ansokan:"samhallsbyggnad",licens:"it",vardbesok:"vard",stod:"socialt",energifoljd:"miljo"};
   for(const ex of examples){
-    const id=cloneCase(ex.slug,ex.title,ex.metric),commitmentId=createId("EffectCommitment",`example-${ex.slug}`),b=state.entities.businesses[referenceCommitment.businessId];
-    const money=ex.category==="MONEY",quality=ex.category==="QUALITY",ongoing=ex.phase==="ongoing",closed=ex.phase==="closed";
+    const id=cloneCase(ex.slug,ex.title,ex.metric),commitmentId=createId("EffectCommitment",`example-${ex.slug}`),b=state.entities.businesses[areaBusiness[exampleAreas[ex.slug]]??referenceCommitment.businessId];
+    for(const p of Object.values(state.entities.participations).filter(p=>p.initiativeId===id&&p.businessId)){p.businessId=b.id;p.organizationId=b.organizationId;}
+    const money=ex.category==="MONEY",quality=ex.category==="QUALITY",ongoing=ex.phase==="ongoing"||ex.phase==="ready",closed=ex.phase==="closed";
     const unit=money?"SEK/år":quality?"procent":"timmar/år";
     for(const n of Object.values(state.entities.executionNodes).filter(n=>n.ownerInitiativeId===id)){n.neededAt=ongoing?"2026-09-30":"2026-03-31";n.plannedPeriod={from:"2026-02-02",to:n.neededAt};}
     const fullDate=closed?"2026-08-31":"2026-12-31";
     const dates=ongoing?["2026-10-31",fullDate]:["2026-06-30",fullDate];
-    for(const p of Object.values(state.entities.effectPotentials).filter(p=>p.initiativeId===id))Object.assign(p,{category:ex.category,unit:quality?"procentenheter":unit,effectMeasureCode:ex.metric,lowerBound:Math.round(Math.abs(ex.target-ex.baseline)*0.7),expectedValue:Math.abs(ex.target-ex.baseline),upperBound:Math.round(Math.abs(ex.target-ex.baseline)*1.2),earliestPossibleEffectDate:dates[0],fullPotentialDate:fullDate,realizationWindow:"Införande och lokal uppföljning under 2026"});
+    for(const p of Object.values(state.entities.effectPotentials).filter(p=>p.initiativeId===id))Object.assign(p,{recipientBusinessId:b.id,scope:"LOCAL",recipientScenario:undefined,category:ex.category,unit:quality?"procentenheter":unit,effectMeasureCode:ex.metric,lowerBound:Math.round(Math.abs(ex.target-ex.baseline)*0.7),expectedValue:Math.abs(ex.target-ex.baseline),upperBound:Math.round(Math.abs(ex.target-ex.baseline)*1.2),earliestPossibleEffectDate:dates[0],fullPotentialDate:fullDate,realizationWindow:"Införande och lokal uppföljning under 2026"});
     const a=Object.values(state.entities.priorityAssessments).find(a=>a.initiativeId===id)!;
     apply({...meta(decision,"2026-01-23"),commandType:"REVIEW_PRIORITY_ASSESSMENT",targetId:a.id,payload:{rationale:"Underlaget är granskat inför beslut. Lokalt åtagande och startkrav prövas separat."}});
-    const details={...referenceCommitment.details,category:ex.category,metricName:ex.metric,scope:state.entities.initiatives[id].scope,changeDescription:`Inför rutinen för ${ex.title.toLocaleLowerCase("sv-SE")} och utbilda berörda medarbetare.`,changeDueDate:ongoing?"2026-09-30":"2026-03-31",receiverCapacity:"Processansvarig: 8 timmar per månad. Två utbildningstillfällen är avsatta.",measurementDates:dates,fullEffectDate:fullDate,effectWindow:{from:"2026-01-01",to:"2026-12-31"},baselineReference:`Fastställd nulägeskartläggning 2026-01-15: ${ex.metric}.`,qualitySafeguard:"Tillgänglig service och korrekt handläggning",qualityLimit:"Minst 95 procent korrekt hanterade ärenden",annualFinancialEffect:money?[{year:2026,amount:closed?150000:60000}]:undefined};
-    apply({...meta(),commandType:"SAVE_EFFECT_COMMITMENT",targetId:commitmentId,payload:{...referenceCommitment,initiativeId:id,baseline:ex.baseline,target:ex.target,baselineDate:"2026-01-15",baselineVerified:true,unit,direction:quality?"HIGHER_IS_BETTER":"LOWER_IS_BETTER",dataSource:`Verksamhetens uppföljningsuttag: ${ex.metric}`,details}});
+    const details={...referenceCommitment.details,ownerRoleAssignmentId:areaOwner[exampleAreas[ex.slug]]??referenceCommitment.details.ownerRoleAssignmentId,category:ex.category,metricName:ex.metric,scope:state.entities.initiatives[id].scope,changeDescription:`Inför rutinen för ${ex.title.toLocaleLowerCase("sv-SE")} och utbilda berörda medarbetare.`,changeDueDate:ongoing?"2026-09-30":"2026-03-31",receiverCapacity:"Processansvarig: 8 timmar per månad. Två utbildningstillfällen är avsatta.",measurementDates:dates,fullEffectDate:fullDate,effectWindow:{from:"2026-01-01",to:"2026-12-31"},baselineReference:`Fastställd nulägeskartläggning 2026-01-15: ${ex.metric}.`,qualitySafeguard:"Tillgänglig service och korrekt handläggning",qualityLimit:"Minst 95 procent korrekt hanterade ärenden",annualFinancialEffect:money?[{year:2026,amount:closed?150000:60000}]:undefined};
+    apply({...meta(),commandType:"SAVE_EFFECT_COMMITMENT",targetId:commitmentId,payload:{...referenceCommitment,initiativeId:id,businessId:b.id,baseline:ex.baseline,target:ex.target,baselineDate:"2026-01-15",baselineVerified:true,unit,direction:quality?"HIGHER_IS_BETTER":"LOWER_IS_BETTER",dataSource:`Verksamhetens uppföljningsuttag: ${ex.metric}`,details}});
     apply({...meta(details.ownerRoleAssignmentId,"2026-01-27"),commandType:"ACCEPT_EFFECT_COMMITMENT",targetId:commitmentId,payload:{accepted:true,mandateDescription:"Lokalt verksamhetsmandat för denna förändring, resursanvändning och mätplan."}});
     apply({...meta(specialist,"2026-01-28"),commandType:"ADD_PARTICIPATION",targetId:createId("Participation",`example-recipient-${ex.slug}`),payload:{initiativeId:id,businessId:b.id,organizationId:b.organizationId,participantKind:"EFFECT_RECIPIENT",validFrom:"2026-01-28"}});
     const packageId=`example-package-${ex.slug}`;
     apply({...meta(specialist,"2026-01-29"),commandType:"SAVE_START_PREPARATION",targetId:packageId,payload:{initiativeId:id,recipientBusinessIds:[b.id],commitmentIds:[commitmentId],priorityAssessmentId:a.id,steeringProfileVersionId:a.steeringProfileVersionId,governanceVersionId:"GOVERNANCE-DEMO-1",fundingReference:"120 000 SEK avsatta för införande och utbildning.",capacityReference:details.receiverCapacity,legalReference:"Åtkomst, informationshantering och tillämpliga krav har bedömts i underlaget.",qualityReference:details.qualityLimit,prerequisitesReview:"Befintliga system och åtkomster är kontrollerade. Inga olösta externa startberoenden.",economicRationale:money?"Införandekostnad jämförs med uttrycklig effektplan för 2026. Årstakt hålls separat; delårets netto och långsiktig förbättring ingår i bedömningen.":"Införandet finansieras som en kvalitets- eller kapacitetsförbättring. Tid och kvalitet omvandlas inte automatiskt till budgetbesparing.",costHorizon:{from:"2026-01-01",to:"2026-12-31"}}});
+    if(ex.phase==="ready")continue;
     apply({...meta(decision,"2026-02-02"),commandType:"DECIDE_TRANSFORMATION",targetId:`example-start-${ex.slug}`,payload:{preparationId:packageId,accepted:true,rationale:"Lokalt åtagande accepterat, resurser avsatta och startkrav prövade. Startbeslut inom angivet mandat.",type:"START"}});
     apply({...meta(operator,"2026-02-03"),commandType:"RECORD_EFFECT_FORECAST",targetId:`example-forecast-${ex.slug}`,payload:{commitmentId,date:fullDate,value:ex.value}});
     if(ongoing)continue;

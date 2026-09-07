@@ -8,7 +8,7 @@ describe("kontrollrummet", () => {
     const html = renderToStaticMarkup(<App demoState={initializeDemoState()} />);
     expect(html).toContain("Gemensam riktning. Synliga framsteg.");
     expect(html).toContain("Det här ligger högst");
-    expect(html).toContain("Ansvarig behöver utses");
+    expect(html).toContain("Utse ansvarig");
     expect(html).toContain("Prioritering är inte startbeslut");
     expect(html).not.toContain("sr-only");
     expect(html).not.toContain("INITIATIVE-DEMO-initiative-104");

@@ -63,7 +63,7 @@ export type Command = import("./transformationCommands").TransformationCommand
       targetId: ChallengeId;
       payload: Partial<Pick<import("../domain").StrategicChallenge,
         "title" | "problemStatement" | "currentState" | "source" |
-        "strategicRelevance" | "strategicHandlingReason" | "nominationStatus" | "businessCase">>;
+        "strategicRelevance" | "strategicHandlingReason" | "nominationStatus" | "businessCase" | "stepFollowUps">>;
     })
   | (CommandMetadata & {
       commandType: "CREATE_INITIATIVE_FROM_CHALLENGE";

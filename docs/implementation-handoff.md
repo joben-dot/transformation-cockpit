@@ -62,3 +62,28 @@ Dependency cards traverse registered graph predecessors across initiative owners
 - Larger text, desktop margins around 3vw and responsive stacked layouts. Vertical reading is preferred to shrinking text.
 - Control-room financial follow-up initially uses the common 2026 effect window when these new commitments are present; rates and cumulative calendar-year plans remain separate. The candidate ranking on the overview excludes already started cases.
 - Continue with user review of functionality tomorrow. Preserve hard start gates, local ownership, frozen decisions, cost deduplication and the distinction between potential, forecast and verified effect.
+
+
+## Current workflow revision (7 September 2026)
+
+This section supersedes earlier counts and combined-material descriptions above.
+
+- Nine process steps: separate Utmaning and Businesscase, qualification, assessed potential, priority, prerequisites/cost, local commitments, start decision and change/measurement. The process navigation stays present in detail views, and the sticky return bar contains the full case path. Existing list filters, history and session drafts survive navigation.
+- Utmaning and Businesscase have separate save commands/payloads and document identities. Initiative creation requires a registered challenge and the five completed businesscase core fields. Placeholder scaffolds never satisfy required document fields or commitment acceptance.
+- DocumentPanel is the shared template/download/upload/archive surface. Portable HTML forms export versioned JSON drafts. Import validates document kind, version, case and allowed fields; no acceptance, verification or decision commands can be imported. Other files are opaque attachments, not parsed knowledge. IndexedDB persists document copies and attachments in this browser only (10 MB/file, 30/document); domain changes remain session-only. This is not a shared records system.
+- Commitment and measurement templates match their online fields, with separate human acceptance and verification. Baseline/target cannot be changed through a measurement file. Forecast, business-change and measurement forms now have independent drafts.
+- Start-ready queues derive from the same startBlockers used by the reducer. Two valid examples await human start. Reviewed priority, start readiness and an actual start remain distinct.
+- Missing responsibility/dates open a FollowUpEditor in place. Existing completion requirements are updated at their source; other step coordination uses challenge.stepFollowUps. These coordination assignments never replace an effect owner, a measurement plan or a frozen decision. Direct editing is available in the list, flow, current step and control-room action cards.
+- Nine municipal areas have consistent fictional recipient businesses and local owners: common service/administration, health care, school, care, community planning, leisure/culture, social support, environment and IT. Effect filtering is recipient-scoped; whole initiative costs are explicitly not allocated across areas. Areas must not be added together as if each owned a shared initiative's full cost.
+- CopilotHelp is explicitly prepared local guidance, NOT connected Microsoft Copilot or an AI model. It explains concepts and proposes editable scaffolds only. Applying a suggestion is explicit and preserves existing draft text. Enter only activates a focused native button; there is no global accept shortcut. No information is transmitted to an AI service.
+
+### Real organizational Copilot: integration boundary
+
+The proposed production path is a Copilot Studio agent embedded with the Microsoft 365 Agents SDK, Entra ID user authentication and verified tenant access. Existing organizational Copilot access does not establish this application's authorization or data handling. Tenant configuration, app registration, agent entitlement/cost and hosting must be verified before enabling the connection. Secrets cannot be placed in this static site. Context should include only the authorized case, section, relevant approved method/document versions and minimum required draft fields; documents remain untrusted evidence. Ground explanations in the agreed method with source/version references. Suggestions must go through a constrained draft patch API and existing domain validation, never acceptance/start/verification commands. Backend audit, authorization, source permissions, prompt-injection controls and evaluation cases are production work.
+
+Primary Microsoft documentation checked:
+- https://learn.microsoft.com/en-us/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk
+- https://learn.microsoft.com/en-us/microsoft-copilot-studio/configuration-end-user-authentication
+- https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso
+
+The next review should assess whether a nontechnical colleague can identify the current step, open a missing assignment directly, complete a separate document, understand why a high-priority initiative waits, and trace a verified outcome back to its local owner and locked baseline. Do not expand mandatory data fields merely to make the demo look more complete.

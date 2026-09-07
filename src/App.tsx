@@ -1,3 +1,7 @@
+import { ProcessNavigation } from "./workspaces/ProcessNavigation";
+import { StepGate } from "./workspaces/StepGate";
+import { StartReadyQueue } from "./workspaces/StartReadyQueue";
+import { CopilotHelp } from "./workspaces/CopilotHelp";
 import { SessionDrafts } from "./workspaces/SessionDrafts";
 import { createPresentationDemoState } from "./demo-data/presentationDemoState";
 import { useWorkspaceNavigation } from "./workspaces/useWorkspaceNavigation";
@@ -164,7 +168,7 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
   const [potentialAssumption, setPotentialAssumption] = useState(
     selectedPotential?.assumptions.join(" ") ?? "",
   );
-  const [responsibleId, setResponsibleId] = useState<RoleAssignmentId>(
+  const [responsibleId, setResponsibleId] = useState<RoleAssignmentId|"">(
     specialistActor.id,
   );
   const [neededAt, setNeededAt] = useState("2026-11-30");
@@ -234,14 +238,18 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
   const locationLabel = currentSection ? flowLocationLabels[currentSection]
     : currentChallenge ? (showPortfolio ? ({potential:"Effektpotential",conditions:"Förutsättningar",costs:"Kostnader"} as Record<string,string>)[portfolioSection] : "Ärendets flöde")
     : ({cases: showPortfolio ? "Prioritering" : "Ärendeöversikt", effects:"Effekt och beslut", control:route.controlContext.view==="effects"?"Kontrollrum · Effektuppföljning":"Kontrollrum · Överblick", governance:"Metod och styrning"})[workArea];
-  const navigation = <div className="return-bar" role="navigation" aria-label="Tillbaka och ärendeflöde">
+  const currentFlowStep=currentSection??(currentChallenge&&showPortfolio?(portfolioSection==="potential"?"potential":"conditions"):undefined);
+  const showCaseList=()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);};
+  const showCaseFlow=()=>{if(!currentChallenge)return;setCaseSection(undefined);setCaseContext({...caseContext,activeId:currentChallenge.id});setWorkArea("cases");setShowPortfolio(false);};
+  const openFlowStep=(key:FlowStepKey)=>{if(!currentChallenge)return;const id=currentChallenge.relatedInitiativeIds[0];if(!id||["material","businesscase","qualification","potential","priority"].includes(key)){setCaseContext({...caseContext,activeId:currentChallenge.id});setCaseSection(!id&&!["material","businesscase"].includes(key)?"businesscase":key);setWorkArea("cases");setShowPortfolio(false);}else if(key==="conditions"){selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}else openEffects(id,key);};
+  const navigation = <><div className="return-bar" role="navigation" aria-label="Tillbaka och ärendeflöde">
     <button className="secondary-action" disabled={!canGoBack} onClick={back}>← Tillbaka</button>
-    <div className="return-location"><strong>{currentChallenge?.title ?? locationLabel}</strong>{currentChallenge && <span>{locationLabel}</span>}</div>
-    {currentChallenge && <button className="text-button" onClick={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:currentChallenge.id});setWorkArea("cases");setShowPortfolio(false);}}>Visa hela ärendeflödet</button>}
-  </div>;
+    <nav className="return-location" aria-label="Hela sökvägen"><ol><li><button className="text-button" onClick={()=>setWorkArea("control")}>Kontrollrum</button></li>{currentChallenge?<><li><span aria-hidden="true">›</span><button className="text-button" onClick={showCaseList}>Ärenden</button></li><li><span aria-hidden="true">›</span>{currentFlowStep?<button className="text-button" onClick={showCaseFlow}>{currentChallenge.title}</button>:<strong aria-current="page">{currentChallenge.title} · flödet</strong>}</li>{currentFlowStep&&<li><span aria-hidden="true">›</span><strong aria-current="page">{locationLabel}</strong></li>}</>:<li><span aria-hidden="true">›</span><strong aria-current="page">{locationLabel}</strong></li>}</ol></nav>
+    {currentChallenge && <button className="text-button" onClick={showCaseFlow}>Visa hela ärendeflödet</button>}
+  </div>{currentChallenge&&currentFlowStep&&<ProcessNavigation state={state} challengeId={currentChallenge.id} day={day} current={currentFlowStep} onOpen={openFlowStep}/>}<CopilotHelp key={`${locationLabel}-${currentChallenge?.id??""}`} section={locationLabel} context={currentChallenge?.title}/></>;
   const header=<><header className="product-header"><a className="brand" href="#top"><span><Sparkles size={18}/></span><b>Transformation Cockpit</b></a><nav aria-label="Arbetsytor"><button className="nav-button" aria-current={workArea==="cases"&&!showPortfolio?"page":undefined} onClick={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}}>Ärenden</button><button className="nav-button" aria-current={workArea==="cases"&&showPortfolio?"page":undefined} onClick={()=>{setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("comparison");}}>Prioritering</button><button className="nav-button" aria-current={workArea==="effects"?"page":undefined} onClick={()=>{if(workArea==="cases"&&!showPortfolio&&caseContext.activeId){const linked=state.entities.challenges[caseContext.activeId]?.relatedInitiativeIds[0];if(!linked){setCaseSection("material");setFeedback("Det här ärendet behöver först ett beredningsinitiativ. Fortsätt med samma underlag nedan.");return;}selectInitiative(linked);}setEffectSection(undefined);setWorkArea("effects");}}>Effekt och beslut</button><button className="nav-button" aria-current={workArea==="control"?"page":undefined} onClick={()=>setWorkArea("control")}>Kontrollrum</button><button className="nav-button" aria-current={workArea==="governance"?"page":undefined} onClick={()=>setWorkArea("governance")}>Metod och styrning</button></nav></header><details className="demo-settings"><summary>Demoinställningar</summary><div className="demo-clock"><label>Demodatum <input ref={dayInputRef} type="date" value={dayInput} min={state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06"} onChange={e=>setDayInput(e.target.value)}/></label><button onClick={()=>{const value=dayInputRef.current?.value??dayInput;const last=state.audit.map(a=>a.issuedAt.slice(0,10)).sort().at(-1)??"2026-09-06";if(validDate(value)&&value>=last){setDay(value);setDayInput(value);}else setDayInput(day);}}>Tillämpa demodatum</button><strong>Aktivt demodatum: {day}</strong><span>Flytta tiden framåt för att demonstrera planerade mätningar. Ingen verklig mätdata.</span><button className="text-button" onClick={()=>{if(window.confirm("Återställ alla egna demoändringar?")){stateRef.current=createPresentationDemoState();setState(stateRef.current);setDay("2026-09-06");setDayInput("2026-09-06");setFeedback("");setCaseContext({query:"",stepFilter:"ALL"});setWorkArea("cases");setShowPortfolio(false);}}}>Återställ demo</button></div></details></>;
   const footer=<footer>Prioritering är inte startbeslut · All data och alla namn är syntetiska · Ändringar gäller denna session · Ingen backend, verklig autentisering, extern AI eller integration är ansluten</footer>;
-  if(workArea!=="cases")return <div className="product-shell">{header}<main id="top" onInvalidCapture={event=>{let parent=(event.target as HTMLElement).parentElement;while(parent&&parent!==event.currentTarget){if(parent instanceof HTMLDetailsElement)parent.open=true;parent=parent.parentElement;}}}>{navigation}{workArea==="governance"&&<LocationTrail items={[{label:"Metod och styrning"}]}/>} {workArea==="effects"?<EffectWorkspace key={selectedInitiativeId} initialSection={effectSection} onSectionChange={setEffectSection} onInitiativeChange={selectInitiative} state={state} dispatch={dispatch} day={day} initialId={selectedInitiativeId} openCases={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}} openCase={openCase} openPortfolio={(id)=>{selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}}/>:workArea==="control"?<ControlRoom context={route.controlContext} setContext={next=>setRoutePart("controlContext",next)} state={state} day={day} open={(id,section)=>section?openCase(id,section):openEffects(id)} openCases={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}}/>:<GovernanceWorkspace state={state} dispatch={dispatch} day={day}/>}</main>{footer}</div>;
+  if(workArea!=="cases")return <div className="product-shell">{header}<main id="top" onInvalidCapture={event=>{let parent=(event.target as HTMLElement).parentElement;while(parent&&parent!==event.currentTarget){if(parent instanceof HTMLDetailsElement)parent.open=true;parent=parent.parentElement;}}}>{navigation}{workArea==="governance"&&<LocationTrail items={[{label:"Metod och styrning"}]}/>} {workArea==="effects"?<EffectWorkspace key={selectedInitiativeId} initialSection={effectSection} onSectionChange={setEffectSection} onInitiativeChange={selectInitiative} state={state} dispatch={dispatch} day={day} initialId={selectedInitiativeId} openCases={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}} openCase={openCase} openPortfolio={(id)=>{selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}}/>:workArea==="control"?<><StartReadyQueue state={state} day={day} onOpen={id=>openEffects(id,"decision")}/><ControlRoom dispatch={dispatch} context={route.controlContext} setContext={next=>setRoutePart("controlContext",next)} state={state} day={day} open={(id,section)=>{if(section==="conditions"){selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}else if(section&&["material","businesscase","qualification","potential","priority"].includes(section))openCase(id,section);else openEffects(id,section);}} openCases={()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);}}/></>:<GovernanceWorkspace state={state} dispatch={dispatch} day={day}/>}</main>{footer}</div>;
   if (!showPortfolio) return (
     <div className="product-shell">{header}
       <main id="top" onInvalidCapture={event=>{let parent=(event.target as HTMLElement).parentElement;while(parent&&parent!==event.currentTarget){if(parent instanceof HTMLDetailsElement)parent.open=true;parent=parent.parentElement;}}}>{navigation}<CaseWorkspace key={caseContext.activeId??"overview"} initialSection={caseSection} onSectionChange={setCaseSection} openEffects={openEffects} state={state} dispatch={dispatch} day={day} context={caseContext} setContext={next=>{if(next.activeId!==caseContext.activeId)setCaseSection(undefined);setCaseContext(next);}} feedback={feedback} openPortfolio={(id) => { selectInitiative(id); setShowPortfolio(true);setPortfolioSection("conditions"); }}/></main>{footer}
@@ -253,6 +261,7 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
       {header}
       <main id="top" onInvalidCapture={event=>{let parent=(event.target as HTMLElement).parentElement;while(parent&&parent!==event.currentTarget){if(parent instanceof HTMLDetailsElement)parent.open=true;parent=parent.parentElement;}}}>{navigation}
         <LocationTrail items={[{label:"Prioritering",onClick:portfolioSection!=="comparison"?()=>setPortfolioSection("comparison"):undefined},...(portfolioSection!=="comparison"?[{label:story.initiative.title,onClick:()=>openCase(selectedInitiativeId)},{label:({potential:"Effektpotential",conditions:"Förutsättningar",costs:"Kostnader"} as Record<string,string>)[portfolioSection]}]:[{label:"Jämförelse"}])]}/>
+        {portfolioSection!=="comparison"&&<StepGate dispatch={dispatch} state={state} challengeId={story.initiative.challengeId} day={day} stepKey={portfolioSection==="potential"?"potential":"conditions"} onOpen={key=>key==="priority"?openCase(selectedInitiativeId,"priority"):openEffects(selectedInitiativeId,key)}/>}
         <section className="hero">
           <div>
             <p className="eyebrow">STRATEGISKT PORTFÖLJSTÖD</p>
@@ -674,7 +683,7 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
                       <button
                         className={`node node-${node.availabilityStatus.toLowerCase()}`}
                         key={node.id}
-                        onClick={() => setSelectedNodeId(node.id)}
+                        onClick={() => {setSelectedNodeId(node.id);setResponsibleId(node.responsibleRoleAssignmentId??"");setNeededAt(node.neededAt??"");}}
                       >
                         <span>
                           {node.availabilityStatus === "AVAILABLE" ? (
@@ -748,6 +757,7 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
                 className="edit-panel"
                 onSubmit={(event) => {
                   event.preventDefault();
+                  if(!responsibleId||!neededAt){setFeedback("Välj ansvarig och datum.");return;}
                   dispatch({
                     commandId: createId(
                       "Command",
@@ -767,12 +777,13 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
                 <label>
                   Kompletteringsansvarig
                   <select
-                    aria-label="Kompletteringsansvarig"
+                    required aria-label="Kompletteringsansvarig"
                     value={responsibleId}
                     onChange={(event) =>
                       setResponsibleId(event.target.value as RoleAssignmentId)
                     }
                   >
+                    <option value="">Välj ansvarig person och roll</option>
                     {Object.values(state.entities.roleAssignments).map(
                       (assignment) => (
                         <option key={assignment.id} value={assignment.id}>
@@ -785,7 +796,7 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
                 <label>
                   Deadline / behovsdatum
                   <input
-                    aria-label="Deadline"
+                    required aria-label="Deadline"
                     type="date"
                     value={neededAt}
                     onChange={(event) => setNeededAt(event.target.value)}

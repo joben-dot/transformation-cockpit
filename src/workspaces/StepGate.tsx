@@ -1,0 +1,23 @@
+import { FollowUpEditor } from "./FollowUpEditor";
+import type { Command,CommandResult } from "../application";
+import type { DemoState } from "../application";
+import type { ChallengeId } from "../domain";
+import { challengeFields, businessCaseFields, requiredChallengeKeys, requiredBusinessCaseKeys, documentTextComplete } from "../domain/caseDocumentRequirements";
+import { caseFlow, type FlowStepKey } from "../application/selectors/flowSelectors";
+import { startReadiness } from "../application/selectors/startReadinessSelectors";
+import { roleName } from "./transformationHelpers";
+
+const purposes:Record<FlowStepKey,string>={material:"Grunduppgifterna behövs för att avgöra om utmaningen bör beredas vidare.",businesscase:"Ett separat businesscase gör alternativen och beslutsunderlaget jämförbara.",qualification:"Obligatoriska bedömningar måste vara klara innan underlaget kan prioriteras.",potential:"Bedöm möjliga effekter med evidens, antaganden, osäkerhet och tidsfönster. Detta är inte ett åtagande.",priority:"Människor granskar prioriteringsgrunden. Hög poäng betyder inte att förutsättningarna för start är klara.",conditions:"Hela möjliggörandet ska synas: befintlig förmåga, förutsättningsprojekt, körordning, kostnader och kapacitet.",commitments:"Varje mottagande verksamhet fastställer sina egna mål och accepterar ansvar för förändring och mätning.",decision:"Start spärras tills det sparade paketet uppfyller samtliga krav. Beslut fattas aktivt av en människa med mandat.",measurement:"Förändring och verifierade mätningar följs mot den låsta beslutsbaslinjen. Prognoser ersätter inte uppmätt effekt."};
+export function StepGate({state,challengeId,day,stepKey,onOpen,dispatch}:{state:DemoState;challengeId:ChallengeId;day:string;stepKey:FlowStepKey;onOpen:(step:FlowStepKey)=>void;dispatch?:(command:Command)=>CommandResult}) {
+ const steps=caseFlow(state,challengeId,day),index=steps.findIndex(x=>x.key===stepKey),step=steps[index],next=steps[index+1];
+ const c=state.entities.challenges[challengeId],id=c.relatedInitiativeIds[0];
+ const items:{label:string;complete:boolean}[]=stepKey==="material"?[
+  ...requiredChallengeKeys.map(k=>({label:challengeFields[k],complete:documentTextComplete(c[k])})),{label:"Utmaningen registrerad för beredning",complete:c.nominationStatus==="NOMINATED"}
+ ]:stepKey==="businesscase"?[
+  ...requiredBusinessCaseKeys.map(k=>({label:businessCaseFields[k],complete:documentTextComplete(c.businessCase?.[k])})),{label:"Initiativ registrerat från sparat businesscase",complete:!!id}
+ ]:[{label:step.summary,complete:step.status==="COMPLETE"}];
+ if(stepKey==="decision"&&id&&!startReadiness(state,id,day).started){const r=startReadiness(state,id,day);items.splice(0,items.length,...r.blockers.map(label=>({label,complete:false})),{label:"Samtliga underlagskrav uppfyllda",complete:r.ready},{label:"Mänskligt startbeslut fattat",complete:false});}
+ const completions=Object.values(state.entities.completionRequirements).filter(r=>(r.challengeId===challengeId||(id&&r.initiativeId===id))&&r.blocks.includes(stepKey==="priority"?"PRIORITIZATION":stepKey==="decision"?"START_DECISION":"QUALIFICATION")&&["qualification","priority","decision"].includes(stepKey));
+ return <section className={`step-gate step-gate-${step.status.toLowerCase()}`} aria-label={`Krav i ${step.title}`}><div><p className="eyebrow">STEG {index+1} AV {steps.length}</p><h2>{step.title} · {step.status==="COMPLETE"?"Klart":step.status==="WAITING"?"Kommande":"Åtgärd behövs"}</h2><p>{purposes[stepKey]}</p></div><ul>{items.map((item,i)=><li key={i}><span aria-hidden="true">{item.complete?"✓":"○"}</span> {item.label}</li>)}</ul>{completions.length>0&&<details><summary>Kompletteringar, ansvar och datum · {completions.length}</summary>{completions.map(r=><p key={r.id}><b>{r.missingItem}</b> · {r.status==="VERIFIED"?"Verifierat":r.status==="NOT_APPLICABLE"?"Ej tillämpligt":r.status==="SUBMITTED"?"Inväntar verifiering":"Behöver kompletteras"}<br/>{roleName(state,r.status==="SUBMITTED"?r.verifierRoleAssignmentId:r.responsibleRoleAssignmentId)} · {r.deadline??"Datum behöver anges"}</p>)}</details>}{step.status==="ACTION"&&dispatch&&<FollowUpEditor key={`${challengeId}-${stepKey}`} state={state} challengeId={challengeId} step={step} day={day} dispatch={dispatch}/>}
+{next&&<button type="button" disabled={step.status!=="COMPLETE"} onClick={()=>onOpen(next.key)}>Nästa steg: {next.title} →</button>}<p className="muted">Status hämtas från sparade uppgifter och beslut. Filer och osparade utkast godkänner inga krav. Du kan alltid återvända till flödet och se kommande steg.</p></section>;
+}

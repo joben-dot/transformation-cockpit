@@ -154,6 +154,7 @@ describe("gemensam command- och reducergrund", () => {
 
   it("kan skapa två initiativ utan sammanblandning", () => {
     const state = baseDemoState();
+    state.entities.challenges[demoIds.controlChallenge].businessCase={templateId:"TEST",purpose:"Verifiera isolering.",desiredState:"Separat spårbarhet.",scope:"Kontrollärendet.",alternatives:"Bered vidare eller avstå.",doNothingConsequence:"Bristen kvarstår.",evidence:"",assumptions:"",uncertainty:"",timeHorizon:"",knownPrerequisites:"",knownRisks:""};
     const secondId = createId("Initiative", "initiative-002");
     const result = demoReducer(state, {
       ...metadata(state),

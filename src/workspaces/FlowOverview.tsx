@@ -1,10 +1,12 @@
+import { FollowUpEditor } from "./FollowUpEditor";
+import type { Command,CommandResult } from "../application";
 import { Check, ChevronRight, Circle, AlertCircle } from "lucide-react";
 import type { DemoState } from "../application";
 import type { ChallengeId } from "../domain";
 import { caseFlow, type FlowStepKey } from "../application/selectors/flowSelectors";
 import { roleName } from "./transformationHelpers";
 
-export function FlowOverview({state,challengeId,day,onOpen}:{state:DemoState;challengeId:ChallengeId;day:string;onOpen:(key:FlowStepKey)=>void}) {
+export function FlowOverview({state,challengeId,day,onOpen,dispatch}:{state:DemoState;challengeId:ChallengeId;day:string;onOpen:(key:FlowStepKey)=>void;dispatch?:(command:Command)=>CommandResult}) {
   const steps = caseFlow(state,challengeId,day);
   const next = steps.find(s => s.status === "ACTION");
   return <section className="flow-overview" aria-label="Ärendets sammanfattade flöde">
@@ -13,9 +15,10 @@ export function FlowOverview({state,challengeId,day,onOpen}:{state:DemoState;cha
     <ol className="flow-list">{steps.map((step,index) => <li key={step.key}>
       <button className={`flow-row flow-${step.status.toLowerCase()}`} onClick={() => onOpen(step.key)} aria-label={`${step.title}: ${step.status==="COMPLETE"?"Klart – visa underlag":step.status==="ACTION"?"Kräver åtgärd":"Kommande steg"}`}>
         <span className="flow-marker" aria-hidden="true">{step.status==="COMPLETE"?<Check size={21}/>:step.status==="ACTION"?<AlertCircle size={21}/>:<Circle size={19}/>}</span>
-        <span className="flow-copy"><strong><small>{index+1}.</small> {step.title}</strong><span>{step.summary}</span>{step.status==="ACTION"&&<small className="flow-owner">{step.responsibleId?roleName(state,step.responsibleId):"Ansvarig behöver utses"}{step.dueDate?` · ${step.dueDate}${step.dueDate<day?" · försenad":""}`:" · datum behöver anges"}</small>}</span>
+        <span className="flow-copy"><strong><small>{index+1}.</small> {step.title}</strong><span>{step.summary}</span>{step.status==="ACTION"&&!dispatch&&<small className="flow-owner">{step.responsibleId?roleName(state,step.responsibleId):"Ansvarig behöver utses"}{step.dueDate?` · ${step.dueDate}${step.dueDate<day?" · försenad":""}`:" · datum behöver anges"}</small>}</span>
         <span className="flow-action">{step.status==="COMPLETE"?"Visa underlag":step.status==="ACTION"?"Öppna åtgärd":"Visa nästa steg"}<ChevronRight size={18}/></span>
       </button>
+      {step.status==="ACTION"&&dispatch&&<FollowUpEditor key={`${challengeId}-${step.key}`} state={state} challengeId={challengeId} step={step} day={day} dispatch={dispatch}/>}
     </li>)}</ol>
     <p className="flow-legend">Grönt betyder att punktens underlag eller beslut finns. Endast ett fattat startbeslut tillåter genomförande.</p>
   </section>;

@@ -10,6 +10,7 @@ export interface WorkspaceRoute {
   caseSection?: FlowStepKey;
   effectSection?: FlowStepKey | "history";
   portfolioSection: string;
+  prerequisiteFocus?: "cost" | "availability";
   selectedInitiativeId: InitiativeId;
   caseContext: CaseNavigationContext;
   controlContext: ControlRoomContext;

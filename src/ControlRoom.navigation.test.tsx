@@ -1,0 +1,30 @@
+import { act,create,type ReactTestInstance } from 'react-test-renderer';
+import { expect,it } from 'vitest';
+import App from './App';
+import {createPresentationDemoState} from './demo-data/presentationDemoState';
+const text=(v:unknown):string=>typeof v==='string'?v:typeof v==='number'?String(v):v&&typeof v==='object'&&'children' in v?(v as {children:unknown[]}).children.map(text).join(''):'';
+const click=(root:ReactTestInstance,match:(b:ReactTestInstance)=>boolean)=>act(()=>root.findAllByType('button').find(match)!.props.onClick());
+it('går från processruta direkt till rätt komplettering och tillbaka till urvalet',()=>{
+ const root=create(<App demoState={createPresentationDemoState()}/>).root;
+ click(root,b=>text(b).startsWith('Hinder som kräver åtgärd'));
+ const list=root.findByProps({'aria-label':'Ärenden i valt processteg'});
+ const target=list.findAllByType('button').find(b=>text(b).startsWith('Komplettera:'))!;
+ const title=text(target).replace('Komplettera: ','').replace(' →','');
+ act(()=>target.props.onClick());
+ const panel=root.findAllByType('details').find(d=>d.props.id?.startsWith('completion-')&&d.props.open)!;
+ expect(text(panel)).toContain(title);
+ expect(panel.findAllByType('input').some(i=>i.props['aria-label']===`Svar ${title}`)).toBe(true);
+ click(root,b=>text(b)==='← Tillbaka');
+ expect(root.findByProps({'aria-label':'Ärenden i valt processteg'})).toBeDefined();
+ expect(root.findAllByType('button').find(b=>text(b).startsWith('Hinder som kräver åtgärd'))!.props['aria-pressed']).toBe(true);
+});
+it('klar för start öppnar beslutspaket utan att automatiskt fatta beslut',()=>{
+ const state=createPresentationDemoState(),count=Object.keys(state.entities.decisionVersions).length;
+ const root=create(<App demoState={state}/>).root;
+ click(root,b=>text(b).includes('Klara för start')&&b.parent?.props['aria-label']==='Välj processteg');
+ const list=root.findByProps({'aria-label':'Ärenden i valt processteg'});
+ expect(list.findByType('tbody').findAllByType('tr')).toHaveLength(2);
+ act(()=>list.findAllByType('button').find(b=>text(b)==='Öppna underlag för startbeslut →')!.props.onClick());
+ expect(root.findAllByProps({'aria-label':'Krav i Startbeslut'})).toHaveLength(1);
+ expect(Object.keys(state.entities.decisionVersions)).toHaveLength(count);
+});

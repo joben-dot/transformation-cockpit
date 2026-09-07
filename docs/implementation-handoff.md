@@ -87,3 +87,14 @@ Primary Microsoft documentation checked:
 - https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso
 
 The next review should assess whether a nontechnical colleague can identify the current step, open a missing assignment directly, complete a separate document, understand why a high-priority initiative waits, and trace a verified outcome back to its local owner and locked baseline. Do not expand mandatory data fields merely to make the demo look more complete.
+
+## Kontrollrum: process och direkt väg till nästa åtgärd (2026-09-07)
+- Återställningspunkt `version/0.8` pekar på exakt commit `d15144b488c6b98355b378653d60d5c63a489bc9`. Flytta inte denna gren. Återställ vid behov genom att lägga dess träd i en ny commit på arbetsgrenen, granska, sammanfoga och publicera. Skriv inte om huvudgrenens historik. Webbläsarlokala filer och sessionsdata omfattas inte av kodversionen.
+- Kontrollrummets sex huvudgrupper härleds från samma caseOverview som ärendelistan. Registrerade utmaningar utan initiativ ingår; utkast och återtagna ingår inte. Pågående omfattar genomförande och mätning.
+- Granskat prioriteringsunderlag är inte i sig ett ställningstagande att gå vidare. Prioriterad kräver nu färskt granskat underlag och explicit humanRecommendation START. Startklarhet använder oförändrade startBlockers; inget automatiskt startbeslut.
+- Hinder är öppna kompletteringskrav, otillgängliga blockerande externa beroenden eller försenad nästa åtgärd. Kommande normala steg är inte automatiskt hinder. Hinder och effekthemtagning överlappar processgrupperna.
+- Nästa åtgärd har en strukturerad destination: ärende/initiativ, processdel och vid behov kompletteringskrav, leverans eller kostnadsformulär. Kompletteringskrav öppnas utvecklade; externa beroenden pekar på ägande initiativ; kostnadsformulär kan öppnas direkt. Navigationshistoriken bevarar urval.
+- Första bästa effektpotential visas inte längre som portföljsumma. Överblicken redovisar antal aktuella bedömningar, accepterade åtaganden i beslutspaket och verifierade åtaganden, med individuella belopp/mått och tidsfönster. Olika scenarier och mottagare summeras inte slentrianmässigt. Effektuppföljning behåller befintlig periodkalkyl och jämförbara mått.
+- Fortsatt avgränsning: inga personliga uppgiftsinkorgar eller aviseringar. Ingen verklig Copilot-anslutning. Ingen ändring av låsta baslinjer eller formellt effektägarskap via samordningsuppgifter.
+- Nästa presentationsuppdrag: PowerPoint som diskussionsförslag för portföljstyrningsmöte, process från utmaning till start och effekt, kriterier/vikter tydligt som förslag, övergång till demo.
+- Senare: stäm av den tidigare introduktionsfilmen mot det nya flödet, använd den eller skapa en uppdaterad film, lägg sedan en tydlig introduktionslänk i kontrollrummet. Publicera inte en trasig eller innehållsmässigt missvisande filmlänk.

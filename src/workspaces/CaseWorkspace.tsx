@@ -9,7 +9,7 @@ import { LocationTrail } from "./LocationTrail";
 import { flowLocationLabels } from "./flowLocationLabels";
 import { cockpitCases } from "../application/selectors/cockpitSelectors";
 import { DataProvenance } from "./DataProvenance";
-import { useMemo, useState, useLayoutEffect } from "react";
+import { useMemo, useState, useLayoutEffect, useEffect } from "react";
 import { ArrowLeft, ChevronRight, Plus, Search } from "lucide-react";
 import {
   activeQualificationConfiguration,
@@ -41,7 +41,7 @@ const stepLabels = {
 } as const;
 const emptyCase = { title: "", problemStatement: "", currentState: "", strategicHandlingReason: "", strategicRelevance: "", purpose: "", desiredState: "", scope: "", alternatives: "", doNothingConsequence: "", evidence: "", assumptions: "", uncertainty: "", timeHorizon: "", knownPrerequisites: "", knownRisks: "" };
 
-export interface CaseNavigationContext { activeId?: ChallengeId; query: string; stepFilter: string; sort?: string; }
+export interface CaseNavigationContext { activeId?: ChallengeId; focusRequirementId?:CompletionRequirementId; query: string; stepFilter: string; sort?: string; }
 
 export function CaseWorkspace({ state, dispatch, openPortfolio, context, setContext, feedback, openEffects, initialSection, onSectionChange, day = new Date().toISOString().slice(0,10) }: {
   state: DemoState;
@@ -59,6 +59,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
   const detail = onSectionChange ? initialSection : localDetail;
   const setDetail = onSectionChange ?? setLocalDetail;
   useLayoutEffect(()=>{if(typeof window!=="undefined")window.scrollTo(0,0);},[detail,context.activeId]);
+  useEffect(()=>{if(context.focusRequirementId&&typeof document!=="undefined")document.getElementById(`completion-${context.focusRequirementId}`)?.scrollIntoView?.({block:"center"});},[context.focusRequirementId,detail]);
   const sort=context.sort??"priority";
   const setSort=(sort:string)=>setContext({...context,sort});
   const [showNew, setShowNew] = useState(false);
@@ -108,7 +109,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
         {(detail==="material"||detail==="businesscase")&&<CaseDocumentEditor kind={detail} challenge={challenge} values={form} onChange={patch=>setForm({...form,...patch})} onSave={detail==="material"?()=>saveMaterial():saveBusinessCase} onNominate={()=>{const r=saveMaterial("NOMINATED");if(r.success)setDetail("businesscase");}} onNext={()=>setDetail("businesscase")} canRegister={!businessCaseDocumentBlockers(challenge).length} onRegister={()=>{const result=send({commandType:"CREATE_INITIATIVE_FROM_CHALLENGE",targetId:createId("Initiative",`preparation-${challenge.id}`),payload:{challengeId:challenge.id,title:challenge.title,purpose:challenge.businessCase!.purpose,desiredEndState:challenge.businessCase!.desiredState,scope:challenge.businessCase!.scope,initiativeKind:"VALUE_CREATING"}});if(result.success)setDetail("qualification");}}/>}
         {initiative&&(detail==="material"||detail==="businesscase")&&<button onClick={()=>openPortfolio(initiative.id)}>Öppna potential, beroenden och kostnader <ChevronRight size={16}/></button>}
         {detail==="qualification"&&<aside className="card"><p className="eyebrow">HINDER OCH NÄSTA STEG</p><h2>{active.nextAction}</h2><p><b>Hinder:</b> {active.obstacle}</p><p><b>Ansvarig:</b> {active.responsible}</p><p><b>Datum:</b> {active.dueDate ?? "Datum saknas"} {active.overdue && <strong className="overdue">Försenad</strong>}</p>
-          {requirements.map((item) => <details className="point-detail" key={item.id}><summary>{item.missingItem} · {["VERIFIED","NOT_APPLICABLE"].includes(item.status)?"Klart":"Åtgärd behövs"}</summary><CompletionCard itemId={item.id} state={state} send={send}/></details>) }
+          {requirements.map((item) => <details id={`completion-${item.id}`} className="point-detail" key={item.id} open={context.focusRequirementId===item.id?true:undefined}><summary>{item.missingItem} · {["VERIFIED","NOT_APPLICABLE"].includes(item.status)?"Klart":"Åtgärd behövs"}</summary><CompletionCard itemId={item.id} state={state} send={send}/></details>) }
           <details className="point-detail"><summary>Lägg till kompletteringskrav</summary><form onSubmit={(event) => { event.preventDefault(); send({ commandType:"CREATE_COMPLETION_REQUIREMENT", targetId:createId("CompletionRequirement", `ui-${Date.now()}`), payload:{ challengeId:challenge.id, initiativeId:initiative?.id, missingItem:requirement.missing, reasonRequired:requirement.reason, blocks:["QUALIFICATION"], responsibleRoleAssignmentId: requirement.responsible || undefined, verifierRoleAssignmentId: requirement.verifier || undefined, deadline: requirement.deadline || undefined } }); }}><h3>Lägg till kompletteringskrav</h3><input required aria-label="Vad saknas" placeholder="Vad saknas?" value={requirement.missing} onChange={(event)=>setRequirement({...requirement,missing:event.target.value})}/><input required aria-label="Varför behövs uppgiften" placeholder="Varför behövs uppgiften?" value={requirement.reason} onChange={(event)=>setRequirement({...requirement,reason:event.target.value})}/><RoleSelect label="Den som kompletterar" value={requirement.responsible} state={state} onChange={(responsible)=>setRequirement({...requirement,responsible})}/><RoleSelect label="Den som verifierar" value={requirement.verifier} state={state} onChange={(verifier)=>setRequirement({...requirement,verifier})}/><input aria-label="Förfallodatum" type="date" value={requirement.deadline} onChange={(event)=>setRequirement({...requirement,deadline:event.target.value})}/><button>Spara krav</button></form></details>
         </aside>}
       </div>

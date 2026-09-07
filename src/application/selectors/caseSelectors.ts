@@ -37,8 +37,8 @@ export function caseOverview(state: DemoState, today = new Date().toISOString().
     const responsibleId=requirement?.status==="SUBMITTED"?requirement.verifierRoleAssignmentId:requirement?.responsibleRoleAssignmentId;
     const assignment = responsibleId ? state.entities.roleAssignments[responsibleId] : undefined;
     const person = assignment ? state.entities.people[assignment.personId] : undefined;
-    const business = Object.values(state.entities.participations)
-      .find((item) => item.initiativeId === initiativeId)?.businessId;
+    const participatingBusinesses = [...new Set(Object.values(state.entities.participations).filter(p=>p.initiativeId===initiativeId).flatMap(p=>p.businessId?[p.businessId]:[]))];
+    const areaLabels=participatingBusinesses.map(id=>{const b=state.entities.businesses[id];return `${state.entities.businessAreas[b?.businessAreaId]?.name ?? "Område behöver anges"} · ${b?.name??""}`;});
     const obstacle = requirement?.missingItem ??
       (step === "UTKAST" ? "Utkastet är inte inskickat till beredning" :
        step === "REGISTRERAD" ? "Beredningsinitiativ är ännu inte skapat" :
@@ -48,7 +48,7 @@ export function caseOverview(state: DemoState, today = new Date().toISOString().
       initiativeId,
       caseNumber: `ÄR-${challenge.createdAt.slice(0, 4)}-${String(index + 1).padStart(3, "0")}`,
       title: challenge.title.trim() || "Namnlöst utkast",
-      area: business ? `${state.entities.businessAreas[state.entities.businesses[business]?.businessAreaId]?.name ?? "Område behöver anges"} · ${state.entities.businesses[business]?.name ?? ""}` : "Område behöver anges",
+      area: areaLabels.length?areaLabels.join("; "):"Område behöver anges",
       step,
       obstacle,
       nextAction: requirement ? (requirement.status === "SUBMITTED" ? "Verifiera dokumenterat svar" : `Komplettera: ${requirement.missingItem}`) :

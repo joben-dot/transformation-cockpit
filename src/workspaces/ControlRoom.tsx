@@ -1,6 +1,5 @@
 import { LocationTrail } from "./LocationTrail";
 import { CockpitOverview } from "./CockpitOverview";
-import { useState } from "react";
 import type { DemoState } from "../application";
 import type { InitiativeId } from "../domain";
 import { activeCommitments, committedEconomics, effectOutcome, latestDecision, transformationStage } from "../application/selectors/transformationSelectors";
@@ -9,9 +8,14 @@ import { costSummary } from "../application/selectors/costSelectors";
 import { Why } from "./transformationUi";
 import { format } from "./transformationHelpers";
 
-export function ControlRoom({state,day,open,openCases}:{state:DemoState;day:string;open:(id:InitiativeId,section?:"potential")=>void;openCases:()=>void}) {
-  const [view,setView]=useState("overview");
-  const [stage,setStage]=useState("Alla"),[area,setArea]=useState("Alla"),[from,setFrom]=useState("2026-01-01"),[to,setTo]=useState(()=>Object.values(state.entities.effectCommitments).some(c=>c.details?.effectWindow.to==="2026-12-31")?"2026-12-31":"2030-12-31");
+export interface ControlRoomContext { view:string; stage:string; area:string; from:string; to:string; }
+export function ControlRoom({state,day,open,openCases,context,setContext}:{state:DemoState;day:string;open:(id:InitiativeId,section?:"potential")=>void;openCases:()=>void;context:ControlRoomContext;setContext:(context:ControlRoomContext)=>void}) {
+  const {view,stage,area,from,to}=context;
+  const setView=(view:string)=>setContext({...context,view});
+  const setStage=(stage:string)=>setContext({...context,stage});
+  const setArea=(area:string)=>setContext({...context,area});
+  const setFrom=(from:string)=>setContext({...context,from});
+  const setTo=(to:string)=>setContext({...context,to});
   const stages=["Alla","Under beredning","Pågående","Under mätning","Avslutat"];
   const all=Object.values(state.entities.initiatives).filter(i=>area==="Alla"||Object.values(state.entities.participations).some(p=>p.initiativeId===i.id&&p.businessId&&state.entities.businesses[p.businessId]?.businessAreaId===area));
   const initiatives=all.filter(i=>stage==="Alla"||transformationStage(state,i.id)===stage);

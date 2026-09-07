@@ -981,3 +981,26 @@ button:focus-visible,summary:focus-visible{outline:3px solid #42a8ad;outline-off
 @media(max-width:650px){.product-shell main{--content-inset:18px}.case-row{padding-inline:18px!important}.overview-head,.case-detail-head{gap:20px}}
 .card dl{grid-template-columns:minmax(190px,220px) minmax(0,1fr)}
 @media(max-width:650px){.card dl{grid-template-columns:1fr}}
+
+/* Keep location and return navigation in reach while reading long underlay forms. */
+.return-bar{position:sticky;top:0;z-index:25;display:flex;align-items:center;gap:16px;padding:14px var(--content-inset,26px);margin:0 0 18px;background:#f5faf7;border:1px solid #c4d8cd;border-radius:12px;box-shadow:0 5px 18px #163c2712}
+.return-bar button{white-space:nowrap;min-height:48px}
+.return-bar button:disabled{opacity:.4;cursor:default}
+.return-location{display:grid;gap:2px;min-width:0;flex:1;line-height:1.4}
+.return-location strong{font-size:20px;overflow-wrap:anywhere}
+.return-location span{font-size:17px;color:#526b60}
+.product-shell main .material-form{display:block}
+.material-group,.decision-editor{border:1px solid #ccdcd3;border-radius:12px;margin:16px 0;background:#fff}
+.material-group>summary,.decision-editor>summary{padding:18px 22px;cursor:pointer;font-size:21px;font-weight:700;color:#194e3a}
+.material-group>summary span{display:block;font-size:16px;font-weight:400;color:#50695c;margin:7px 0 0 20px}
+.material-group>p,.decision-editor>p{padding:0 22px;line-height:1.65}
+.product-shell main .material-group>label{display:grid;gap:8px;padding:10px 22px;font-size:20px}
+.material-group>.form-grid{padding:10px 22px 22px}
+.material-group>.check{padding:10px 22px 22px}
+.material-group textarea{min-height:100px;resize:vertical;width:100%}
+.decision-editor>.commitment-form{padding:0 22px 22px}
+.decision-editor>.secondary-action{margin:0 22px 18px}
+.preparation-handoff{margin-top:28px;border-top:2px solid #d2e1d7;padding-top:24px}
+@media(max-width:650px){.return-bar{flex-wrap:wrap;gap:10px;padding:12px 16px}.return-location{flex-basis:calc(100% - 140px)}.return-location strong{font-size:18px}.return-bar>.text-button{width:100%;white-space:normal}.material-group>summary,.decision-editor>summary{padding:16px;font-size:20px}.product-shell main .material-group>label{padding:10px 16px}.material-group>.form-grid{padding:10px 16px 16px}}
+
+.product-header{position:static}

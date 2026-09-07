@@ -1,3 +1,4 @@
+import { useSessionDraft } from "./SessionDrafts";
 import { LocationTrail } from "./LocationTrail";
 import { flowLocationLabels } from "./flowLocationLabels";
 import { cockpitCases } from "../application/selectors/cockpitSelectors";
@@ -32,9 +33,9 @@ const stepLabels = {
 } as const;
 const emptyCase = { title: "", problemStatement: "", currentState: "", strategicHandlingReason: "", strategicRelevance: "", purpose: "", desiredState: "", scope: "", alternatives: "", doNothingConsequence: "", evidence: "", assumptions: "", uncertainty: "", timeHorizon: "", knownPrerequisites: "", knownRisks: "" };
 
-export interface CaseNavigationContext { activeId?: ChallengeId; query: string; stepFilter: string; }
+export interface CaseNavigationContext { activeId?: ChallengeId; query: string; stepFilter: string; sort?: string; }
 
-export function CaseWorkspace({ state, dispatch, openPortfolio, context, setContext, feedback, openEffects, initialSection, day = new Date().toISOString().slice(0,10) }: {
+export function CaseWorkspace({ state, dispatch, openPortfolio, context, setContext, feedback, openEffects, initialSection, onSectionChange, day = new Date().toISOString().slice(0,10) }: {
   state: DemoState;
   dispatch: (command: Command) => CommandResult;
   openPortfolio: (id: InitiativeId) => void;
@@ -43,19 +44,22 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
   feedback: string;
   day?: string;
   initialSection?: FlowStepKey;
+  onSectionChange?: (section: FlowStepKey | undefined) => void;
   openEffects?: (id: InitiativeId, section: FlowStepKey) => void;
 }) {
-  const [detail, setDetail] = useState<FlowStepKey | undefined>(initialSection);
+  const [localDetail, setLocalDetail] = useState<FlowStepKey | undefined>(initialSection);
+  const detail = onSectionChange ? initialSection : localDetail;
+  const setDetail = onSectionChange ?? setLocalDetail;
   useLayoutEffect(()=>{if(typeof window!=="undefined")window.scrollTo(0,0);},[detail,context.activeId]);
-  const [sort,setSort]=useState("priority");
+  const sort=context.sort??"priority";
+  const setSort=(sort:string)=>setContext({...context,sort});
   const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState(() => {
+  const [form, setForm] = useSessionDraft(`material-${context.activeId??"new"}`, () => {
     const saved = context.activeId ? state.entities.challenges[context.activeId] : undefined;
     return saved ? { ...emptyCase, ...saved, ...(saved.businessCase ?? {}) } : { ...emptyCase };
   });
   const [requirement, setRequirement] = useState({ missing: "", reason: "", responsible: "", verifier: "", deadline: "" });
   const [answers, setAnswers] = useState<Record<string, { summary: string; evidence: string }>>({});
-  const [initiativeDraft, setInitiativeDraft] = useState({ title: "", purpose: "", desiredEndState: "", scope: "" });
   const items = useMemo(() => cockpitCases(state, day), [state, day]);
   const active = context.activeId ? items.find((item) => item.challengeId === context.activeId) : undefined;
   const challenge = active ? state.entities.challenges[active.challengeId] : undefined;
@@ -93,11 +97,18 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
       <div className="case-columns detail-level">
         {detail==="material"&&<article className="card"><p className="eyebrow">GEMENSAMT UNDERLAG</p><h2>Utmaning och businesscase</h2><p className="template-note">Demonstrationsmall v1 · konfigurerbar struktur · inte verifierad som PPS-komplett</p>
           <dl className="material-summary">{[["Problem och behov",challenge.problemStatement],["Syfte",challenge.businessCase?.purpose],["Önskat läge",challenge.businessCase?.desiredState],["Avgränsning",challenge.businessCase?.scope]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||"Behöver kompletteras"}</dd></div>)}</dl><details className="point-detail"><summary>Öppna underlaget för komplettering</summary><form className="material-form" onSubmit={(event) => { event.preventDefault(); saveMaterial(); }}>
-            {[ ["title","Titel"], ["problemStatement","Problem och behov"], ["currentState","Nuläge"], ["strategicHandlingReason","Varför strategisk hantering?"], ["strategicRelevance","Strategisk relevans"], ["purpose","Syfte"], ["desiredState","Önskat förändrat läge"], ["scope","Avgränsning"], ["alternatives","Alternativ"], ["doNothingConsequence","Om vi avstår"], ["evidence","Evidens"], ["assumptions","Antaganden"], ["uncertainty","Osäkerhet"], ["timeHorizon","Tidshorisont"], ["knownPrerequisites","Kända förutsättningar"], ["knownRisks","Kända risker"] ].map(([key,label]) => <label key={key}>{label}<textarea value={form[key as keyof typeof form]} onChange={(event) => setForm({ ...form, [key]: event.target.value })}/></label>)}
+            <p className="template-note">Samma uppgifter följer med till beredningen. Spara när du vill; sparade svar är underlag, inte godkända bedömningar.</p>
+            {[
+              {name:"1. Behov och strategisk relevans",help:"Beskriv problemet och varför det behöver hanteras gemensamt. De fyra första uppgifterna krävs för registrering till beredning.",fields:[["title","Titel"],["problemStatement","Problem och behov"],["currentState","Nuläge"],["strategicHandlingReason","Varför strategisk hantering?"],["strategicRelevance","Strategisk relevans"]]},
+              {name:"2. Syfte, önskat läge och alternativ",help:"Ange vad ni vill åstadkomma och vilka vägar ni behöver jämföra. Detta är ännu inget lokalt effektåtagande.",fields:[["purpose","Syfte"],["desiredState","Önskat förändrat läge"],["scope","Avgränsning"],["alternatives","Alternativ"],["doNothingConsequence","Om vi avstår"]]},
+              {name:"3. Underlag och osäkerhet",help:"Samla belägg, antaganden och tidsbild. Sakkunniga gör sina bedömningar separat i nästa steg.",fields:[["evidence","Evidens"],["assumptions","Antaganden"],["uncertainty","Osäkerhet"],["timeHorizon","Tidshorisont"]]},
+              {name:"4. Förutsättningar och risker",help:"Beskriv vad ni känner till nu. Beroenden, leveranser och kostnader preciseras senare och ska inte skrivas dubbelt här.",fields:[["knownPrerequisites","Kända förutsättningar"],["knownRisks","Kända risker"]]},
+            ].map((group,index)=><details className="material-group" key={group.name} open={index===0?true:undefined}><summary>{group.name}<span>{group.fields.filter(([key])=>String(form[key as keyof typeof form]??"").trim()).length} av {group.fields.length} uppgifter angivna</span></summary><p>{group.help}</p>{group.fields.map(([key,label])=><label key={key}>{label}<textarea value={form[key as keyof typeof form]} onChange={event=>setForm({...form,[key]:event.target.value})}/></label>)}</details>)}
             <button>Spara underlag</button>
           </form>
           {challenge.nominationStatus === "DRAFT" && <button onClick={() => saveMaterial("NOMINATED")}>Skicka utmaning till beredning</button>}
-          {challenge.nominationStatus === "NOMINATED" && !initiative && <form onSubmit={(event) => { event.preventDefault(); const result = send({ commandType: "CREATE_INITIATIVE_FROM_CHALLENGE", targetId: createId("Initiative", `preparation-${challenge.id}`), payload: { challengeId: challenge.id, ...initiativeDraft, initiativeKind: "VALUE_CREATING" } }); if (result.success) setInitiativeDraft({ title: "", purpose: "", desiredEndState: "", scope: "" }); }}><h3>Skapa länkat beredningsinitiativ</h3>{Object.entries(initiativeDraft).map(([key,value]) => <label key={key}>{({title:"Titel",purpose:"Syfte",desiredEndState:"Önskat läge",scope:"Avgränsning"} as Record<string,string>)[key]}<input required value={value} onChange={(event)=>setInitiativeDraft({...initiativeDraft,[key]:event.target.value})}/></label>)}<button>Registrera initiativ för beredning</button><small>Registrering är inte ett startbeslut.</small></form>}
+          {challenge.nominationStatus === "NOMINATED" && !initiative && <section className="preparation-handoff"><h3>Fortsätt till beredning med samma underlag</h3><p>Titel, syfte, önskat läge och avgränsning hämtas från det sparade underlaget ovan. Du behöver inte skriva dem igen.</p><dl className="material-summary">{[["Titel",challenge.title],["Syfte",challenge.businessCase?.purpose],["Önskat läge",challenge.businessCase?.desiredState],["Avgränsning",challenge.businessCase?.scope]].map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value||"Komplettera och spara underlaget ovan"}</dd></div>)}</dl><button disabled={![challenge.title,challenge.businessCase?.purpose,challenge.businessCase?.desiredState,challenge.businessCase?.scope].every(value=>value?.trim())} onClick={()=>{const result=send({commandType:"CREATE_INITIATIVE_FROM_CHALLENGE",targetId:createId("Initiative",`preparation-${challenge.id}`),payload:{challengeId:challenge.id,title:challenge.title,purpose:challenge.businessCase!.purpose,desiredEndState:challenge.businessCase!.desiredState,scope:challenge.businessCase!.scope,initiativeKind:"VALUE_CREATING"}});if(result.success)setDetail(undefined);}}>Registrera initiativ för beredning</button><p className="muted">Registrering är inte ett startbeslut. Bedömningar, effektåtaganden och beslut görs separat.</p></section>}
+
           </details>
           {initiative && <><p className="linked-note">Potential, förutsättningar och kostnader hämtas från länkade domänobjekt och kopieras inte hit.</p><button onClick={() => openPortfolio(initiative.id)}>Öppna potential, beroenden och kostnader <ChevronRight size={16}/></button></>}
           <details className="trace"><summary>Fördjupad spårbarhet</summary><code>{challenge.id}</code>{initiative && <code>{initiative.id}</code>}</details>
@@ -120,7 +131,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
   if(sort==="deadline")filtered.sort((a,b)=>(a.dueDate??"9999").localeCompare(b.dueDate??"9999"));
   return <section className="case-workspace" aria-label="Ärendeöversikt">{location}<div className="overview-head"><div><p className="eyebrow">STRATEGISKA ÄRENDEN</p><h1>Vad behöver ledningens uppmärksamhet?</h1><p>Prioriterade ärenden först. Följ nästa steg, ansvar och vad som behöver bli klart före genomförande.</p></div><button onClick={()=>{setForm({...emptyCase});setShowNew(!showNew)}}><Plus size={17}/> Registrera utmaning</button></div>
     <p role="status" className="inline-feedback">{feedback}</p>
-    {showNew && <form className="new-case" onSubmit={(event)=>{event.preventDefault();const id=createId("Challenge",`user-${Date.now()}`);const result=send({commandType:"CREATE_STRATEGIC_CHALLENGE",targetId:id,payload:{title:form.title,problemStatement:form.problemStatement,currentState:form.currentState,source:"Registrerad i demosessionen",strategicRelevance:form.strategicRelevance,strategicHandlingReason:form.strategicHandlingReason,nominationStatus:"DRAFT"}});if(result.success){setShowNew(false);setContext({...context,activeId:id});}}}><h2>Nytt utkast</h2><p>Tomma uppgifter får sparas och kompletteras senare.</p><label>Titel<input value={form.title} onChange={(event)=>setForm({...form,title:event.target.value})}/></label><label>Problem<textarea value={form.problemStatement} onChange={(event)=>setForm({...form,problemStatement:event.target.value})}/></label><button>Spara utkast i demosessionen</button></form>}
+    {showNew && <form className="new-case" onSubmit={(event)=>{event.preventDefault();const id=createId("Challenge",`user-${Date.now()}`);const result=send({commandType:"CREATE_STRATEGIC_CHALLENGE",targetId:id,payload:{title:form.title,problemStatement:form.problemStatement,currentState:form.currentState,source:"Registrerad i demosessionen",strategicRelevance:form.strategicRelevance,strategicHandlingReason:form.strategicHandlingReason,nominationStatus:"DRAFT"}});if(result.success){setShowNew(false);setContext({...context,activeId:id});}}}><h2>Nytt utkast</h2><p>Börja med titel och problem. Övrigt underlag kompletteras stegvis.</p><label>Titel<input value={form.title} onChange={(event)=>setForm({...form,title:event.target.value})}/></label><label>Problem<textarea value={form.problemStatement} onChange={(event)=>setForm({...form,problemStatement:event.target.value})}/></label><button>Spara utkast i demosessionen</button></form>}
     <div className="case-toolbar"><label><Search size={16}/><input aria-label="Sök ärenden" placeholder="Sök nummer, titel eller område" value={context.query} onChange={(event)=>setContext({...context,query:event.target.value})}/></label><select aria-label="Filtrera processteg" value={context.stepFilter} onChange={(event)=>setContext({...context,stepFilter:event.target.value})}><option value="ALL">Alla processteg</option>{Object.entries(stepLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select><select aria-label="Sortera ärendelistan" value={sort} onChange={e=>setSort(e.target.value)}><option value="priority">Prioriteringsunderlag – högst först</option><option value="deadline">Nästa åtgärdsdatum</option><option value="oldest">Äldsta ärende först</option></select><span>{filtered.length} av {items.length}</span></div>
     <p className="sort-explanation">{sort==="priority"?"Sortering: senaste giltiga underlag i aktiv styrprofil, högst poäng först. Lika poäng: äldsta ärendet först. Övriga ärenden visas därefter utan placering. Prioritet är inte startbeslut eller körordning.":sort==="deadline"?"Sortering: tidigaste dokumenterade åtgärdsdatum först. Saknade datum visas sist. Detta ändrar inte prioriteringen.":"Sortering: registreringsdatum, äldsta först. Detta ändrar inte prioriteringen."}</p>
     <div className="case-table" role="table"><div className="case-row case-header" role="row"><span>Ärende</span><span>Steg</span><span>Nästa åtgärd</span><span>Ansvar och datum</span></div>{filtered.map((item)=><button className="case-row" role="row" key={item.challengeId} onClick={()=>openCase(item.challengeId)}><span><b>{item.caseNumber}</b><strong>{item.title}</strong><small>{item.area}</small><small className="list-priority">{item.priorityScore!==undefined?`${item.priorityScore} / 100 · ${item.assessment?.status==="CALCULATED"?"granskning återstår":"granskat underlag"}`:item.stale?"Ny bedömning behövs":"Ingen prioriteringsplacering ännu"}</small><span className="open-affordance">Öppna ärende <ChevronRight size={16}/></span></span><span><i>{stepLabels[item.step]}</i></span><span><strong>{item.nextAction}</strong></span><span><b>{item.responsible}</b><small>{item.dueDate??"Datum saknas"} {item.overdue&&<em>Försenad</em>}</small></span></button>)}</div><p className="session-note">Demodatum: {day}. Ändringar finns bara i demosessionen.</p></section>;

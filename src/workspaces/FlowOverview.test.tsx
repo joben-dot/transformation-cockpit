@@ -9,13 +9,13 @@ const text=(n:unknown):string=>typeof n==="string"?n:n&&typeof n==="object"&&"ch
 it("visar ett läsbart flöde utan formulär och bevarar ärendet vid fördjupning",()=>{
   const root=create(<App demoState={initializeDemoState()}/>).root;
   act(()=>root.findAllByType("button").find(b=>text(b)==="Ärenden")!.props.onClick());
-  act(()=>root.findAllByType("button").find(b=>b.props.role==="row"&&text(b).includes("Digital fiktiv avtalsuppföljning"))!.props.onClick());
+  act(()=>root.findAllByType("button").find(b=>b.props.className==="case-open"&&text(b).includes("Digital fiktiv avtalsuppföljning"))!.props.onClick());
   const flow=()=>root.findByProps({"aria-label":"Ärendets sammanfattade flöde"});
-  expect(flow().findAllByType("button")).toHaveLength(8);
+  expect(flow().findAllByType("button")).toHaveLength(9);
   expect(flow().findAll(n=>["input","select","textarea","form"].includes(String(n.type)))).toHaveLength(0);
-  act(()=>flow().findAllByType("button").find(b=>b.props["aria-label"].startsWith("Utmaning och businesscase:"))!.props.onClick());
+  act(()=>flow().findAllByType("button").find(b=>b.props["aria-label"].startsWith("Utmaning:"))!.props.onClick());
   expect(root.findByProps({className:"material-summary"})).toBeDefined();
-  expect(root.findAllByType("details").find(d=>text(d).includes("Öppna underlaget för komplettering"))!.props.open).toBeUndefined();
+  expect(root.findAllByType("details").find(d=>text(d).includes("Fyll i eller komplettera utmaningen online"))!.props.open).toBeUndefined();
   act(()=>root.findAllByType("button").find(b=>text(b).includes("Till ärendets flöde"))!.props.onClick());
   expect(root.findByType("h1").children.join("")).toBe("Digital fiktiv avtalsuppföljning");
   expect(flow().findAllByType("form")).toHaveLength(0);

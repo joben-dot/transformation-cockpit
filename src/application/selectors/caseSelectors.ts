@@ -1,10 +1,11 @@
+import { startReadiness } from "./startReadinessSelectors";
 import type { ChallengeId, InitiativeId } from "../../domain";
 import type { DemoState } from "../demoState";
 import { deriveNextCriticalStep, deriveQualificationStatus } from "./qualificationSelectors";
 import { activeCommitments, latestDecision, transformationStage } from "./transformationSelectors";
 import { activeSteeringProfile, priorityEligibilityBlockers } from "./prioritySelectors";
 
-export type CaseStep = "UTKAST" | "REGISTRERAD" | "BEREDNING" | "PRIORITERINGSBAR" | "PAGAENDE" | "MATNING" | "AVSLUTAT";
+export type CaseStep = "UTKAST" | "REGISTRERAD" | "BEREDNING" | "PRIORITERINGSBAR" | "PRIORITERAD" | "STARTKLAR" | "PAGAENDE" | "MATNING" | "AVSLUTAT";
 
 export interface CaseOverviewItem {
   challengeId: ChallengeId;
@@ -47,7 +48,7 @@ export function caseOverview(state: DemoState, today = new Date().toISOString().
       initiativeId,
       caseNumber: `ÄR-${challenge.createdAt.slice(0, 4)}-${String(index + 1).padStart(3, "0")}`,
       title: challenge.title.trim() || "Namnlöst utkast",
-      area: business ? state.entities.businesses[business]?.name ?? "Område saknas" : "Område behöver anges",
+      area: business ? `${state.entities.businessAreas[state.entities.businesses[business]?.businessAreaId]?.name ?? "Område behöver anges"} · ${state.entities.businesses[business]?.name ?? ""}` : "Område behöver anges",
       step,
       obstacle,
       nextAction: requirement ? (requirement.status === "SUBMITTED" ? "Verifiera dokumenterat svar" : `Komplettera: ${requirement.missingItem}`) :
@@ -58,6 +59,10 @@ export function caseOverview(state: DemoState, today = new Date().toISOString().
       comparable: !!initiativeId && qualification?.status === "QUALIFIED" && !priorityBlockers.length,
       comparisonReason: priorityBlockers[0]?.description ?? (qualification?.status !== "QUALIFIED" ? "Kvalificeringen är inte slutförd" : undefined),
     };
+    if(initiativeId&&!latestDecision(state,initiativeId)) {
+      const ready=startReadiness(state,initiativeId,today);
+      if(ready.ready||ready.prioritized){overview.step=ready.ready?"STARTKLAR":"PRIORITERAD";overview.nextAction=ready.ready?"Fatta mänskligt startbeslut":"Färdigställ startkraven";overview.obstacle=ready.ready?"Underlaget är startklart; ett mänskligt beslut återstår.":ready.blockers[0];}
+    }
     if(initiativeId&&latestDecision(state,initiativeId)) {
       const stage=transformationStage(state,initiativeId),cs=activeCommitments(state,initiativeId);
       overview.step=stage==="Avslutat"?"AVSLUTAT":stage==="Under mätning"?"MATNING":"PAGAENDE";

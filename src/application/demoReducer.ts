@@ -1,3 +1,4 @@
+import { businessCaseDocumentBlockers, challengeDocumentBlockers } from "../domain/caseDocumentRequirements";
 import {
   createId,
   type AuditEntry,
@@ -157,10 +158,16 @@ function validateCommand(
     case "UPDATE_STRATEGIC_CHALLENGE":
       if (!state.entities.challenges[command.targetId])
         return failure(state, "TARGET_NOT_FOUND", "Ärendet finns inte.", command.targetId);
+      if(command.payload.stepFollowUps){
+        const validSteps=["material","businesscase","qualification","potential","priority","conditions","commitments","decision","measurement"];
+        for(const [step,value] of Object.entries(command.payload.stepFollowUps)) {
+          if(!validSteps.includes(step)||!value||!state.entities.roleAssignments[value.responsibleRoleAssignmentId]||!/^\d{4}-\d{2}-\d{2}$/.test(value.dueDate)||Number.isNaN(Date.parse(value.dueDate))||new Date(value.dueDate).toISOString().slice(0,10)!==value.dueDate)
+            return failure(state,"INVALID_PAYLOAD","Åtgärden behöver ett giltigt steg, en namngiven ansvarig och ett giltigt datum.",command.targetId);
+        }
+      }
       if (command.payload.nominationStatus === "NOMINATED") {
         const candidate = { ...state.entities.challenges[command.targetId], ...command.payload };
-        if (!candidate.title.trim() || !candidate.problemStatement.trim() ||
-          !candidate.currentState.trim() || !candidate.strategicHandlingReason.trim())
+        if (challengeDocumentBlockers(candidate).length)
           return failure(state, "INVALID_PAYLOAD", "För att skicka till beredning krävs titel, problem, nuläge och motiv för strategisk hantering.", command.targetId);
       }
       break;
@@ -179,6 +186,10 @@ function validateCommand(
           "Ursprunglig utmaning finns inte.",
           command.payload.challengeId,
         );
+      { const challenge = state.entities.challenges[command.payload.challengeId];
+        if(challenge.nominationStatus!=="NOMINATED" || challengeDocumentBlockers(challenge).length || businessCaseDocumentBlockers(challenge).length)
+          return failure(state,"INVALID_PAYLOAD","Registrerad utmaning och färdigställt businesscase krävs före initiativberedning. Fyll även i mallens platshållare.",command.payload.challengeId);
+      }
       break;
     case "ADD_PARTICIPATION": {
       if (state.entities.participations[command.targetId])

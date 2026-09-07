@@ -1,3 +1,4 @@
+import { businessCaseDocumentBlockers, challengeDocumentBlockers, documentTextComplete } from "../../domain/caseDocumentRequirements";
 import type { DemoState } from "../demoState";
 import type { InitiativeId, LocalEffectCommitment, EffectCommitmentId, RoleAssignmentId } from "../../domain";
 import type { StartPreparation } from "../../domain/transformation";
@@ -26,7 +27,7 @@ export function commitmentBlockers(state: DemoState, c: LocalEffectCommitment, d
   if (!d || !baseline || !plan) return ["Lokalt åtagande och mätplan saknas eller är ofullständiga."];
   const errors: string[] = [];
   const required = { "Mätetal": d.metricName, "Omfattning": d.scope, "Verksamhetsförändring": d.changeDescription, "Mottagarkapacitet": d.receiverCapacity, "Baselineunderlag": d.baselineReference, "Kvalitetsmått": d.qualitySafeguard, "Kvalitetsgräns": d.qualityLimit, "Datakälla": state.entities.dataSources[plan.dataSourceId]?.description, "Enhet": c.unit };
-  Object.entries(required).forEach(([label,value]) => { if (!value?.trim()) errors.push(`${label} saknas.`); });
+  Object.entries(required).forEach(([label,value]) => { if (!documentTextComplete(value)) errors.push(`${label} saknas eller innehåller mallens platshållare.`); });
   if (!baseline.verified) errors.push("Baseline är inte aktivt bekräftad.");
   if (!Number.isFinite(c.targetValue) || !Number.isFinite(baseline.value)) errors.push("Baseline och mål måste vara tal.");
   if (!roleValid(state,d.ownerRoleAssignmentId,day,"OWNER") || state.entities.roleAssignments[d.ownerRoleAssignmentId]?.businessId !== c.recipientBusinessId || !hasMandate(state,d.ownerRoleAssignmentId,"ACCEPT_LOCAL_EFFECT",day)) errors.push("Lokal effektägare med giltigt mandat saknas.");
@@ -52,6 +53,9 @@ export function startBlockers(state: DemoState, p: StartPreparation, day: string
   const e = state.entities, i = e.initiatives[p.initiativeId], profile = e.steeringProfileVersions[p.steeringProfileVersionId];
   if (!i || !profile) return ["Initiativ eller styrprofil saknas."];
   errors.push(...priorityEligibilityBlockers(state,i.id,profile).map(x=>x.description));
+  const challenge=e.challenges[i.challengeId];
+  if(challenge?.nominationStatus!=="NOMINATED")errors.push("Utmaningen måste vara registrerad för beredning.");
+  if(challenge) errors.push(...challengeDocumentBlockers(challenge),...businessCaseDocumentBlockers(challenge));
   const a = e.priorityAssessments[p.priorityAssessmentId];
   if (!a || a.initiativeId !== i.id || a.steeringProfileVersionId !== profile.id || !["ACCEPTED","OVERRIDDEN"].includes(a.status)) errors.push("Mänskligt granskat prioriteringsunderlag för rätt ärende och styrprofil krävs.");
   if (a && currentEffectPotentials(state,i.id).some(potential=>!a.effectPotentialIds.includes(potential.id))) errors.push("Effektpotentialen har ändrats. Prioriteringsunderlaget måste ombedömas före beslut.");
@@ -99,8 +103,8 @@ export function effectOutcome(state: DemoState, c: LocalEffectCommitment, asOf: 
   const point=points[0];
   return { target: (c.targetValue-(baseline?.value??0))*sign, realized: point?(point.value-baseline.value)*sign:undefined, point, qualityMet: point?.qualityMet, unit:["%","procent"].includes(c.unit.toLowerCase())?"procentenheter":c.unit };
 }
-export function committedEconomics(state:DemoState,ids:InitiativeId[],period:{from:string;to:string}) {
-  const commitments=ids.flatMap(id=>activeCommitments(state,id));
+export function committedEconomics(state:DemoState,ids:InitiativeId[],period:{from:string;to:string},recipientBusinessIds?:string[]) {
+  const commitments=ids.flatMap(id=>activeCommitments(state,id)).filter(c=>!recipientBusinessIds||recipientBusinessIds.includes(c.recipientBusinessId));
   return economicsForCommitments(state,ids,commitments,period);
 }
 export function preparedEconomics(state:DemoState,p:StartPreparation) {

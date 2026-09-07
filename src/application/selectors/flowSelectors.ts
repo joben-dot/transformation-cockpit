@@ -1,12 +1,14 @@
+import { businessCaseDocumentBlockers, challengeDocumentBlockers } from "../../domain/caseDocumentRequirements";
 import type { ChallengeId, RoleAssignmentId } from "../../domain";
 import type { DemoState } from "../demoState";
 import { currentEffectPotentials } from "./effectPotentialSelectors";
 import { deriveQualificationStatus } from "./qualificationSelectors";
-import { prerequisiteGraph } from "./executionSelectors";
+import { capacityStatus } from "./capacitySelectors";
+import { prerequisiteGraph, topologicalExecutionOrder } from "./executionSelectors";
 import { costsByOrigin } from "./costSelectors";
 import { acceptedCommitment, activeCommitments, commitmentBlockers, latestDecision, startBlockers } from "./transformationSelectors";
 
-export type FlowStepKey = "material" | "qualification" | "potential" | "priority" | "conditions" | "commitments" | "decision" | "measurement";
+export type FlowStepKey = "material" | "businesscase" | "qualification" | "potential" | "priority" | "conditions" | "commitments" | "decision" | "measurement";
 export type FlowStatus = "COMPLETE" | "ACTION" | "WAITING";
 export interface FlowStep {
   key: FlowStepKey;
@@ -22,10 +24,12 @@ export function caseFlow(state: DemoState, challengeId: ChallengeId, day: string
   const e = state.entities, challenge = e.challenges[challengeId];
   const initiativeId = challenge.relatedInitiativeIds[0];
   const initiative = initiativeId && e.initiatives[initiativeId];
-  const material = challenge.businessCase;
-  const completeMaterial = challenge.nominationStatus === "NOMINATED" && !!material &&
-    [material.purpose, material.desiredState, material.scope, material.alternatives, material.doNothingConsequence].every(v => v?.trim());
-  const steps: FlowStep[] = [{ key: "material", title: "Utmaning och businesscase", status: completeMaterial ? "COMPLETE" : "ACTION", summary: completeMaterial ? material!.purpose : "Problem, önskat läge och gemensamt underlag behöver kompletteras.", responsibleId: challenge.initiatorRoleAssignmentId }];
+  const challengeComplete = challenge.nominationStatus === "NOMINATED" && !challengeDocumentBlockers(challenge).length;
+  const bcComplete = !businessCaseDocumentBlockers(challenge).length;
+  const steps: FlowStep[] = [
+    {key:"material",title:"Utmaning",status:challengeComplete?"COMPLETE":"ACTION",summary:challengeComplete?"Grunduppgifter registrerade. Businesscase är ett separat nästa dokument.":"Beskriv problem, nuläge och varför utmaningen behöver strategisk hantering.",responsibleId:challenge.initiatorRoleAssignmentId},
+    {key:"businesscase",title:"Businesscase",status:bcComplete&&initiative?"COMPLETE":challengeComplete?"ACTION":"WAITING",summary:bcComplete?(initiative?"Sparat beslutsunderlag. Potential, kalkyl och bedömningar följer i länkade steg.":"Underlaget är ifyllt. Registrera initiativet för fortsatt beredning."):"Jämför syfte, önskat läge, avgränsning, alternativ och konsekvensen av att avstå.",responsibleId:challenge.initiatorRoleAssignmentId}
+  ];
   if (!initiative) return [...steps, ...([
     ["qualification", "Kvalificering"], ["potential", "Bedömd effektpotential"], ["priority", "Prioritering"],
     ["conditions", "Förutsättningar och kostnad"], ["commitments", "Lokala effektåtaganden"],
@@ -51,8 +55,8 @@ export function caseFlow(state: DemoState, challengeId: ChallengeId, day: string
   const blocked = graph.nodes.filter(n => externalIds.has(n.id) && ["EXISTING_CAPABILITY","ENABLING_DELIVERY"].includes(n.nodeKind) && n.ownerInitiativeId !== initiative.id && n.availabilityStatus !== "AVAILABLE");
   const costs = costsByOrigin(state,[initiative.id]).filter(c => c.economicStatus === "ESTIMATE");
   const preparation = Object.values(e.startPreparations).filter(p => p.initiativeId === initiative.id).at(-1);
-  const conditionsReviewed = !!preparation?.prerequisitesReview.trim() && costs.length > 0 && !blocked.length;
-  steps.push({key:"conditions",title:"Förutsättningar och kostnad",status:conditionsReviewed?"COMPLETE":"ACTION",summary:blocked.length?`${blocked.length} förutsättningar återstår före start. ${blocked[0].title}.`:`${graph.nodes.length} leveranser · ${costs.length} kostnadsposter. ${conditionsReviewed?"Förutsättningsbedömning dokumenterad.":"Samlad bedömning behöver dokumenteras före start."}`,responsibleId:blocked[0]?.responsibleRoleAssignmentId??preparation?.preparedBy,dueDate:blocked[0]?.neededAt});
+  const conditionsReviewed = graph.nodes.length > 0 && topologicalExecutionOrder(state,initiative.id).valid && costs.length > 0 && costs.every(c=>c.sourceRefs.length>0) && !blocked.length && capacityStatus(state,initiative.id).every(c=>c.status==="AVAILABLE");
+  steps.push({key:"conditions",title:"Förutsättningar och kostnad",status:conditionsReviewed?"COMPLETE":"ACTION",summary:blocked.length?`${blocked.length} förutsättningar återstår före start. ${blocked[0].title}.`:`${graph.nodes.length} leveranser · ${costs.length} kostnadsposter. ${conditionsReviewed?"Strukturerade förutsättningar och kostnadsunderlag finns. Samlad prövning görs i beslutspaketet.":"Förutsättningar, kostnadsunderlag eller kapacitet behöver kompletteras."}`,responsibleId:blocked[0]?.responsibleRoleAssignmentId??preparation?.preparedBy,dueDate:blocked[0]?.neededAt});
   const decision = latestDecision(state, initiative.id);
   const commitments = decision ? activeCommitments(state,initiative.id) : Object.values(e.effectCommitments).filter(c => c.initiativeId === initiative.id);
   const recipients = Object.values(e.participations).filter(p => p.initiativeId === initiative.id && p.participantKind === "EFFECT_RECIPIENT" && p.validFrom <= day && (!p.validTo || p.validTo >= day)).flatMap(p => p.businessId ? [p.businessId] : []);

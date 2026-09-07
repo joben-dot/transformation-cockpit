@@ -23,6 +23,14 @@ export function BenefitTemplates() {
   return <section className="section-block benefit-templates" aria-labelledby="benefit-templates-title">
     <h2 id="benefit-templates-title">Mallar och ansvar</h2>
     <p>Ett gemensamt underlag, flera bidragande roller. Mottagande verksamhet äger nyttan och uppföljningen.</p>
+    <details className="card"><summary>Dokumentens plats i ärendeflödet</summary><p>Öppna ett ärende och välj rätt steg. Där finns dokumentets mall, onlineformulär och sparade bilagor tillsammans med kraven inför nästa steg.</p><table><thead><tr><th>Dokument</th><th>Var och varför?</th><th>Vem bidrar?</th></tr></thead><tbody>{[
+      ["Utmaning","Eget första steg: grunduppgifter och strategiskt behov.","Initiativtagaren och berörd verksamhet."],
+      ["Businesscase","Eget nästa steg: syfte, alternativ och underlag för beredning.","Verksamhet och beredare; ekonomi och specialister kompletterar."],
+      ["Nyttokalkyl","Underlag till businesscase och bedömd effektpotential före prioritering.","Verksamhet och ekonomi, med metodstöd."],
+      ["Lokalt effektåtagande","Efter prioritering, före start: mål, baseline, förändring, kapacitet och mätplan.","Verksamheten dokumenterar; lokal effektägare accepterar separat."],
+      ["Beslutspaket","Start och beslut: samlade bedömningar och val av underlagsversioner.","Beredaren sammanställer; behörig beslutsfattare fattar beslut."],
+      ["Effektuppföljning","Förändring och mätning: utfall och kvalitet mot låst mål och baseline.","Mätningsansvarig rapporterar; specialist verifierar."],
+    ].map(([name,where,who])=><tr key={name}><td>{name}</td><td>{where}</td><td>{who}</td></tr>)}</tbody></table><p>Dokument kan fyllas i online eller med en nedladdad HTML-mall, vars JSON-export återläses som utkast. Excel och andra bilagor granskas manuellt. Sparandet i demon är lokalt; inget ärendeflöde skickar filer mellan personer ännu.</p></details>
     <article className="card">
       <p className="eyebrow">GEMENSAM NYTTOKALKYL · VERSION 0.2</p>
       <h3>Nyttokalkyl inför prioritering</h3>

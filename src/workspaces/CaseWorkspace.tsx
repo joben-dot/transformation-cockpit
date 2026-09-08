@@ -20,6 +20,7 @@ import {
   type ChallengeId,
   type CompletionRequirementId,
   type InitiativeId,
+  type ExecutionNodeId,
   type RoleAssignmentId,
 } from "../domain";
 import { FlowOverview } from "./FlowOverview";
@@ -46,7 +47,7 @@ export interface CaseNavigationContext { activeId?: ChallengeId; focusRequiremen
 export function CaseWorkspace({ state, dispatch, openPortfolio, context, setContext, feedback, openEffects, initialSection, onSectionChange, day = new Date().toISOString().slice(0,10) }: {
   state: DemoState;
   dispatch: (command: Command) => CommandResult;
-  openPortfolio: (id: InitiativeId) => void;
+  openPortfolio: (id: InitiativeId, nodeId?: ExecutionNodeId) => void;
   context: CaseNavigationContext;
   setContext: (next: CaseNavigationContext) => void;
   feedback: string;
@@ -89,7 +90,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
     if (!detail) return <section className="case-workspace" aria-label="Ärendevy">{location}
       <button className="back-link" onClick={()=>setContext({...context,activeId:undefined})}><ArrowLeft size={16}/> Till ärendeöversikten</button>
       <div className="case-detail-head"><div><p className="eyebrow">{active.caseNumber} · {stepLabels[active.step]}</p><h1>{active.title}</h1></div></div>
-      <FlowOverview dispatch={dispatch} state={state} challengeId={challenge.id} day={day} onOpen={key=>{
+      <FlowOverview onOpenDependency={nodeId=>initiative&&openPortfolio(initiative.id,nodeId)} dispatch={dispatch} state={state} challengeId={challenge.id} day={day} onOpen={key=>{
         if(!initiative){setDetail(key==="material"?"material":"businesscase");return;}
         if(key==="conditions")openPortfolio(initiative.id);
         else if(["commitments","decision","measurement"].includes(key)&&openEffects)openEffects(initiative.id,key);

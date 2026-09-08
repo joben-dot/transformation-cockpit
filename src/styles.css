@@ -1090,3 +1090,24 @@ button:focus-visible,summary:focus-visible{outline:3px solid #42a8ad;outline-off
 .process-heading{display:flex;justify-content:space-between;gap:24px;align-items:center;margin:24px 0 18px}.process-heading h2{margin:0}.process-heading p{margin:8px 0}.process-counters{grid-template-columns:repeat(6,minmax(0,1fr))}.process-counters button{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding:18px 14px;min-width:0}.process-counters b{margin:0}.process-counters small{font-size:15px;line-height:1.5;font-weight:400}.process-index{font-size:14px;color:#637d75}.cross-counters{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cross-counters button{background:#fff9ef;color:#624d22;border:1px solid #e3cc9b;border-radius:14px;text-align:left;padding:22px;display:grid;grid-template-columns:1fr auto;gap:12px}.cross-counters button+button{background:#eff4fc;color:#294d71;border-color:#b6cbe5}.cross-counters button[aria-pressed=true]{outline:3px solid #216e59;outline-offset:2px}.cross-counters b{font-size:32px;line-height:1}.cross-counters small{grid-column:1/-1;font-size:16px;line-height:1.5;font-weight:400}.control-selection{background:#e9f3ee;border-radius:10px;padding:16px 20px;line-height:1.6;font-weight:600}.view-purpose{font-size:20px;line-height:1.6}.control-case-list{margin:30px 0;padding:26px;background:white;border:1px solid #d5e2dc;border-radius:16px}.control-case-list td:first-child{width:30%}.control-case-list td:nth-child(2){width:45%}.control-action{margin-bottom:16px}.control-action p{font-size:16px;line-height:1.5;margin:6px 0}.portfolio-effects{margin:32px 0}.portfolio-effects h3{font-size:23px;margin:0}.portfolio-effects .opportunity-value{font-size:36px;margin:15px 0}.portfolio-effects .opportunity-value small{font-size:17px;display:block;line-height:1.5}.portfolio-effects details{margin-top:16px}.portfolio-effects summary{cursor:pointer;font-size:17px;font-weight:650;line-height:1.5}.effect-source{border-top:1px solid #9baea95c;padding:18px 0;margin-top:12px;overflow-wrap:anywhere}.effect-source p{font-size:16px;margin:8px 0}.effect-source small{font-size:15px;line-height:1.5}.effect-source b{font-size:21px}.cockpit-priority{margin:26px 0}
 @media(max-width:1150px){.process-counters{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.process-heading{display:block}.process-counters{grid-template-columns:repeat(2,minmax(0,1fr))}.cross-counters{grid-template-columns:1fr}.control-case-list{padding:18px}.portfolio-effects .opportunity{display:flex;flex-direction:column}.process-counters button{padding:14px 12px}}
+
+/* A read-only dependency summary before the case flow. */
+.initiative-dependencies {margin:0 0 30px;padding:24px 28px;border:1px solid #d4dfe5;border-left:5px solid #587489;border-radius:14px;background:#f3f7fa;overflow-wrap:anywhere;}
+.initiative-dependencies.dependencies-blocked {border-color:#ddc295;border-left-color:#9a610a;background:#fff8ed;}
+.initiative-dependencies h2 {display:flex;gap:12px;align-items:center;margin:0 0 12px;font-size:27px;line-height:1.3;}
+.initiative-dependencies h2 svg {flex-shrink:0;}
+.initiative-dependencies>p {margin:8px 0;font-size:19px;line-height:1.55;}
+.initiative-dependencies ul {list-style:none;padding:0;margin:20px 0 0;}
+.initiative-dependencies li {display:flex;align-items:center;gap:22px;padding:18px 0;border-top:1px solid #dfd5c4;}
+.dependency-summary-copy {flex:1;min-width:0;}
+.initiative-dependencies h3 {font-size:23px;line-height:1.35;margin:4px 0 8px;}
+.initiative-dependencies li p {margin:8px 0;line-height:1.5;font-size:19px;}
+.initiative-dependencies .dependency-impact {font-weight:700;color:#704810;font-size:17px;}
+.initiative-dependencies .dependency-owner {color:#45554e;}
+.initiative-dependencies .outline-link {flex-shrink:0;white-space:normal;}
+.initiative-dependencies details {margin-top:12px;font-size:18px;}
+.initiative-dependencies summary {cursor:pointer;font-weight:600;}
+.initiative-dependencies button:focus-visible,.initiative-dependencies summary:focus-visible {outline:3px solid #176b59;outline-offset:4px;}
+.dependencies-clear {background:#f5f8f6;border-color:#bdcfc7;}
+.dependencies-clear>p:first-child {display:flex;align-items:center;gap:10px;font-weight:600;}
+@media(max-width:750px){.initiative-dependencies{padding:18px}.initiative-dependencies li{flex-direction:column;align-items:stretch;gap:12px}.initiative-dependencies h2{font-size:24px}.initiative-dependencies .outline-link{align-self:flex-start}}

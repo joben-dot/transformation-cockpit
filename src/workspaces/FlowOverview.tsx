@@ -1,15 +1,17 @@
+import { InitiativeDependencies } from "./InitiativeDependencies";
 import { FollowUpEditor } from "./FollowUpEditor";
 import type { Command,CommandResult } from "../application";
 import { Check, ChevronRight, Circle, AlertCircle } from "lucide-react";
 import type { DemoState } from "../application";
-import type { ChallengeId } from "../domain";
+import type { ChallengeId, ExecutionNodeId } from "../domain";
 import { caseFlow, type FlowStepKey } from "../application/selectors/flowSelectors";
 import { roleName } from "./transformationHelpers";
 
-export function FlowOverview({state,challengeId,day,onOpen,dispatch}:{state:DemoState;challengeId:ChallengeId;day:string;onOpen:(key:FlowStepKey)=>void;dispatch?:(command:Command)=>CommandResult}) {
+export function FlowOverview({state,challengeId,day,onOpen,dispatch,onOpenDependency}:{state:DemoState;challengeId:ChallengeId;day:string;onOpen:(key:FlowStepKey)=>void;dispatch?:(command:Command)=>CommandResult;onOpenDependency?:(nodeId:ExecutionNodeId)=>void}) {
   const steps = caseFlow(state,challengeId,day);
   const next = steps.find(s => s.status === "ACTION");
   return <section className="flow-overview" aria-label="Ärendets sammanfattade flöde">
+    {state.entities.challenges[challengeId].relatedInitiativeIds[0] && <InitiativeDependencies state={state} id={state.entities.challenges[challengeId].relatedInitiativeIds[0]} day={day} onOpen={nodeId=>onOpenDependency?onOpenDependency(nodeId):onOpen("conditions")}/>}
     <div className="flow-intro"><h2>Från utmaning till uppmätt effekt</h2><p>Följ läget här. Öppna en punkt när du behöver se underlaget eller hantera det som saknas.</p></div>
     {next && <div className="flow-next"><span>Nästa uppmärksamhet</span><b>{next.title}</b><p>{next.summary}</p></div>}
     <ol className="flow-list">{steps.map((step,index) => <li key={step.key}>

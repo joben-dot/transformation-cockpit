@@ -113,3 +113,25 @@ it("återgår till kontrollrummets effektvy med samma urval",()=>{
   expect(root.findAllByType("button").find(b=>text(b)==="Effektuppföljning")!.props["aria-pressed"]).toBe(true);
   expect(windowEnd().props.value).toBe("2027-12-31");
 });
+
+it("öppnar exakt förutsättning från ärendets sammanfattning och återgår till samma ärende",()=>{
+  const state=initializeDemoState(),before=JSON.stringify(state);
+  const renderer=create(<App demoState={state}/>),root=renderer.root;
+  const click=(label:string)=>act(()=>root.findAllByType("button").find(b=>text(b).trim()===label.trim())!.props.onClick());
+  click("Ärenden");
+  const row=root.findAllByType("button").find(b=>b.props.className==="case-open"&&text(b).includes("Bättre planering"));
+  expect(row).toBeDefined();
+  act(()=>row!.props.onClick());
+  const title=root.findAllByType("h1").map(text)[0];
+  const summary=root.findByProps({"aria-label":"Initiativets beroenden"});
+  expect(text(summary)).toContain("Start blockeras av");
+  const dependency=summary.findAllByType("button").find(b=>b.props["aria-label"]?.startsWith("Visa förutsättningen:"))!;
+  const expected=dependency.props["aria-label"].replace("Visa förutsättningen: ","");
+  act(()=>dependency.props.onClick());
+  expect(text(root.findByProps({className:"drawer"}))).toContain(expected);
+  expect(root.findAllByType("h2").map(text)).toContain(expected);
+  click("← Tillbaka");
+  expect(root.findAllByType("h1").map(text)).toContain(title);
+  expect(root.findAllByProps({"aria-label":"Initiativets beroenden"})).toHaveLength(1);
+  expect(JSON.stringify(state)).toBe(before);
+});

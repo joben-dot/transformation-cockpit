@@ -82,6 +82,17 @@ export function topologicalExecutionOrder(
   };
 }
 
+/** The same prerequisite gate is used by the start decision and its summaries. */
+export function unavailableStartPrerequisites(state: DemoState, initiativeId: InitiativeId) {
+  const graph = prerequisiteGraph(state, initiativeId);
+  const prerequisiteIds = new Set(graph.dependencies
+    .filter(edge => edge.blocking && edge.requiredAt === "NODE_START")
+    .map(edge => edge.predecessorNodeId));
+  return graph.nodes.filter(node => prerequisiteIds.has(node.id)
+    && ["EXISTING_CAPABILITY", "ENABLING_DELIVERY"].includes(node.nodeKind)
+    && node.ownerInitiativeId !== initiativeId && node.availabilityStatus !== "AVAILABLE");
+}
+
 export function wouldCreateBlockingCycle(
   state: DemoState,
   predecessorNodeId: ExecutionNodeId,

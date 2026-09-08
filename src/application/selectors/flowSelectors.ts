@@ -4,7 +4,7 @@ import type { DemoState } from "../demoState";
 import { currentEffectPotentials } from "./effectPotentialSelectors";
 import { deriveQualificationStatus } from "./qualificationSelectors";
 import { capacityStatus } from "./capacitySelectors";
-import { prerequisiteGraph, topologicalExecutionOrder } from "./executionSelectors";
+import { prerequisiteGraph, topologicalExecutionOrder, unavailableStartPrerequisites } from "./executionSelectors";
 import { costsByOrigin } from "./costSelectors";
 import { acceptedCommitment, activeCommitments, commitmentBlockers, latestDecision, startBlockers } from "./transformationSelectors";
 
@@ -51,8 +51,7 @@ export function caseFlow(state: DemoState, challengeId: ChallengeId, day: string
   const reviewed = fresh && ["ACCEPTED","OVERRIDDEN"].includes(priority.status) && qComplete && !requirements.some(r => r.blocks.includes("PRIORITIZATION"));
   steps.push({ key:"priority",title:"Prioritering",status:reviewed?"COMPLETE":qComplete&&potentials.length?"ACTION":"WAITING",summary:priority?`${priority.totalScore} / 100 · ${!fresh?"nyare underlag behöver bedömas":reviewed?"mänskligt granskat underlag":"granskning återstår"}. Prioritering är inte startbeslut.`:"Prioritering sker när kvalificering och bedömd potential finns.",responsibleId:priority?.reviewedByRoleAssignmentId });
   const graph = prerequisiteGraph(state, initiative.id);
-  const externalIds = new Set(graph.dependencies.filter(d => d.blocking && d.requiredAt === "NODE_START").map(d => d.predecessorNodeId));
-  const blocked = graph.nodes.filter(n => externalIds.has(n.id) && ["EXISTING_CAPABILITY","ENABLING_DELIVERY"].includes(n.nodeKind) && n.ownerInitiativeId !== initiative.id && n.availabilityStatus !== "AVAILABLE");
+  const blocked = unavailableStartPrerequisites(state, initiative.id);
   const costs = costsByOrigin(state,[initiative.id]).filter(c => c.economicStatus === "ESTIMATE");
   const preparation = Object.values(e.startPreparations).filter(p => p.initiativeId === initiative.id).at(-1);
   const conditionsReviewed = graph.nodes.length > 0 && topologicalExecutionOrder(state,initiative.id).valid && costs.length > 0 && costs.every(c=>c.sourceRefs.length>0) && !blocked.length && capacityStatus(state,initiative.id).every(c=>c.status==="AVAILABLE");

@@ -3,7 +3,7 @@ import type { DemoState } from "../demoState";
 import type { InitiativeId, LocalEffectCommitment, EffectCommitmentId, RoleAssignmentId } from "../../domain";
 import type { StartPreparation } from "../../domain/transformation";
 import { priorityEligibilityBlockers } from "./prioritySelectors";
-import { prerequisiteGraph, topologicalExecutionOrder } from "./executionSelectors";
+import { topologicalExecutionOrder, unavailableStartPrerequisites } from "./executionSelectors";
 import { costSummary } from "./costSelectors";
 import { currentEffectPotentials } from "./effectPotentialSelectors";
 import { capacityStatus } from "./capacitySelectors";
@@ -79,11 +79,9 @@ export function startBlockers(state: DemoState, p: StartPreparation, day: string
     if(c.details && (c.details.effectWindow.from<p.costHorizon.from || c.details.effectWindow.to>p.costHorizon.to))errors.push("Ekonomisk jämförelseperiod måste täcka hela effekthemtagningsfönstret.");
   }
   p.recipientBusinessIds.forEach(id=>{if(!p.commitmentIds.some(key=>e.effectCommitments[key]?.recipientBusinessId===id))errors.push(`${e.businesses[id]?.name}: lokalt effektåtagande saknas.`);});
-  const graph = prerequisiteGraph(state,i.id);
   capacityStatus(state,i.id).filter(c=>c.status!=="AVAILABLE").forEach(c=>errors.push(`Genomförandekapacitet ${c.status==="UNKNOWN"?"inte styrkt":"otillräcklig"}: ${c.demand.poolReference}.`));
   if (!topologicalExecutionOrder(state,i.id).valid) errors.push("Förutsättningsgrafen innehåller en cirkel.");
-  const prerequisiteIds = new Set(graph.dependencies.filter(d=>d.blocking && d.requiredAt==="NODE_START").map(d=>d.predecessorNodeId));
-  graph.nodes.filter(n=>prerequisiteIds.has(n.id) && ["EXISTING_CAPABILITY","ENABLING_DELIVERY"].includes(n.nodeKind) && n.ownerInitiativeId!==i.id && n.availabilityStatus!=="AVAILABLE").forEach(n=>errors.push(`Förutsättning inte klar: ${n.title}.`));
+  unavailableStartPrerequisites(state,i.id).forEach(n=>errors.push(`Förutsättning inte klar: ${n.title}.`));
   Object.values(e.completionRequirements).filter(r=>(r.initiativeId===i.id||r.challengeId===i.challengeId)&&r.blocks.includes("START_DECISION")&&!["VERIFIED","NOT_APPLICABLE"].includes(r.status)).forEach(r=>errors.push(r.missingItem));
   if (!validDate(p.costHorizon.from)||!validDate(p.costHorizon.to)||p.costHorizon.from>p.costHorizon.to) errors.push("Ekonomisk jämförelseperiod saknas.");
   else {

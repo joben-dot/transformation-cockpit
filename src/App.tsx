@@ -37,6 +37,7 @@ import {
 import { stage3Ids } from "./demo-data/stage3DemoData";
 import type { FlowStepKey } from "./application/selectors/flowSelectors";
 import { CaseWorkspace, type CaseNavigationContext } from "./workspaces/CaseWorkspace";
+import { InitiativeDependencies } from "./workspaces/InitiativeDependencies";
 
 import { PrerequisiteEditor } from "./workspaces/PrerequisiteEditor";
 import { EffectWorkspace } from "./workspaces/EffectWorkspace";
@@ -329,7 +330,7 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
               <button
                 className={`comparison-card ${item.initiative.id === selectedInitiativeId ? "selected" : ""}`}
                 key={item.initiative.id}
-                onClick={() => selectInitiative(item.initiative.id)}
+                onClick={() => { selectInitiative(item.initiative.id); setPortfolioSection("potential"); }}
               >
                 <span>{item.assessment.totalScore} / 100</span>
                 <h3>{item.initiative.title}</h3>
@@ -513,6 +514,8 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
             </span>
           </div></details>
         </section>
+
+        {portfolioSection!=="comparison"&&<InitiativeDependencies state={state} id={selectedInitiativeId} day={day} onOpen={nodeId=>openPortfolio(selectedInitiativeId,nodeId)}/>}
 
         <section hidden={portfolioSection!=="potential"} id="potential" className="section-block">
           <div className="section-title">

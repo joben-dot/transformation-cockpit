@@ -24,6 +24,7 @@ import {
   type RoleAssignmentId,
 } from "../domain";
 import { FlowOverview } from "./FlowOverview";
+import { InitiativeDependencies } from "./InitiativeDependencies";
 import type { FlowStepKey } from "../application/selectors/flowSelectors";
 import { isQualificationAssessmentValid } from "../application/selectors/qualificationSelectors";
 import { AssessmentEditors } from "./AssessmentEditors";
@@ -103,6 +104,7 @@ export function CaseWorkspace({ state, dispatch, openPortfolio, context, setCont
       <button className="back-link" onClick={() => setDetail(undefined)}><ArrowLeft size={16}/> Till ärendets flöde</button>
       <div className="case-detail-head"><div><p className="eyebrow">{active.caseNumber} · {stepLabels[active.step]}</p><h1>{active.title}</h1><p>{challenge.problemStatement || "Problemformulering saknas."}</p></div></div>
 
+      {initiative&&<InitiativeDependencies state={state} id={initiative.id} day={day} onOpen={nodeId=>openPortfolio(initiative.id,nodeId)}/>}
       <StepGate dispatch={dispatch} state={state} challengeId={challenge.id} day={day} stepKey={detail} onOpen={key=>{if(key==="conditions"&&initiative)openPortfolio(initiative.id);else if(["commitments","decision","measurement"].includes(key)&&initiative&&openEffects)openEffects(initiative.id,key);else setDetail(key);}}/>
       {initiative&&<DataProvenance state={state} id={initiative.id}/>}
       <p role="status" className="inline-feedback">{feedback}</p>

@@ -9,6 +9,30 @@ const text = (value: unknown): string => {
   return (value as { children: unknown[] }).children.map(text).join("");
 };
 
+it("visar samma startberoende via jämförelse och i ärendets detaljsteg",()=>{
+  const state=initializeDemoState(),before=JSON.stringify(state);
+  const root=create(<App demoState={state}/>).root;
+  const click=(label:string)=>act(()=>root.findAllByType("button").find(b=>text(b).trim()===label)!.props.onClick());
+  const summary=()=>root.findByProps({"aria-label":"Initiativets beroenden"});
+  const check=()=>{expect(text(summary())).toContain("Start blockeras av 1 förutsättning");expect(text(summary())).toContain("Gemensam datamiljö");};
+  click("Prioritering");
+  act(()=>root.findAllByType("button").find(b=>b.props.className?.includes("comparison-card")&&text(b).includes("Bättre planering"))!.props.onClick());
+  expect(root.findByProps({id:"potential"}).props.hidden).toBe(false);
+  check();
+  act(()=>summary().findAllByType("button").find(b=>b.props["aria-label"]==="Visa förutsättningen: Gemensam datamiljö")!.props.onClick());
+  expect(text(root.findByProps({className:"drawer"}))).toContain("Gemensam datamiljö");
+  click("← Tillbaka");
+  expect(root.findByProps({id:"potential"}).props.hidden).toBe(false);
+  check();
+  click("Till ärendets flöde");
+  act(()=>root.findAllByType("button").find(b=>b.props["aria-label"]?.startsWith("Prioritering:"))!.props.onClick());
+  check();
+  click("Till ärendets flöde");
+  act(()=>root.findAllByType("button").find(b=>b.props["aria-label"]?.startsWith("Lokala effektåtaganden:"))!.props.onClick());
+  check();
+  expect(JSON.stringify(state)).toBe(before);
+});
+
 describe("navigation från arbetslistan", () => {
   it("öppnar verkligt renderad prioriteringsvy och kan återgå", () => {
     const renderer = create(<App demoState={initializeDemoState()} />);

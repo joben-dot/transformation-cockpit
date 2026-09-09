@@ -1223,3 +1223,30 @@ button:focus-visible,summary:focus-visible{outline:3px solid #42a8ad;outline-off
 .guide-stage,.guide-process {scroll-margin-top:140px;}
 .guide-stage-header>.text-button {margin:0 0 16px;}
 @media(max-width:750px){.guide-stage,.guide-process{scroll-margin-top:200px;}}
+
+/* A shared signature, separate from process controls and free to scroll away. */
+.product-header {
+  display:grid;
+  grid-template-columns:minmax(250px,0.8fr) minmax(0,2fr);
+  column-gap:clamp(28px,4vw,72px);
+  row-gap:20px;
+  padding-block:26px 16px;
+  padding-inline:max(clamp(20px,3vw,64px),calc((100vw - 1800px)/2));
+}
+.product-header .brand {align-self:center; font-size:21px; min-width:0;}
+.product-header .brand > span {flex-shrink:0;}
+.brand-principle {margin:0; padding:0 0 0 22px; border-left:3px solid #b18b49; color:#234e42;}
+.brand-principle p {margin:0; font:500 clamp(20px,1.8vw,27px)/1.5 Manrope,sans-serif; letter-spacing:-0.025em; text-wrap:balance;}
+.brand-principle span,.brand-principle strong {display:block;}
+.brand-principle strong {font-weight:700; color:#126b59;}
+.product-header nav {grid-column:1/-1; width:100%; margin:0; flex-wrap:wrap; gap:8px 14px; border-top:1px solid #e2eae5; padding-top:14px;}
+@media(max-width:900px) {
+  .product-header {grid-template-columns:minmax(0,1fr); gap:20px;}
+  .brand-principle {padding-left:16px;}
+  .brand-principle p {font-size:20px; text-wrap:pretty;}
+}
+@media(max-width:550px) {
+  .product-header {padding:20px 18px 14px;}
+  .product-header .brand {font-size:20px;}
+  .product-header nav {gap:7px;}
+}

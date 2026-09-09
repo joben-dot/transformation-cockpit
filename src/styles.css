@@ -1143,3 +1143,14 @@ button:focus-visible,summary:focus-visible{outline:3px solid #42a8ad;outline-off
 .case-next-action button{text-align:left;line-height:1.55;font-weight:600;font-size:19px;}
 .case-next-action button:hover{text-decoration:underline;}
 @media(max-width:800px){.case-row .case-open{display:flex;}.case-next-action{width:100%;}}
+
+/* The global breadcrumb already provides the full location; local trails remain for standalone workspaces. */
+.product-shell main:has(.return-bar) .location-trail {display:none;}
+.case-workspace,.effect-workspace {padding-top:12px;}
+.overview-head,.case-detail-head {margin-bottom:16px;}
+.overview-head .eyebrow {display:none;}
+.overview-head p {margin-bottom:12px;}
+.product-shell main>.copilot-help:not([open]) {width:fit-content;margin:8px 0 8px auto;font-size:16px;}
+.product-shell main>.copilot-help:not([open])>summary {padding:9px 14px;}
+.case-list-help {margin:8px 0;}
+.ready-compact {margin:8px 0;}

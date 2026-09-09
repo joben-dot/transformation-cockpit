@@ -5,7 +5,8 @@ import type { FlowStepKey } from "../application/selectors/flowSelectors";
 import type { CaseNavigationContext } from "./CaseWorkspace";
 
 export interface WorkspaceRoute {
-  workArea: "cases" | "effects" | "control" | "governance";
+  workArea: "cases" | "effects" | "control" | "governance" | "templates";
+  templateStage?: string;
   showPortfolio: boolean;
   caseSection?: FlowStepKey;
   effectSection?: FlowStepKey | "history";
@@ -21,6 +22,7 @@ function locationKey(r: WorkspaceRoute) {
   if (r.workArea === "cases") return r.showPortfolio
     ? `portfolio/${r.portfolioSection}/${r.selectedInitiativeId}`
     : `cases/${r.caseContext.activeId ?? "list"}/${r.caseSection ?? "flow"}`;
+  if (r.workArea === "templates") return `templates/${r.templateStage ?? "challenge"}`;
   if (r.workArea === "effects") return `effects/${r.selectedInitiativeId}/${r.effectSection ?? "flow"}`;
   return r.workArea === "control" ? `control/${r.controlContext.view}` : r.workArea;
 }

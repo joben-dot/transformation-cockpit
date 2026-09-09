@@ -1,4 +1,5 @@
 import { InitiativeDependencies } from "./InitiativeDependencies";
+import { journeyGuidance } from "./journeyGuidance";
 import { FollowUpEditor } from "./FollowUpEditor";
 import type { Command,CommandResult } from "../application";
 import { Check, ChevronRight, Circle, AlertCircle } from "lucide-react";
@@ -11,9 +12,11 @@ export function FlowOverview({state,challengeId,day,onOpen,dispatch,onOpenDepend
   const steps = caseFlow(state,challengeId,day);
   const next = steps.find(s => s.status === "ACTION");
   return <section className="flow-overview" aria-label="Ärendets sammanfattade flöde">
+    {next && <section className="journey-next" aria-label="Fortsätt med ärendet"><p className="eyebrow">DIN NÄSTA UPPGIFT · STEG {steps.indexOf(next)+1} AV {steps.length}</p><h2>{next.title}</h2><p>{journeyGuidance[next.key].action}</p><p><b>Vem bidrar?</b> {journeyGuidance[next.key].role}</p><button onClick={()=>onOpen(next.key)}>Fortsätt med {next.title.toLocaleLowerCase("sv")} →</button></section>}
+    {!next&&<p className="journey-next">Alla steg har underlag. Öppna förändring och effektmätning för resultat, lärande och avslut.</p>}
     {state.entities.challenges[challengeId].relatedInitiativeIds[0] && <InitiativeDependencies state={state} id={state.entities.challenges[challengeId].relatedInitiativeIds[0]} day={day} onOpen={nodeId=>onOpenDependency?onOpenDependency(nodeId):onOpen("conditions")}/>}
     <div className="flow-intro"><h2>Från utmaning till uppmätt effekt</h2><p>Följ läget här. Öppna en punkt när du behöver se underlaget eller hantera det som saknas.</p></div>
-    {next && <div className="flow-next"><span>Nästa uppmärksamhet</span><b>{next.title}</b><p>{next.summary}</p></div>}
+
     <ol className="flow-list">{steps.map((step,index) => <li key={step.key}>
       <button className={`flow-row flow-${step.status.toLowerCase()}`} onClick={() => onOpen(step.key)} aria-label={`${step.title}: ${step.status==="COMPLETE"?"Klart – visa underlag":step.status==="ACTION"?"Kräver åtgärd":"Kommande steg"}`}>
         <span className="flow-marker" aria-hidden="true">{step.status==="COMPLETE"?<Check size={21}/>:step.status==="ACTION"?<AlertCircle size={21}/>:<Circle size={19}/>}</span>

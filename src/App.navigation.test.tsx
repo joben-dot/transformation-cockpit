@@ -109,7 +109,7 @@ it("återanvänder sparat utmaningsunderlag i beredningen utan fyra nya inmatnin
   click("Ärenden");click("Registrera utmaning");
   enter("Titel","Kortare väntan","input");enter("Problem","Onödigt långa väntetider");
   act(()=>root.findAllByType("form").find(f=>text(f).includes("Spara utkast i demosessionen"))!.props.onSubmit({preventDefault(){}}));
-  act(()=>root.findAllByType("button").find(b=>b.props["aria-label"]?.startsWith("Utmaning:"))!.props.onClick());
+  expect(root.findAllByProps({"data-step-work":"material"})).toHaveLength(1);
   enter("Nuläge","Manuella köer");enter("Varför strategisk hantering?","Gemensamt behov");
   click("Registrera utmaning för fortsatt beredning");
   expect(button("Registrera initiativ för beredning").props.disabled).toBe(true);

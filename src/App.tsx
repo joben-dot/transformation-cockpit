@@ -267,7 +267,7 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
   const currentFlowStep=currentSection??(currentChallenge&&showPortfolio?(portfolioSection==="potential"?"potential":"conditions"):undefined);
   const showCaseList=()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);};
   const showCaseFlow=()=>{if(!currentChallenge)return;setCaseSection(undefined);setCaseContext({...caseContext,activeId:currentChallenge.id});setWorkArea("cases");setShowPortfolio(false);};
-  const openFlowStep=(key:FlowStepKey)=>{if(!currentChallenge)return;const id=currentChallenge.relatedInitiativeIds[0];if(!id||["material","businesscase","qualification","potential","priority"].includes(key)){setCaseContext({...caseContext,activeId:currentChallenge.id});setCaseSection(!id&&!["material","businesscase"].includes(key)?"businesscase":key);setWorkArea("cases");setShowPortfolio(false);}else if(key==="conditions"){selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}else openEffects(id,key);};
+  const openFlowStep=(key:FlowStepKey)=>{if(!currentChallenge)return;const id=currentChallenge.relatedInitiativeIds[0];if(!id||["material","businesscase","qualification","potential","priority"].includes(key)){setCaseContext({...caseContext,activeId:currentChallenge.id});setCaseSection(key);setWorkArea("cases");setShowPortfolio(false);}else if(key==="conditions"){selectInitiative(id);setWorkArea("cases");setShowPortfolio(true);setPortfolioSection("conditions");}else openEffects(id,key);};
   const navigation = <><div className="return-bar" role="navigation" aria-label="Tillbaka och ärendeflöde">
     <button className="secondary-action" disabled={!canGoBack} onClick={back}>← Tillbaka</button>
     <nav className="return-location" aria-label="Hela sökvägen"><ol><li><button className="text-button" onClick={()=>setWorkArea("control")}>Kontrollrum</button></li>{currentChallenge?<><li><span aria-hidden="true">›</span><button className="text-button" onClick={showCaseList}>Ärenden</button></li><li><span aria-hidden="true">›</span>{currentFlowStep?<button className="text-button" onClick={showCaseFlow}>{currentChallenge.title}</button>:<strong aria-current="page">{currentChallenge.title} · flödet</strong>}</li>{currentFlowStep&&<li><span aria-hidden="true">›</span><strong aria-current="page">{locationLabel}</strong></li>}</>:<li><span aria-hidden="true">›</span><strong aria-current="page">{locationLabel}</strong></li>}</ol></nav>
@@ -287,8 +287,8 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
       {header}
       <main id="top" onInvalidCapture={event=>{let parent=(event.target as HTMLElement).parentElement;while(parent&&parent!==event.currentTarget){if(parent instanceof HTMLDetailsElement)parent.open=true;parent=parent.parentElement;}}}>{navigation}
         <LocationTrail items={[{label:"Prioritering",onClick:portfolioSection!=="comparison"?()=>setPortfolioSection("comparison"):undefined},...(portfolioSection!=="comparison"?[{label:story.initiative.title,onClick:()=>openCase(selectedInitiativeId)},{label:({potential:"Effektpotential",conditions:"Förutsättningar",costs:"Kostnader"} as Record<string,string>)[portfolioSection]}]:[{label:"Jämförelse"}])]}/>
-        {portfolioSection!=="comparison"&&<StepGate dispatch={dispatch} state={state} challengeId={story.initiative.challengeId} day={day} stepKey={portfolioSection==="potential"?"potential":"conditions"} onOpen={key=>key==="priority"?openCase(selectedInitiativeId,"priority"):openEffects(selectedInitiativeId,key)}/>}
-        <section className="hero">
+        {portfolioSection!=="comparison"&&<StepGate dispatch={dispatch} state={state} challengeId={story.initiative.challengeId} day={day} stepKey={portfolioSection==="potential"?"potential":"conditions"} onOpen={openFlowStep}/>}
+        <section hidden={portfolioSection!=="comparison"} className="hero">
           <div>
             <p className="eyebrow">STRATEGISKT PORTFÖLJSTÖD</p>
             <h1>Prioritera möjlig effekt – förstå hela möjliggörandet</h1>
@@ -935,7 +935,7 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
         <p role="status" className="feedback">
           {feedback}
         </p>
-        <section className="section-block"><h2>Nästa steg: verksamhetens eget åtagande</h2><p>Den här potentialen är ett beslutsunderlag. Varje lokal verksamhet måste separat ange effekt, baseline, ansvar och mättidpunkter.</p><button onClick={()=>openEffects(selectedInitiativeId)}>Öppna lokala effektåtaganden och startklarhet</button></section>
+        {portfolioSection!=="comparison"&&<StepGate footer state={state} challengeId={story.initiative.challengeId} day={day} stepKey={portfolioSection==="potential"?"potential":"conditions"} onOpen={openFlowStep}/>}
       </main>
       <footer>
         All data och alla namn är syntetiska · Ingen backend, autentisering,

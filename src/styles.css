@@ -1218,3 +1218,8 @@ button:focus-visible,summary:focus-visible{outline:3px solid #42a8ad;outline-off
 @media(max-width:1200px){.guide-process ol{grid-template-columns:repeat(3,minmax(0,1fr));}.guide-process li button{padding:16px;}}
 @media(max-width:750px){.templates-help{padding:12px 0 0;}.guide-intro{display:block;}.guide-intro button{margin-top:14px;}.guide-process ol{grid-template-columns:repeat(2,minmax(0,1fr));}.guide-process li button{padding:14px 12px;gap:8px;}.guide-process strong{font-size:18px;}.guide-process small{font-size:16px;}.guide-step-number{min-width:26px;height:26px;}.guide-stage-context{grid-template-columns:1fr;gap:20px;padding:20px 18px 0;}.guide-stage-header{padding:22px 18px;}.guide-location,.guide-document-note,.guide-existing{margin:20px 18px;}.guide-documents{padding:0 18px;}.guide-stage-navigation{padding:20px 18px;}.guide-stage-navigation button{font-size:17px;padding:10px;}.template-resources li{flex-direction:column;}.guide-heading .lead{font-size:20px;}}
 @media(max-width:380px){.guide-process ol{grid-template-columns:1fr;}}
+
+/* Keep guide headings clear of the persistent return bar. */
+.guide-stage,.guide-process {scroll-margin-top:140px;}
+.guide-stage-header>.text-button {margin:0 0 16px;}
+@media(max-width:750px){.guide-stage,.guide-process{scroll-margin-top:200px;}}

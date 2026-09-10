@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, BookOpen, FileText, Link as LinkIcon, Upload } from "lucide-react";
+import { FileText, Link as LinkIcon, Upload } from "lucide-react";
 import { processGuide, type GuideDocument } from "./processGuide";
 import { readTemplateResources, removeTemplateResource, saveTemplateResource, type TemplateResource } from "./templateRegistry";
 import { downloadBlob } from "./documentFormat";
 import { BenefitTemplates } from "./BenefitTemplates";
+import { MethodGuideNavigation } from "./MethodGuideNavigation";
 
 function TemplateSlot({document,resources,onChanged}:{document:GuideDocument;resources:TemplateResource[];onChanged:()=>Promise<void>}) {
   const [mode,setMode]=useState<"file"|"link">("link");
@@ -36,26 +37,23 @@ function TemplateSlot({document,resources,onChanged}:{document:GuideDocument;res
   </article>;
 }
 
-export function TemplatesHelp({stageId="challenge",onStageChange,openCases}:{stageId?:string;onStageChange:(id:string)=>void;openCases:()=>void}) {
+export function TemplatesHelp({stageId="challenge",onStageChange,openCases,onShowProcess,focusRequest=0}:{stageId?:string;onStageChange:(id:string)=>void;openCases:()=>void;onShowProcess?:()=>void;focusRequest?:number}) {
   const stage=processGuide.find(item=>item.id===stageId)??processGuide[1];
   const [resources,setResources]=useState<TemplateResource[]>([]),[error,setError]=useState("");
   const detailRef=useRef<HTMLElement>(null);
   const previousStage=useRef(stage.id);
+  const previousFocusRequest=useRef(0);
   const processRef=useRef<HTMLElement>(null);
-  useEffect(()=>{if(previousStage.current!==stage.id){previousStage.current=stage.id;detailRef.current?.scrollIntoView?.({block:"start"});detailRef.current?.focus?.({preventScroll:true});}},[stage.id]);
+  useEffect(()=>{if(previousStage.current!==stage.id||previousFocusRequest.current!==focusRequest){previousStage.current=stage.id;previousFocusRequest.current=focusRequest;detailRef.current?.scrollIntoView?.({block:"start"});detailRef.current?.focus?.({preventScroll:true});}},[stage.id,focusRequest]);
   const load=async()=>{setResources(await readTemplateResources());setError("");};
   useEffect(()=>{let active=true;readTemplateResources().then(items=>{if(active)setResources(items);}).catch(()=>{if(active)setError("Lokal mallagring kunde inte öppnas. Processguiden fungerar ändå. Uppladdning och sparande kräver att webbläsaren tillåter lokal lagring.");});return()=>{active=false;};},[]);
   const select=(id:string)=>{onStageChange(id);};
   return <section className="templates-help" aria-labelledby="templates-help-title">
     <header className="guide-heading"><p className="eyebrow">GEMENSAMT ARBETSSÄTT · FRÅN BEHOV TILL EFFEKT</p><h1 id="templates-help-title">Mallar och hjälp</h1><p className="lead">Följ processen. Se vilket underlag som behövs och vem som bidrar – även när arbetet sker utanför verktyget.</p></header>
-    <div className="guide-intro"><p><BookOpen size={20} aria-hidden="true"/> <strong>Välj ett steg för instruktioner och mallplatser.</strong> Detta är en metodguide, inte status för ett enskilt ärende.</p><button className="text-button" onClick={openCases}>Till ärendena <ArrowRight size={18} aria-hidden="true"/></button></div>
-    <nav ref={processRef} tabIndex={-1} aria-label="Huvudprocess med dokumentstöd" className="guide-process">
-      <ol>{processGuide.filter(item=>item.number>0).map(item=><li key={item.id}><button aria-pressed={stage.id===item.id} aria-controls="guide-stage-detail" onClick={()=>select(item.id)}><span className="guide-step-number">{item.number}</span><span><strong>{item.title}</strong><small>{item.short}</small></span></button></li>)}</ol>
-      <button className="guide-foundation" aria-pressed={stage.id==="foundation"} aria-controls="guide-stage-detail" onClick={()=>select("foundation")}><BookOpen size={20} aria-hidden="true"/> 0. Gemensam grund <span>Process, mandat, begrepp och styrande dokument</span></button>
-    </nav>
+    {!onShowProcess&&<MethodGuideNavigation stageId={stage.id} onStageChange={select} openCases={openCases} navigationRef={processRef} detailId="guide-stage-detail"/>}
     <p className="guide-rule">Underlag kan kompletteras parallellt. <strong>Bedömd potential före prioritering. Lokalt accepterade effektåtaganden före start. Prioritering är inte startbeslut.</strong></p>
     <section id="guide-stage-detail" className="guide-stage" tabIndex={-1} ref={detailRef} aria-labelledby="guide-stage-title">
-      <div className="guide-stage-header"><p className="eyebrow">VALT PROCESSTEG · {stage.number} {stage.number>0?"AV 10":"· GÄLLER ALLA STEG"}</p><h2 id="guide-stage-title">{stage.title}</h2><button className="text-button" onClick={()=>{processRef.current?.scrollIntoView?.({block:"start"});processRef.current?.focus?.({preventScroll:true});}}>Visa hela processen ↑</button><p>{stage.purpose}</p></div>
+      <div className="guide-stage-header"><p className="eyebrow">VALT PROCESSTEG · {stage.number} {stage.number>0?"AV 10":"· GÄLLER ALLA STEG"}</p><h2 id="guide-stage-title">{stage.title}</h2><button className="text-button" onClick={()=>{if(onShowProcess){onShowProcess();return;}processRef.current?.scrollIntoView?.({block:"start"});processRef.current?.focus?.({preventScroll:true});}}>Visa hela processen ↑</button><p>{stage.purpose}</p></div>
       <div className="guide-stage-context"><div><h3>Vem bidrar?</h3><p>{stage.roles}</p></div><div><h3>Inför nästa steg</h3><p>{stage.ready}</p></div></div>
       <p className="guide-location"><strong>Här finns arbetet i demon:</strong> {stage.location}</p>
       <p className="guide-document-note">Dokumentdelarna kan ingå i samma underlag. Varje rad kräver inte en egen blankett. Återanvänd uppgifter och hänvisa till rätt version.</p>

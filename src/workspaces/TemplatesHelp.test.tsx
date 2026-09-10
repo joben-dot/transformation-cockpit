@@ -35,6 +35,24 @@ describe("Processguide och mallreferenser",()=>{
    expect(JSON.stringify(state)).toBe(before);
    app.unmount();
  });
+ it("visar en enda guide direkt under loggan och öppnar stegen utan att ändra ärendedata",async()=>{
+   const state=initializeDemoState(),before=JSON.stringify(state);
+   const app=create(<App demoState={state}/>),root=app.root;
+   const header=root.findByProps({className:"product-header"});
+   expect(header.children[1]).toBe(root.findByProps({className:"header-method-guide"}));
+   const menu=root.findByProps({"aria-label":"Arbetsytor"});
+   expect(text(menu)).not.toContain("Metod och styrning");
+   const guide=()=>root.findByProps({"aria-label":"Huvudprocess med dokumentstöd"});
+   expect(guide().findAllByType("button").every(button=>button.props["aria-pressed"]===false)).toBe(true);
+   for(const stage of processGuide.filter(item=>item.number>0)){
+     await act(async()=>guide().findAllByType("button")[stage.number-1].props.onClick());
+     expect(text(root.findByProps({id:"guide-stage-title"}))).toBe(stage.title);
+     expect(root.findAllByProps({"aria-label":"Huvudprocess med dokumentstöd"})).toHaveLength(1);
+     expect(guide().findAllByType("button")[stage.number-1].props["aria-pressed"]).toBe(true);
+   }
+   expect(JSON.stringify(state)).toBe(before);
+   app.unmount();
+ });
  it("kopplar en länk till rätt dokumentdel och visar den som tillagd, inte godkänd",async()=>{
    const view=create(<TemplatesHelp stageId="challenge" onStageChange={()=>{}} openCases={()=>{}}/>);
    await act(async()=>{});

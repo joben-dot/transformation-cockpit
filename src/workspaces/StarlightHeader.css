@@ -1,0 +1,89 @@
+/* Approved draft 5. Local presentation only; no portfolio data enters the scene. */
+.product-header:has(.cosmic-mast) {
+  display:block; padding:0; background:#060b10; position:static;
+}
+.product-header:has(.cosmic-mast) > nav {
+  display:flex; flex-wrap:wrap; width:100%; gap:6px 12px; margin:0;
+  padding:10px max(20px,calc((100vw - 1800px)/2)); border-top:1px solid #23343d;
+  background:#fff; color:#18362d;
+}
+.cosmic-mast {
+  display:grid; grid-template-columns:minmax(290px,55%) minmax(0,1fr);
+  align-items:center; gap:14px; max-width:1800px; margin:auto;
+  padding:0 28px 0 0; background:#060b10; color:#eaf1f6;
+}
+.cosmic-mast .cosmos {position:relative; min-width:0; max-width:760px; width:100%;}
+.cosmic-mast canvas {width:100%; height:278px; display:block; touch-action:pan-y; cursor:grab;}
+.cosmic-mast canvas:active {cursor:grabbing;}
+.cosmic-mast .cosmic-identity {padding:16px 0; min-width:0;}
+.cosmic-mast .cosmic-title {
+  display:block; width:fit-content; color:#eaf1f6; text-decoration:none;
+  font:500 clamp(1.65rem,2.3vw,2.3rem)/1.15 Manrope,sans-serif; letter-spacing:-.035em;
+}
+.cosmic-title span {display:block; color:#a1b7c5;}
+.cosmic-mast .cosmic-subtitle {color:#bdd0db; margin:10px 0 18px; font-size:1rem; line-height:1.5;}
+.cosmic-mast .cosmic-principle {
+  border-left:2px solid #b69057; padding-left:14px; margin:0;
+  color:#afc3cf; font-size:.95rem; line-height:1.6; letter-spacing:normal;
+}
+.cosmic-principle strong {font-weight:600; color:#84e0c3;}
+.cosmic-mast .pause {
+  position:absolute; left:14px; bottom:10px; padding:6px 10px;
+  border:1px solid #304550; border-radius:5px; background:#0b131de6;
+  color:#b8cbd9; font:400 .875rem/1.4 Manrope,sans-serif;
+  box-shadow:none; cursor:pointer; min-height:34px; transform:none;
+}
+.cosmic-mast .starwords {position:absolute; inset:0; pointer-events:none;}
+.cosmic-mast .starwords button {
+  position:absolute; pointer-events:auto; max-width:calc(100% - 28px);
+  padding:7px 9px; color:#bacadb; background:#08101aeb;
+  border:1px solid transparent; border-radius:5px; cursor:pointer;
+  font:400 .875rem/1.4 Manrope,sans-serif; text-align:left;
+  transition:color .6s,box-shadow .6s,border-color .6s;
+  box-shadow:none; transform:none; min-height:34px;
+}
+.cosmic-mast .starwords button::before {
+  content:''; display:inline-block; width:5px; height:5px; margin-right:8px;
+  vertical-align:middle; border-radius:50%; background:var(--star); box-shadow:0 0 6px var(--star);
+}
+.cosmic-mast .starwords button.current {
+  color:#f0f5ff; border-color:color-mix(in srgb,var(--star) 35%,transparent);
+  box-shadow:0 0 24px color-mix(in srgb,var(--star) 13%,transparent);
+  text-shadow:0 0 15px color-mix(in srgb,var(--star) 65%,transparent);
+}
+.cosmic-mast .starwords button:nth-child(1) {top:17px; left:12px; --star:#b491ff;}
+.cosmic-mast .starwords button:nth-child(2) {top:61px; right:10px; --star:#68b7ff;}
+.cosmic-mast .starwords button:nth-child(3) {bottom:94px; left:6px; --star:#4ce3c4;}
+.cosmic-mast .starwords button:nth-child(4) {top:174px; right:8px; --star:#ff84b8;}
+.cosmic-mast .starwords button:nth-child(5) {bottom:11px; right:14px; --star:#f9cb70;}
+.cosmic-mast button:focus-visible,.cosmic-mast a:focus-visible {outline:2px solid #fff; outline-offset:3px;}
+/* Preserve the return action, but remove its former oversized wrapper. */
+.product-shell .return-bar {padding:8px 12px; margin-bottom:12px; min-height:0; box-shadow:none;}
+.product-shell .return-bar button {padding:7px 10px;}
+.product-shell .cockpit-view-tabs {margin-top:8px; margin-bottom:12px;}
+@media(max-width:680px) {
+  .cosmic-mast {grid-template-columns:minmax(0,1fr); padding:0 0 16px; gap:0;}
+  .cosmic-mast .cosmic-identity {padding:0 18px;}
+  .cosmic-title span {display:inline;}
+  .cosmic-mast .cosmic-title {font-size:1.6rem;}
+  .cosmic-mast .cosmic-principle {font-size:.875rem;}
+  .product-header:has(.cosmic-mast)>nav {padding:10px 12px; gap:5px;}
+}
+@media(max-width:360px) {
+  .cosmic-mast .starwords {position:static; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px; padding:0 10px;}
+  .cosmic-mast .starwords button {position:static; max-width:none; min-width:0; overflow-wrap:anywhere;}
+  .cosmic-mast .starwords button:nth-child(5) {grid-column:1/-1;}
+  .cosmic-mast .pause {position:static; margin:8px 10px 14px;}
+}
+@media(pointer:coarse) {
+  .cosmic-mast .starwords button,.cosmic-mast .pause {min-height:44px;}
+}
+@media(prefers-reduced-motion:reduce) {
+  .cosmic-mast .starwords button {transition:none;}
+}
+@media print {
+  .cosmic-mast .cosmos {display:none;}
+  .cosmic-mast {display:block; background:white; color:black;}
+  .cosmic-mast .cosmic-title,.cosmic-title span,.cosmic-mast .cosmic-subtitle,
+  .cosmic-mast .cosmic-principle,.cosmic-principle strong {color:black;}
+}

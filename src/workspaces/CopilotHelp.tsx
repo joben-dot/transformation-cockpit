@@ -19,11 +19,11 @@ const structures:Record<string,string>={
   changeDescription:"Verksamheten behöver ändra [arbetssätt] genom [åtgärder]. Berörda medarbetare behöver [stöd och utbildning]. Ansvar och datum anges i separata fält.",
 };
 
-export function CopilotHelp({section,context,fields=[],values={},onApply}:{section:string;context?:string;fields?:DocumentField[];values?:Record<string,string>;onApply?:(patch:Record<string,string>)=>void}) {
+export function CopilotHelp({section,context,fields=[],values={},onApply,compact=false}:{compact?:boolean;section:string;context?:string;fields?:DocumentField[];values?:Record<string,string>;onApply?:(patch:Record<string,string>)=>void}) {
   const [question,setQuestion]=useState(""),[answer,setAnswer]=useState(""),[field,setField]=useState(""),[proposal,setProposal]=useState(""),[notice,setNotice]=useState("");
   const available=fields.filter(f=>structures[f.key]);
   const prepared=`Jag arbetar i ${section}.${context?`\nSammanhang: ${context}`:""}\nMin fråga: ${question}\nHjälp mig med ett förslag till utkast. Hitta inte på mål, baseline, ansvar, beslut eller källor.`;
-  return <details className="copilot-help"><summary><Sparkles size={18}/> Copilot · hjälp i {section}</summary><div className="copilot-content">
+  return <details className="copilot-help"><summary aria-label={compact?`Hjälp i ${section}`:undefined}><Sparkles size={18} aria-hidden="true"/> {compact?"Hjälp":`Copilot · hjälp i ${section}`}</summary><div className="copilot-content">
     <p className="copilot-status">Förberedd hjälp i demon · Microsoft Copilot är inte ansluten.</p>
     {context&&<p><b>Du arbetar med:</b> {context}</p>}
     <p>Här finns metodhjälp och skrivstöd. Ingen information skickas till någon AI-tjänst.</p>

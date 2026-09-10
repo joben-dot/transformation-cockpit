@@ -7,12 +7,14 @@ import { startReadiness } from "../application/selectors/startReadinessSelectors
 import { roleName } from "./transformationHelpers";
 import { journeyGuidance, openStepWork } from "./journeyGuidance";
 
+import { journeyNumber } from "./journeyModel";
+
 export function StepGate({state,challengeId,day,stepKey,onOpen,dispatch,footer=false}:{state:DemoState;challengeId:ChallengeId;day:string;stepKey:FlowStepKey;onOpen:(step:FlowStepKey)=>void;dispatch?:(command:Command)=>CommandResult;footer?:boolean}) {
  const steps=caseFlow(state,challengeId,day),index=steps.findIndex(x=>x.key===stepKey),step=steps[index],next=steps[index+1];
  const c=state.entities.challenges[challengeId],id=c.relatedInitiativeIds[0],guide=journeyGuidance[stepKey];
- const prerequisite=stepKey==="businesscase"&&steps[0].status!=="COMPLETE"?steps[0]:!id&&index>1?steps.find(s=>s.status!=="COMPLETE"):stepKey==="measurement"&&steps.find(s=>s.key==="decision")?.status!=="COMPLETE"?steps.find(s=>s.key==="decision"):stepKey==="priority"?steps.find(s=>["qualification","potential"].includes(s.key)&&s.status!=="COMPLETE"):undefined;
+ const prerequisite=stepKey==="businesscase"&&steps[0].status!=="COMPLETE"?steps[0]:!id&&index>1?steps.find(s=>s.status!=="COMPLETE"):["implementation","measurement","learning"].includes(stepKey)&&steps.find(s=>s.key==="decision")?.status!=="COMPLETE"?steps.find(s=>s.key==="decision"):stepKey==="priority"?steps.find(s=>["qualification","potential"].includes(s.key)&&s.status!=="COMPLETE"):undefined;
  const goNext=next&&<button type="button" className={step.status==="COMPLETE"?"":"secondary-action"} onClick={()=>onOpen(next.key)}>{step.status==="COMPLETE"?"Nästa steg":"Förbered nästa steg"}: {next.title} →</button>;
- if(footer)return <nav className="journey-footer" aria-label="Fortsättning efter arbetsmomentet">{step.status!=="COMPLETE"&&<p>{step.summary} Sparade uppgifter och beslut avgör vad som är klart.</p>}{goNext}{stepKey==="measurement"&&<button type="button" onClick={()=>openStepWork(stepKey)}>Se mätningar, lärande och avslut ↑</button>}</nav>;
+ if(footer)return <nav className="journey-footer" aria-label="Fortsättning efter arbetsmomentet">{step.status!=="COMPLETE"&&<p>{step.summary} Sparade uppgifter och beslut avgör vad som är klart.</p>}{goNext}{stepKey==="learning"&&<button type="button" onClick={()=>openStepWork(stepKey)}>Se lärande och avslut ↑</button>}</nav>;
  const items:{label:string;complete:boolean}[]=stepKey==="material"?[
   ...requiredChallengeKeys.map(k=>({label:challengeFields[k],complete:documentTextComplete(c[k])})),{label:"Utmaningen registrerad för beredning",complete:c.nominationStatus==="NOMINATED"}
  ]:stepKey==="businesscase"?[
@@ -22,15 +24,15 @@ export function StepGate({state,challengeId,day,stepKey,onOpen,dispatch,footer=f
  const completions=Object.values(state.entities.completionRequirements).filter(r=>(r.challengeId===challengeId||(id&&r.initiativeId===id))&&r.blocks.includes(stepKey==="priority"?"PRIORITIZATION":stepKey==="decision"?"START_DECISION":"QUALIFICATION")&&["qualification","priority","decision"].includes(stepKey));
  const earlier=stepKey==="decision"?steps.slice(0,index).filter(s=>s.status!=="COMPLETE"):[];
  return <section className={`step-gate step-gate-${step.status.toLowerCase()}`} aria-label={`Krav i ${step.title}`}>
-  <p className="eyebrow">DU ÄR HÄR · STEG {index+1} AV {steps.length}</p>
+  <p className="eyebrow">DU ÄR HÄR · STEG {journeyNumber(stepKey)} AV 10{stepKey==="potential"?" · NYTTOKALKYL":""}</p>
   <h2>{step.title} · {step.status==="COMPLETE"?"Klart":step.status==="WAITING"?"Förberedelse":"Åtgärd behövs"}</h2>
   <p>{step.status==="COMPLETE"?guide.result:guide.action}</p>
   <p><b>Vem bidrar?</b> {guide.role}</p>
   {prerequisite?<div className="journey-next"><p>Färdigställ {prerequisite.title.toLocaleLowerCase("sv")} först. Du har öppnat en förhandsvisning av detta steg.</p><button onClick={()=>onOpen(prerequisite.key)}>Gå till {prerequisite.title.toLocaleLowerCase("sv")} →</button></div>:<div className="journey-actions">{step.status!=="COMPLETE"&&<button type="button" onClick={()=>openStepWork(stepKey)}>Arbeta med {step.title.toLocaleLowerCase("sv")} ↓</button>}{goNext}</div>}
   {step.status!=="COMPLETE"&&next&&!prerequisite&&<p className="muted">Du får förbereda kommande underlag. Att öppna nästa steg godkänner inga krav och startar inget initiativ.</p>}
   {earlier.length>0&&<div className="journey-repairs"><p><b>Underlag att färdigställa inför start</b></p>{earlier.map(s=><button className="text-button" key={s.key} onClick={()=>onOpen(s.key)}>{s.title}: {s.summary} →</button>)}</div>}
-  <details className="journey-checklist"><summary>{items.filter(x=>!x.complete).length?`Vad återstår? ${items.filter(x=>!x.complete).length} punkter` : "Visa vad som är klart"}</summary><ul>{items.map((item,i)=><li key={i}><span aria-hidden="true">{item.complete?"✓":"○"}</span> {item.complete?item.label:<button className="text-button" onClick={()=>prerequisite?onOpen(prerequisite.key):openStepWork(stepKey)}>{item.label} ↓</button>}</li>)}</ul></details>
+  <details className="journey-checklist" open={step.status!=="COMPLETE"}><summary>{items.filter(x=>!x.complete).length?`Vad återstår? ${items.filter(x=>!x.complete).length} punkter` : "Visa vad som är klart"}</summary><ul>{items.map((item,i)=><li key={i}><span aria-hidden="true">{item.complete?"✓":"○"}</span> {item.complete?item.label:<button className="text-button" onClick={()=>prerequisite?onOpen(prerequisite.key):openStepWork(stepKey)}>{item.label} ↓</button>}</li>)}</ul></details>
   {completions.length>0&&<details><summary>Kompletteringar, ansvar och datum · {completions.length}</summary>{completions.map(r=><p key={r.id}><button className="text-button" onClick={()=>onOpen("qualification")}>{r.missingItem} →</button> · {r.status==="VERIFIED"?"Verifierat":r.status==="NOT_APPLICABLE"?"Ej tillämpligt":r.status==="SUBMITTED"?"Inväntar verifiering":"Behöver kompletteras"}<br/>{roleName(state,r.status==="SUBMITTED"?r.verifierRoleAssignmentId:r.responsibleRoleAssignmentId)} · {r.deadline??"Datum behöver anges"}</p>)}</details>}
-  {step.status==="ACTION"&&dispatch&&<FollowUpEditor key={`${challengeId}-${stepKey}`} state={state} challengeId={challengeId} step={step} day={day} dispatch={dispatch}/>}
+  {step.status==="ACTION"&&dispatch&&!["implementation","learning"].includes(stepKey)&&<FollowUpEditor key={`${challengeId}-${stepKey}`} state={state} challengeId={challengeId} step={step} day={day} dispatch={dispatch}/>}
  </section>;
 }

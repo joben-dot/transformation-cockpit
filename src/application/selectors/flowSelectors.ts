@@ -8,7 +8,7 @@ import { prerequisiteGraph, topologicalExecutionOrder, unavailableStartPrerequis
 import { costsByOrigin } from "./costSelectors";
 import { acceptedCommitment, activeCommitments, commitmentBlockers, latestDecision, startBlockers } from "./transformationSelectors";
 
-export type FlowStepKey = "material" | "businesscase" | "qualification" | "potential" | "priority" | "conditions" | "commitments" | "decision" | "measurement";
+export type FlowStepKey = "material" | "businesscase" | "qualification" | "potential" | "priority" | "conditions" | "commitments" | "decision" | "measurement" | "implementation" | "learning";
 export type FlowStatus = "COMPLETE" | "ACTION" | "WAITING";
 export interface FlowStep {
   key: FlowStepKey;
@@ -31,9 +31,9 @@ export function caseFlow(state: DemoState, challengeId: ChallengeId, day: string
     {key:"businesscase",title:"Businesscase",status:bcComplete&&initiative?"COMPLETE":challengeComplete?"ACTION":"WAITING",summary:bcComplete?(initiative?"Sparat beslutsunderlag. Potential, kalkyl och bedömningar följer i länkade steg.":"Underlaget är ifyllt. Registrera initiativet för fortsatt beredning."):"Jämför syfte, önskat läge, avgränsning, alternativ och konsekvensen av att avstå.",responsibleId:challenge.initiatorRoleAssignmentId}
   ];
   if (!initiative) return [...steps, ...([
-    ["qualification", "Kvalificering"], ["potential", "Bedömd effektpotential"], ["priority", "Prioritering"],
-    ["conditions", "Förutsättningar och kostnad"], ["commitments", "Lokala effektåtaganden"],
-    ["decision", "Startbeslut"], ["measurement", "Förändring och effektmätning"],
+    ["potential", "Bedömd effektpotential"], ["qualification", "Kvalificering"], ["priority", "Prioritering"],
+    ["conditions", "Förutsättningar och körordning"], ["commitments", "Lokala effektåtaganden"],
+    ["decision", "Startbeslut"], ["implementation", "Genomförande och förändring"], ["measurement", "Effektuppföljning"], ["learning", "Avslut, lärande och skalning"],
   ] as const).map(([key,title]) => ({ key,title,status:"WAITING" as const,summary:"Nästa steg när ärendet har ett länkat beredningsinitiativ." }))];
 
   const qualification = deriveQualificationStatus(state, initiative.id);
@@ -55,7 +55,7 @@ export function caseFlow(state: DemoState, challengeId: ChallengeId, day: string
   const costs = costsByOrigin(state,[initiative.id]).filter(c => c.economicStatus === "ESTIMATE");
   const preparation = Object.values(e.startPreparations).filter(p => p.initiativeId === initiative.id).at(-1);
   const conditionsReviewed = graph.nodes.length > 0 && topologicalExecutionOrder(state,initiative.id).valid && costs.length > 0 && costs.every(c=>c.sourceRefs.length>0) && !blocked.length && capacityStatus(state,initiative.id).every(c=>c.status==="AVAILABLE");
-  steps.push({key:"conditions",title:"Förutsättningar och kostnad",status:conditionsReviewed?"COMPLETE":"ACTION",summary:blocked.length?`${blocked.length} förutsättningar återstår före start. ${blocked[0].title}.`:`${graph.nodes.length} leveranser · ${costs.length} kostnadsposter. ${conditionsReviewed?"Strukturerade förutsättningar och kostnadsunderlag finns. Samlad prövning görs i beslutspaketet.":"Förutsättningar, kostnadsunderlag eller kapacitet behöver kompletteras."}`,responsibleId:blocked[0]?.responsibleRoleAssignmentId??preparation?.preparedBy,dueDate:blocked[0]?.neededAt});
+  steps.push({key:"conditions",title:"Förutsättningar och körordning",status:conditionsReviewed?"COMPLETE":"ACTION",summary:blocked.length?`${blocked.length} förutsättningar återstår före start. ${blocked[0].title}.`:`${graph.nodes.length} leveranser · ${costs.length} kostnadsposter. ${conditionsReviewed?"Strukturerade förutsättningar och kostnadsunderlag finns. Samlad prövning görs i beslutspaketet.":"Förutsättningar, kostnadsunderlag eller kapacitet behöver kompletteras."}`,responsibleId:blocked[0]?.responsibleRoleAssignmentId??preparation?.preparedBy,dueDate:blocked[0]?.neededAt});
   const decision = latestDecision(state, initiative.id);
   const commitments = decision ? activeCommitments(state,initiative.id) : Object.values(e.effectCommitments).filter(c => c.initiativeId === initiative.id);
   const recipients = Object.values(e.participations).filter(p => p.initiativeId === initiative.id && p.participantKind === "EFFECT_RECIPIENT" && p.validFrom <= day && (!p.validTo || p.validTo >= day)).flatMap(p => p.businessId ? [p.businessId] : []);
@@ -70,6 +70,9 @@ export function caseFlow(state: DemoState, challengeId: ChallengeId, day: string
   const pending = planned.filter(({c,date}) => !Object.values(e.measurementPoints).some(m => m.measurementPlanId === c.measurementPlanId && m.measuredAt === date && m.verifiedAt));
   pending.sort((a,b) => a.date.localeCompare(b.date));
   const next = pending[0], allVerified = !!decision && !!planned.length && !pending.length && !changes.length;
-  steps.push({key:"measurement",title:"Förändring och effektmätning",status:allVerified?"COMPLETE":decision?"ACTION":"WAITING",summary:!decision?"Följs upp efter start mot beslutade lokala mål och mättidpunkter.":changes.length?`${changes.length} verksamhetsförändringar återstår före effektmätning.`:`${planned.length-pending.length} av ${planned.length} planerade mätpunkter är verifierade.`,responsibleId:changes[0]?.details?.changeResponsibleId??(next?e.measurementPlans[next.c.measurementPlanId].responsibleRoleAssignmentId:undefined),dueDate:changes[0]?.details?.changeDueDate??next?.date});
-  return steps;
+  steps.push({key:"implementation",title:"Genomförande och förändring",status:decision&&commitments.length&&!changes.length?"COMPLETE":decision?"ACTION":"WAITING",summary:!decision?"Genomförande kräver startbeslut.":changes.length?`${changes.length} verksamhetsförändringar återstår.`:"Verksamhetsförändringarna är bekräftade. Effektuppföljningen fortsätter.",responsibleId:changes[0]?.details?.changeResponsibleId,dueDate:changes[0]?.details?.changeDueDate});
+  steps.push({key:"measurement",title:"Effektuppföljning",status:allVerified?"COMPLETE":decision?"ACTION":"WAITING",summary:!decision?"Följs upp efter start mot beslutade lokala mål och mättidpunkter.":changes.length?`${changes.length} verksamhetsförändringar återstår före effektmätning.`:`${planned.length-pending.length} av ${planned.length} planerade mätpunkter är verifierade.`,responsibleId:next?e.measurementPlans[next.c.measurementPlanId].responsibleRoleAssignmentId:undefined,dueDate:next?.date});
+  steps.push({key:"learning",title:"Avslut, lärande och skalning",status:initiative.closedAt?"COMPLETE":allVerified?"ACTION":"WAITING",summary:initiative.closedAt?`Avslutat ${initiative.closedAt.slice(0,10)}. Beslut och uppmätt resultat bevaras.`:allVerified?"Dokumentera lärandet och fatta avslutsbeslut. Utebliven effekt ska också bevaras.":"Avslut inväntar verifierad uppföljning. En ny mottagare behöver ett eget effektåtagande."});
+  const order:FlowStepKey[]=["material","businesscase","potential","qualification","priority","conditions","commitments","decision","implementation","measurement","learning"];
+  return steps.sort((a,b)=>order.indexOf(a.key)-order.indexOf(b.key));
 }

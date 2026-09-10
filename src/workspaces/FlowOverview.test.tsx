@@ -11,7 +11,7 @@ it("visar ett läsbart flöde utan formulär och bevarar ärendet vid fördjupni
   act(()=>root.findAllByType("button").find(b=>text(b)==="Ärenden")!.props.onClick());
   act(()=>root.findAllByType("button").find(b=>b.props.className==="case-open"&&text(b).includes("Digital fiktiv avtalsuppföljning"))!.props.onClick());
   const flow=()=>root.findByProps({"aria-label":"Ärendets sammanfattade flöde"});
-  expect(flow().findAllByType("button").filter(b=>b.props["aria-label"])).toHaveLength(9);
+  expect(flow().findAllByType("button").filter(b=>b.props["aria-label"])).toHaveLength(10);
   expect(text(flow())).toContain("Fortsätt med");
   expect(flow().findAll(n=>["input","select","textarea","form"].includes(String(n.type)))).toHaveLength(0);
   act(()=>flow().findAllByType("button").find(b=>b.props["aria-label"]?.startsWith("Utmaning:"))!.props.onClick());

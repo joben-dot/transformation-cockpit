@@ -37,10 +37,10 @@ export function caseNextActions(state:DemoState,challengeId:ChallengeId,day:stri
   const next=flow.find(s=>s.status==='ACTION');
   let action:ControlAction|undefined;
   if(next) {
-    const followUp=challenge.stepFollowUps?.[next.key];
+    const followUp=challenge.stepFollowUps?.[next.key==="implementation"||next.key==="learning"?"measurement":next.key];
     action={label:next.title,reason:next.summary,destination:{challengeId,initiativeId:id,section:next.key},responsibleId:followUp?.responsibleRoleAssignmentId??next.responsibleId,dueDate:followUp?.dueDate??next.dueDate};
     // Formal change/measurement responsibilities always come from the accepted plan.
-    if(next.key==='measurement'){action.responsibleId=next.responsibleId;action.dueDate=next.dueDate;}
+    if(next.key==='measurement'||next.key==='implementation'){action.responsibleId=next.responsibleId;action.dueDate=next.dueDate;}
     if(next.key==='conditions'&&id&&!costsByOrigin(state,[id]).some(c=>c.economicStatus==='ESTIMATE')) {
       action={...action,label:'Komplettera kostnadsunderlag',destination:{...action.destination,focus:'cost'}};
     }
@@ -54,7 +54,7 @@ export function controlRoomCases(state:DemoState,day:string,area='Alla') {
     const stage:ControlStage=c.step==='AVSLUTAT'?'closed':['PAGAENDE','MATNING'].includes(c.step)?'ongoing':c.step==='STARTKLAR'?'ready':c.step==='PRIORITERAD'?'prioritized':c.step==='PRIORITERINGSBAR'?'priority':'preparation';
     const actions=caseNextActions(state,c.challengeId,day);
     if(c.initiativeId&&(stage==='ready'||stage==='ongoing')) {
-      const step=caseFlow(state,c.challengeId,day).find(s=>s.key===(stage==='ready'?'decision':'measurement'))!;
+      const step=caseFlow(state,c.challengeId,day).find(s=>s.key===(stage==='ready'?'decision':c.step==='PAGAENDE'?'implementation':'measurement'))!;
       actions.next={label:stage==='ready'?'Öppna underlag för startbeslut':'Följ verksamhetsförändring och mätning',reason:step.summary,destination:{challengeId:c.challengeId,initiativeId:c.initiativeId,section:step.key},responsibleId:step.responsibleId,dueDate:step.dueDate};
     }
     const effectTaking=!!c.initiativeId&&!!latestDecision(state,c.initiativeId)&&activeCommitments(state,c.initiativeId).some(k=>area==='Alla'||state.entities.businesses[k.recipientBusinessId]?.businessAreaId===area);

@@ -85,7 +85,7 @@ it("visar faktisk plats genom ärendets delar och bevarar listans sökning",()=>
   expect(text(trail())).toContain("Digital fiktiv avtalsuppföljning");
   act(()=>root.findAllByType("button").find(b=>b.props["aria-label"]?.includes("Lokala effektåtaganden"))!.props.onClick());
   expect(text(trail())).toContain("Lokala effektåtaganden");
-  click("4. Beslutshistorik");
+  click("Beslutshistorik");
   expect(text(trail())).toContain("Beslutshistorik");
   act(()=>trail().findAllByType("button").find(b=>text(b)==="Ärenden")!.props.onClick());
   expect(root.findAllByType("input").find(i=>i.props.placeholder?.includes("Sök"))!.props.value).toBe("avtal");
@@ -136,7 +136,7 @@ it("återanvänder sparat utmaningsunderlag i beredningen utan fyra nya inmatnin
   expect(root.findAllByType("input").filter(i=>i.props.required)).toHaveLength(0);
   click("Registrera initiativ för beredning");
   expect(root.findAllByType("h1").map(text)).toContain("Kortare väntan");
-  expect(root.findAllByProps({"aria-label":"Krav i Kvalificering"})).toHaveLength(1);
+  expect(root.findAllByProps({"aria-label":"Krav i Bedömd effektpotential"})).toHaveLength(1);
   click("Effekt och beslut");
   expect(root.findAllByType("h1").map(text)).toContain("Kortare väntan");
 });

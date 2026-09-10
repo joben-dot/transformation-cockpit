@@ -34,6 +34,22 @@ it("visar samma startberoende via jämförelse och i ärendets detaljsteg",()=>{
 });
 
 describe("navigation från arbetslistan", () => {
+  it("samlar hjälp och demoinställningar vid arbetsytan och visar tillbaka först när den kan användas",()=>{
+    const renderer=create(<App demoState={initializeDemoState()}/>),root=renderer.root;
+    const tools=root.findByProps({className:"workspace-tools"});
+    expect(tools.findAllByProps({className:"workspace-back"})).toHaveLength(0);
+    expect(text(tools.findByProps({"aria-label":"Hela sökvägen"}))).toBe("Kontrollrum");
+    expect(tools.findByProps({className:"demo-settings"})).toBeTruthy();
+    expect(tools.findByProps({"aria-label":"Hjälp i Kontrollrum · Överblick"})).toBeTruthy();
+    const toolbar=root.findByProps({className:"control-toolbar"});
+    expect(toolbar.findByProps({"aria-label":"Kontrollrummets vyer"})).toBeTruthy();
+    expect(toolbar.findAllByType("select")).toHaveLength(1);
+    act(()=>root.findAllByType("button").find(button=>text(button)==="Ärenden")!.props.onClick());
+    act(()=>root.findByProps({className:"workspace-back"}).props.onClick());
+    expect(root.findAllByProps({className:"workspace-back"})).toHaveLength(0);
+    expect(root.findByProps({className:"control-toolbar"})).toBeTruthy();
+    renderer.unmount();
+  });
   it("öppnar verkligt renderad prioriteringsvy och kan återgå", () => {
     const renderer = create(<App demoState={initializeDemoState()} />);
     const priority = renderer.root.findAllByType("button").find((button) => text(button) === "Prioritering")!;

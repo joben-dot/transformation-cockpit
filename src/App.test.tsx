@@ -6,7 +6,9 @@ import App from "./App";
 describe("kontrollrummet", () => {
   it("är startvy och skiljer möjlig effekt från uppföljning", () => {
     const html = renderToStaticMarkup(<App demoState={initializeDemoState()} />);
-    expect(html).toContain("Gemensam riktning. Synliga framsteg.");
+    expect(html).toContain("Mer än var för sig");
+    expect(html).not.toContain("Gemensam riktning. Synliga framsteg.");
+    expect(html).not.toContain('class="hero cockpit-hero"');
     expect(html).toContain("Det här ligger högst");
     expect(html).toContain("Ansvar behöver klarläggas");
     expect(html).toContain("Prioritering är inte startbeslut");

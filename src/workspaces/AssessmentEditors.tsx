@@ -5,7 +5,7 @@ import type { Command, CommandResult, DemoState } from "../application";
 import { createId, type InitiativeId, type PotentialCategory, type RoleAssignmentId } from "../domain";
 import { RoleSelect } from "./transformationUi";
 import { currentEffectPotentials } from "../application/selectors/effectPotentialSelectors";
-import { priorityEligibilityBlockers } from "../application/selectors/prioritySelectors";
+import { latestPriorityAssessment, priorityEligibilityBlockers } from "../application/selectors/prioritySelectors";
 
 type Props = { state: DemoState; initiativeId: InitiativeId; dispatch: (command: Command) => CommandResult; section?: "potential" | "priority" };
 export function AssessmentEditors({ state, initiativeId, dispatch, section }: Props) {
@@ -14,7 +14,7 @@ export function AssessmentEditors({ state, initiativeId, dispatch, section }: Pr
   const [scores, setScores] = useSessionDraft<Record<string, { score: string; evidence: string; uncertainty: "LOW" | "MEDIUM" | "HIGH" }>>(`priority-scores-${initiativeId}`, {});
   const potentials = currentEffectPotentials(state, initiativeId);
   const blockers = priorityEligibilityBlockers(state, initiativeId, profile);
-  const latest = Object.values(state.entities.priorityAssessments).filter(a=>a.initiativeId===initiativeId&&a.steeringProfileVersionId===profile.id).sort((a,b)=>b.assessedAt.localeCompare(a.assessedAt))[0];
+  const latest = latestPriorityAssessment(state,initiativeId,profile.id);
   const fresh = latest && potentials.every(p=>latest.effectPotentialIds.includes(p.id));
   const [reviewer,setReviewer] = useState<RoleAssignmentId|"">("");
   const [rationale,setRationale] = useSessionDraft(`priority-rationale-${initiativeId}`,"");
@@ -41,7 +41,7 @@ export function AssessmentEditors({ state, initiativeId, dispatch, section }: Pr
         }});
       }}>
         <label>Effekttyp<select value={potential.category} onChange={e => setPotential({ ...potential, category: e.target.value })}><option value="MONEY">Pengar</option><option value="RELEASED_TIME">Frigjord tid</option><option value="QUALITY">Kvalitet</option><option value="OTHER_BUSINESS_EFFECT">Annan verksamhetseffekt</option></select></label>
-        {Object.entries({ measure: "Mätetal", unit: "Enhet", recipient: "Bedömda effektmottagare", lower: "Låg potential", expected: "Förväntad potential", upper: "Hög potential", evidence: "Evidens / underlagsreferens", assumption: "Antagande", horizon: "Effekthemtagningsfönster", earliest: "Tidigast möjlig effekt", full: "Full potential tidigast" }).map(([key,label]) => <label key={key}>{label}<input required type={["earliest","full"].includes(key) ? "date" : ["lower","expected","upper"].includes(key) ? "number" : "text"} value={potential[key as keyof typeof potential]} onChange={e => setPotential({ ...potential, [key]: e.target.value })}/></label>)}
+        {Object.entries({ measure: "Mätetal", unit: "Enhet", recipient: "Bedömda effektmottagare", lower: "Låg potential", expected: "Förväntad potential", upper: "Hög potential", evidence: "Evidens / underlagsreferens", assumption: "Antagande", horizon: "Effekthemtagningsfönster", earliest: "Tidigast möjlig effekt", full: "Full potential tidigast" }).map(([key,label]) => <label key={key}>{label}<input required type={["earliest","full"].includes(key) ? "date" : ["lower","expected","upper"].includes(key) ? "number" : "text"} value={potential[key as keyof typeof potential]} onInput={e => {if(["earliest","full"].includes(key))setPotential({ ...potential, [key]: e.currentTarget.value });}} onChange={e => setPotential({ ...potential, [key]: e.target.value })}/></label>)}
         <label>Osäkerhet<select value={potential.uncertainty} onChange={e => setPotential({...potential, uncertainty: e.target.value})}><option value="LOW">Låg</option><option value="MEDIUM">Medel</option><option value="HIGH">Hög</option></select></label>
         <button>Spara bedömd potential</button>
       </form>

@@ -214,6 +214,12 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
       affectedEntityIds: [],
     } satisfies CommandResult;
   };
+  const currentChallenge = workArea === "cases" && !showPortfolio
+    ? (caseContext.activeId ? state.entities.challenges[caseContext.activeId] : undefined)
+    : (workArea === "effects" || (workArea === "cases" && showPortfolio && portfolioSection !== "comparison")) && story
+      ? state.entities.challenges[story.initiative.challengeId] : undefined;
+  const guideChallengeId=currentChallenge?.id;
+  useEffect(()=>{if(guideChallengeId||showPortfolio)setGuideExpanded(false);},[guideChallengeId,showPortfolio]);
   if (!story) return <main>Det valda initiativet saknas.</main>;
   const selectedNode = selectedNodeId
     ? state.entities.executionNodes[selectedNodeId]
@@ -264,15 +270,10 @@ function WorkspaceApp({ demoState }: { demoState: DemoState }) {
     } else if(target.initiativeId&&["commitments","decision","measurement"].includes(target.section))openEffects(target.initiativeId,target.section);
     else {setCaseContext({...caseContext,activeId:target.challengeId,focusRequirementId:target.requirementId});setCaseSection(target.section);setWorkArea("cases");setShowPortfolio(false);}
   };
-  const currentChallenge = workArea === "cases" && !showPortfolio
-    ? (caseContext.activeId ? state.entities.challenges[caseContext.activeId] : undefined)
-    : (workArea === "effects" || (workArea === "cases" && showPortfolio && portfolioSection !== "comparison"))
-      ? state.entities.challenges[story.initiative.challengeId] : undefined;
   const currentSection = workArea === "effects" ? effectSection : workArea === "cases" && !showPortfolio ? caseSection : undefined;
   const locationLabel = currentSection ? flowLocationLabels[currentSection]
     : currentChallenge ? (showPortfolio ? ({potential:"Effektpotential",conditions:"Förutsättningar",costs:"Kostnader"} as Record<string,string>)[portfolioSection] : "Ärendets flöde")
     : ({cases: showPortfolio ? "Prioritering" : "Ärendeöversikt", effects:"Effekt och beslut", control:({effects:"Kontrollrum · Effektuppföljning",plan:"Kontrollrum · Tid och beroenden",simulation:"Kontrollrum · Simulera"} as Record<string,string>)[route.controlContext.view]??"Kontrollrum · Överblick", governance:"Metod och styrning", templates:"Mallar och hjälp"})[workArea];
-  useEffect(()=>{if(currentChallenge||showPortfolio)setGuideExpanded(false);},[currentChallenge?.id,showPortfolio]);
   const currentFlowStep=currentSection??(currentChallenge&&showPortfolio?(portfolioSection==="potential"?"potential":"conditions"):undefined);
   const showCaseList=()=>{setCaseSection(undefined);setCaseContext({...caseContext,activeId:undefined});setWorkArea("cases");setShowPortfolio(false);};
   const showCaseFlow=()=>{if(!currentChallenge)return;setCaseSection(undefined);setCaseContext({...caseContext,activeId:currentChallenge.id});setWorkArea("cases");setShowPortfolio(false);};

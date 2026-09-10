@@ -17,19 +17,22 @@ it('partitionerar registrerade ärenden en gång och räknar även utmaningar ut
  expect(selectControlCases(cases,'effects').every(c=>!!latestDecision(state,c.initiativeId!))).toBe(true);
  expect(JSON.stringify(state)).toBe(before);
 });
-it('skiljer granskning från uttrycklig mänsklig prioritering',()=>{
+it('godtar granskat prioriteringsunderlag utan att fatta startbeslut',()=>{
  const state=createPresentationDemoState();
  const r=Object.values(state.entities.initiatives).map(i=>startReadiness(state,i.id,'2026-09-06')).find(r=>r.reviewed&&!r.started)!;
  expect(r).toBeDefined();
  r.assessment!.status='ACCEPTED';delete r.assessment!.humanRecommendation;
- expect(startReadiness(state,r.assessment!.initiativeId,'2026-09-06').prioritized).toBe(false);
+ expect(startReadiness(state,r.assessment!.initiativeId,'2026-09-06').prioritized).toBe(true);
  r.assessment!.status='OVERRIDDEN';r.assessment!.humanRecommendation='WAIT';
- expect(startReadiness(state,r.assessment!.initiativeId,'2026-09-06').prioritized).toBe(false);
+ expect(startReadiness(state,r.assessment!.initiativeId,'2026-09-06').prioritized).toBe(true);
  r.assessment!.humanRecommendation='START';
  expect(startReadiness(state,r.assessment!.initiativeId,'2026-09-06').prioritized).toBe(true);
 });
 it('hinder pekar på själva kompletteringen eller på förutsättningens ägare',()=>{
- const state=createPresentationDemoState(),cases=controlRoomCases(state,'2026-09-06');
+ const state=createPresentationDemoState();
+ const edge=Object.values(state.entities.dependencies).find(d=>state.entities.executionNodes[d.predecessorNodeId].availabilityStatus!=='AVAILABLE'&&state.entities.executionNodes[d.predecessorNodeId].ownerInitiativeId!==state.entities.executionNodes[d.successorNodeId].ownerInitiativeId)!;
+ edge.requiredAt='INITIATIVE_START';
+ const cases=controlRoomCases(state,'2026-09-06');
  const requirements=selectControlCases(cases,'hinders').flatMap(c=>c.blockers).filter(b=>b.destination.requirementId);
  expect(requirements.length).toBeGreaterThan(0);
  for(const r of requirements){expect(state.entities.completionRequirements[r.destination.requirementId!].missingItem).toBe(r.label.replace(/^(Komplettera|Verifiera): /,''));expect(r.destination.section).toBe('qualification');}

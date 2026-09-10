@@ -1,3 +1,5 @@
+import { caseFlow } from "./selectors/flowSelectors";
+import { caseNextActions } from "./selectors/controlRoomSelectors";
 import { describe, expect, it } from "vitest";
 import { initializeDemoState } from "./initializeDemoState";
 import { demoReducer } from "./demoReducer";
@@ -6,7 +8,7 @@ import type { DemoState } from "./demoState";
 import { createId } from "../domain";
 import { referenceCommitment } from "../demo-data/referenceCommitment";
 import { roleAssignments } from "../demo-data/peopleAndRoles";
-import { acceptedCommitment, activeCommitments, effectOutcome, latestDecision, startBlockers } from "./selectors/transformationSelectors";
+import { acceptedCommitment, activeCommitments, effectOutcome, effectFollowUp, preparedEconomics, latestDecision, startBlockers } from "./selectors/transformationSelectors";
 
 let seq=0;
 const specialist=roleAssignments[1].id,decision=roleAssignments[2].id,owner=referenceCommitment.details.ownerRoleAssignmentId;
@@ -25,6 +27,69 @@ function ready() {
 }
 function start(state=ready()) {return apply(state,{...meta(decision),commandType:"DECIDE_TRANSFORMATION",targetId:"decision-journey",payload:{preparationId:"package-journey",accepted:true,rationale:"Syntetiskt startbeslut för full kedja.",type:"START"}});}
 
+
+
+describe("regler från granskat underlag till aktivt beslut",()=>{
+  it("bevarar beslutade steg och skiljer väntan på mätning från specialistverifiering",()=>{
+    let state=start();const id=referenceCommitment.initiativeId,challengeId=state.entities.initiatives[id].challengeId;
+    state=apply(state,{...meta(referenceCommitment.details.changeResponsibleId,"2026-12-31"),commandType:"CONFIRM_BUSINESS_CHANGE",targetId:commitmentId,payload:{date:"2026-12-31",evidence:"Nytt arbetssätt används"}});
+    const flow=caseFlow(state,challengeId,"2026-12-31");
+    expect(flow.find(s=>s.key==="measurement")?.status).toBe("WAITING");
+    expect(flow.filter(s=>["material","businesscase","potential","qualification","priority","conditions","commitments","decision"].includes(s.key)).every(s=>s.status==="COMPLETE")).toBe(true);
+    expect(caseNextActions(state,challengeId,"2026-12-31").next?.destination.section).toBe("measurement");
+    const date=referenceCommitment.details.measurementDates[0];
+    state=apply(state,{...meta(referenceCommitment.measurementResponsibleId,date),commandType:"RECORD_EFFECT_MEASUREMENT",targetId:"awaiting-verification",payload:{commitmentId,date,value:430000,evidence:"Mätuttag",qualityObservation:"Kvalitet uppfylld",qualityMet:true}});
+    const next=caseFlow(state,challengeId,date).find(s=>s.key==="measurement")!;
+    expect(next.status).toBe("ACTION");
+    expect(next.summary).toContain("specialistverifiering");
+    expect(next.responsibleId).toBeUndefined();
+    expect(caseNextActions(state,challengeId,date).next?.reason).toBe(next.summary);
+  });
+  it.each(["START","WAIT","INVESTIGATE","STOP"] as const)("granskat råd %s är underlag; kräver separat aktivt startbeslut",(advice)=>{
+    const state=ready(),p=state.entities.startPreparations["package-journey"],a=state.entities.priorityAssessments[p.priorityAssessmentId];
+    a.status="ACCEPTED";a.systemRecommendation=advice;delete a.humanRecommendation;
+    expect(startBlockers(state,p,"2026-09-06")).toEqual([]);
+    expect(latestDecision(state,p.initiativeId)).toBeUndefined();
+    expect(demoReducer(state,{...meta(decision),commandType:"DECIDE_TRANSFORMATION",targetId:"not-accepted",payload:{preparationId:p.id,accepted:false,rationale:"Råd är inget beslut",type:"START"}}).success).toBe(false);
+    expect(latestDecision(start(state),p.initiativeId)).toBeDefined();
+  });
+  it("ett nyare ogranskat underlag gör ett gammalt paket inaktuellt",()=>{
+    const state=ready(),p=state.entities.startPreparations["package-journey"],a=state.entities.priorityAssessments[p.priorityAssessmentId];
+    const id=createId("PriorityAssessment","newer-same-day");
+    state.entities.priorityAssessments[id]={...a,id,status:"CALCULATED"};
+    expect(startBlockers(state,p,"2026-09-06").join(" ")).toContain("nyare bedömning");
+  });
+  it("senare leverans kan vara planerad vid start; uttryckligt startvillkor måste vara tillgängligt",()=>{
+    const state=ready(),p=state.entities.startPreparations["package-journey"];
+    const target=Object.values(state.entities.executionNodes).find(n=>n.ownerInitiativeId===p.initiativeId)!;
+    const predecessor={...target,id:createId("ExecutionNode","future-prerequisite"),responsibleRoleAssignmentId:specialist,availabilityStatus:"PLANNED" as const,plannedPeriod:{from:"2026-09-10",to:"2026-10-01"}};
+    target.plannedPeriod={from:"2026-11-01",to:"2026-12-01"};
+    state.entities.executionNodes[predecessor.id]=predecessor;
+    const id=createId("Dependency","timing-check");
+    state.entities.dependencies[id]={id,predecessorNodeId:predecessor.id,successorNodeId:target.id,dependencyType:"FINISH_TO_START",requiredDeliverable:"Testleverans",blocking:true,requiredAt:"NODE_START",rationale:"Behövs inför leveransen",sourceRefs:["test"]};
+    expect(startBlockers(state,p,"2026-09-06")).toEqual([]);
+    state.entities.dependencies[id].requiredAt="INITIATIVE_START";
+    expect(startBlockers(state,p,"2026-09-06").join(" ")).toContain("Förutsättning inte klar");
+    predecessor.availabilityStatus="AVAILABLE" as never;
+    expect(startBlockers(state,p,"2026-09-06")).toEqual([]);
+  });
+  it("saknat kostnadsunderlag och ofullständig årsperiod ger inget skenbart netto",()=>{
+    const state=ready(),p=state.entities.startPreparations["package-journey"];
+    expect(preparedEconomics(state,p).plannedNet).toBeDefined();
+    state.entities.costEntries={};
+    expect(preparedEconomics(state,p).plannedNet).toBeUndefined();
+    state.entities.effectCommitments[commitmentId].details!.annualFinancialEffect!.push({year:2028,amount:100000});
+    p.costHorizon={from:"2027-06-01",to:"2028-12-31"};
+    expect(preparedEconomics(state,p).plannedFinancialEffect).toBeUndefined();
+  });
+  it("en förändring kan inte registreras som genomförd före startbeslutet",()=>{
+    const state=start();
+    const result=demoReducer(state,{...meta(referenceCommitment.details.changeResponsibleId),commandType:"CONFIRM_BUSINESS_CHANGE",targetId:commitmentId,payload:{date:"2026-09-01",evidence:"Fel datum"}});
+    expect(result.success).toBe(false);
+    expect(effectFollowUp(state,referenceCommitment.initiativeId,"2026-09-06").changes).toHaveLength(1);
+  });
+});
+
 describe("verksamhetsägd effekt från åtagande till uppföljning",()=>{
   it.each(["effect","owner","dependency","milestone"] as const)("spärrar start utan komplett underlag: %s",(missing)=>{
     const state=ready(),id=referenceCommitment.initiativeId;
@@ -38,7 +103,7 @@ describe("verksamhetsägd effekt från åtagande till uppföljning",()=>{
       const successor=Object.values(state.entities.executionNodes).find(n=>n.contextInitiativeIds.includes(id))!;
       const predecessor={...successor,id:createId("ExecutionNode",`start-${missing}`),ownerInitiativeId:Object.values(state.entities.initiatives).find(i=>i.id!==id)!.id,nodeKind:"BUSINESS_CHANGE" as const,availabilityStatus:"PLANNED" as const,neededAt:missing==="milestone"?"":"2026-09-06"};
       state.entities.executionNodes[predecessor.id]=predecessor;
-      const edge={...Object.values(state.entities.dependencies)[0],id:createId("Dependency",`start-${missing}`),predecessorNodeId:predecessor.id,successorNodeId:successor.id,blocking:true,requiredAt:missing==="milestone"?"MILESTONE" as const:"NODE_START" as const};
+      const edge={...Object.values(state.entities.dependencies)[0],id:createId("Dependency",`start-${missing}`),predecessorNodeId:predecessor.id,successorNodeId:successor.id,blocking:true,requiredAt:missing==="milestone"?"MILESTONE" as const:"INITIATIVE_START" as const};
       state.entities.dependencies[edge.id]=edge;
     }
     const errors=startBlockers(state,state.entities.startPreparations["package-journey"],"2026-09-06").join(" ");
@@ -71,6 +136,12 @@ describe("verksamhetsägd effekt från åtagande till uppföljning",()=>{
     state=apply(state,{...meta(specialist,"2027-12-31"),commandType:"VERIFY_EFFECT_MEASUREMENT",targetId:point.id,payload:{accepted:true}});
     expect(effectOutcome(state,c,"2027-12-31").realized).toBe(150000);expect(effectOutcome(state,c,"2027-12-31").target).toBe(180000);
     expect(JSON.stringify(latestDecision(state,referenceCommitment.initiativeId))).toBe(frozen);
+    expect(demoReducer(state,{...meta(decision,"2027-12-31"),commandType:"COMPLETE_TRANSFORMATION",targetId:referenceCommitment.initiativeId,payload:{observation:"Delmätning saknas",evidence:"Fullmätning räcker inte"}}).success).toBe(false);
+    for(const date of c.details!.measurementDates.filter(date=>date!=="2027-12-31")){
+      state=apply(state,{...meta(referenceCommitment.measurementResponsibleId,"2027-12-31"),commandType:"RECORD_EFFECT_MEASUREMENT",targetId:`measure-${date}`,payload:{commitmentId,date,value:430000,evidence:"Dokumenterad delmätning",qualityObservation:"Kvalitet uppfylld",qualityMet:true}});
+      const interim=Object.values(state.entities.measurementPoints).find(p=>p.measuredAt===date&&p.measurementPlanId===c.measurementPlanId)!;
+      state=apply(state,{...meta(specialist,"2027-12-31"),commandType:"VERIFY_EFFECT_MEASUREMENT",targetId:interim.id,payload:{accepted:true}});
+    }
     state=apply(state,{...meta(decision,"2027-12-31"),commandType:"COMPLETE_TRANSFORMATION",targetId:referenceCommitment.initiativeId,payload:{observation:"Målet missades med 30000 SEK per år; arbetssättet behöver förbättras.",evidence:"Verifierad mätpunkt"}});
     expect(state.entities.initiatives[referenceCommitment.initiativeId].closedAt).toBeDefined();
     expect(effectOutcome(state,c,"2027-12-31").realized).toBe(150000);

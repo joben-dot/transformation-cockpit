@@ -62,7 +62,9 @@ export interface Dependency {
   dependencyType: "FINISH_TO_START" | "MILESTONE" | "ADVISORY";
   requiredDeliverable: string;
   blocking: boolean;
-  requiredAt: "NODE_START" | "MILESTONE";
+  requiredAt: "INITIATIVE_START" | "NODE_START" | "MILESTONE";
+  /** Specific milestone date; node-start dates come from the successor's plan. */
+  requiredBy?: string;
   rationale: string;
   sourceRefs: string[];
 }

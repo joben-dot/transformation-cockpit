@@ -2,8 +2,8 @@ import { businessCaseDocumentBlockers, challengeDocumentBlockers, documentTextCo
 import type { DemoState } from "../demoState";
 import type { InitiativeId, LocalEffectCommitment, EffectCommitmentId, RoleAssignmentId } from "../../domain";
 import type { StartPreparation } from "../../domain/transformation";
-import { priorityEligibilityBlockers } from "./prioritySelectors";
-import { prerequisiteGraph, topologicalExecutionOrder, unavailableStartPrerequisites } from "./executionSelectors";
+import { latestPriorityAssessment, priorityEligibilityBlockers } from "./prioritySelectors";
+import { dependencyDueDate, prerequisiteGraph, topologicalExecutionOrder, unavailableStartPrerequisites } from "./executionSelectors";
 import { costSummary } from "./costSelectors";
 import { currentEffectPotentials } from "./effectPotentialSelectors";
 import { capacityStatus } from "./capacitySelectors";
@@ -48,6 +48,15 @@ export function commitmentBlockers(state: DemoState, c: LocalEffectCommitment, d
   return errors;
 }
 
+export function laterDependencyBlockers(state:DemoState,id:InitiativeId,day:string) {
+  return prerequisiteGraph(state,id).dependencies.filter(d=>d.blocking&&d.requiredAt!=="INITIATIVE_START"&&state.entities.executionNodes[d.successorNodeId]?.ownerInitiativeId===id).flatMap(d=>{
+    const n=state.entities.executionNodes[d.predecessorNodeId],due=dependencyDueDate(state,d);
+    if(n?.availabilityStatus==="AVAILABLE")return [];
+    if(!n||!due||!validDate(due)||!n.responsibleRoleAssignmentId||!roleValid(state,n.responsibleRoleAssignmentId,day))return [`Senare beroende saknar giltig ansvarig eller datum: ${n?.title??"Okänd förutsättning"}.`];
+    return n.plannedPeriod.to>due?[`Beroendets tidplan behöver rättas: ${n.title} planeras klar ${n.plannedPeriod.to}, men behövs ${due}.`]:[];
+  });
+}
+
 export function startBlockers(state: DemoState, p: StartPreparation, day: string) {
   const errors: string[] = [];
   const e = state.entities, i = e.initiatives[p.initiativeId], profile = e.steeringProfileVersions[p.steeringProfileVersionId];
@@ -59,6 +68,7 @@ export function startBlockers(state: DemoState, p: StartPreparation, day: string
   if(challenge) errors.push(...challengeDocumentBlockers(challenge),...businessCaseDocumentBlockers(challenge));
   const a = e.priorityAssessments[p.priorityAssessmentId];
   if (!a || a.initiativeId !== i.id || a.steeringProfileVersionId !== profile.id || !["ACCEPTED","OVERRIDDEN"].includes(a.status)) errors.push("Mänskligt granskat prioriteringsunderlag för rätt ärende och styrprofil krävs.");
+  if (a && latestPriorityAssessment(state,i.id,profile.id)?.id !== a.id) errors.push("Prioriteringsunderlaget är ersatt av en nyare bedömning. Uppdatera beslutspaketet.");
   if (a && currentEffectPotentials(state,i.id).some(potential=>!a.effectPotentialIds.includes(potential.id))) errors.push("Effektpotentialen har ändrats. Prioriteringsunderlaget måste ombedömas före beslut.");
   if (profile.status!=="ACTIVE" || profile.validFrom>day || (profile.validTo&&profile.validTo<day)) errors.push("Start kräver gällande aktiv styrprofil, inte ett jämförelsescenario.");
   if (!e.transformationGovernance[p.governanceVersionId]) errors.push("Versionsbestämd demostyrning saknas.");
@@ -83,11 +93,7 @@ export function startBlockers(state: DemoState, p: StartPreparation, day: string
   capacityStatus(state,i.id).filter(c=>c.status!=="AVAILABLE").forEach(c=>errors.push(`Genomförandekapacitet ${c.status==="UNKNOWN"?"inte styrkt":"otillräcklig"}: ${c.demand.poolReference}.`));
   if (!topologicalExecutionOrder(state,i.id).valid) errors.push("Förutsättningsgrafen innehåller en cirkel.");
   unavailableStartPrerequisites(state,i.id).forEach(n=>errors.push(`Förutsättning inte klar: ${n.title}.`));
-  const graph=prerequisiteGraph(state,i.id);
-  const milestones=new Set(graph.dependencies.filter(d=>d.blocking&&d.requiredAt==="MILESTONE").map(d=>d.predecessorNodeId));
-  graph.nodes.filter(n=>milestones.has(n.id)&&n.availabilityStatus!=="AVAILABLE").forEach(n=>{
-    if(!validDate(n.neededAt)||!n.responsibleRoleAssignmentId||!roleValid(state,n.responsibleRoleAssignmentId,day)) errors.push(`Senare beroende saknar giltig ansvarig eller datum: ${n.title}.`);
-  });
+  errors.push(...laterDependencyBlockers(state,i.id,day));
   Object.values(e.completionRequirements).filter(r=>(r.initiativeId===i.id||r.challengeId===i.challengeId)&&r.blocks.includes("START_DECISION")&&!["VERIFIED","NOT_APPLICABLE"].includes(r.status)).forEach(r=>errors.push(r.missingItem));
   if (!validDate(p.costHorizon.from)||!validDate(p.costHorizon.to)||p.costHorizon.from>p.costHorizon.to) errors.push("Ekonomisk jämförelseperiod saknas.");
   else {
@@ -118,13 +124,27 @@ function economicsForCommitments(state:DemoState,ids:InitiativeId[],commitments:
   const annual=commitments.flatMap(c=>(c.details?.annualFinancialEffect??[]).map(p=>({...p,commitmentId:c.id})));
   const included=annual.filter(p=>`${p.year}-01-01`>=period.from&&`${p.year}-12-31`<=period.to);
   const money=included.reduce((sum,p)=>sum+p.amount,0),cost=costSummary(state,ids,"ESTIMATE",period);
-  const hasPlan=included.length>0;
-  return {plannedFinancialEffect:hasPlan?money:undefined,cost:cost.amount,plannedNet:hasPlan&&cost.completeness==="COMPLETE"?money-cost.amount:undefined,sourceRefs:included.map(p=>p.commitmentId),costCompleteness:cost.completeness};
+  const partial=annual.some(p=>`${p.year}-01-01`<=period.to&&`${p.year}-12-31`>=period.from&&!included.includes(p));
+  const hasPlan=included.length>0&&!partial;
+  return {plannedFinancialEffect:hasPlan?money:undefined,cost:cost.amount,plannedNet:hasPlan&&cost.sourceRefs.length>0&&cost.completeness==="COMPLETE"?money-cost.amount:undefined,sourceRefs:included.map(p=>p.commitmentId),costCompleteness:cost.completeness};
 }
+export function effectFollowUp(state: DemoState,id: InitiativeId,day: string) {
+  const commitments=activeCommitments(state,id);
+  const changes=commitments.filter(c=>!c.details?.changeCompletedAt).sort((a,b)=>(a.details?.changeDueDate??"9999").localeCompare(b.details?.changeDueDate??"9999"));
+  const planned=commitments.flatMap(c=>(c.details?.measurementDates??[]).map(date=>{
+    const point=Object.values(state.entities.measurementPoints).find(m=>m.measurementPlanId===c.measurementPlanId&&m.measuredAt===date);
+    return {c,date,point,verified:!!point?.verifiedAt&&point.verifiedAt.slice(0,10)<=day};
+  }));
+  const pending=planned.filter(p=>!p.verified).sort((a,b)=>a.date.localeCompare(b.date));
+  const ready=pending.filter(p=>p.c.details?.changeCompletedAt);
+  const next=ready.find(p=>p.point)??ready[0]??pending[0];
+  return {commitments,changes,planned,pending,next,complete:!!commitments.length&&!changes.length&&!!planned.length&&!pending.length};
+}
+
 export function transformationStage(state: DemoState,id: InitiativeId) {
   if (state.entities.initiatives[id]?.closedAt) return "Avslutat";
   const commitments=activeCommitments(state,id);
   if (!latestDecision(state,id)) return "Under beredning";
-  if (commitments.some(c=>c.details?.changeCompletedAt)) return "Under mätning";
+  if (commitments.length&&commitments.every(c=>c.details?.changeCompletedAt)) return "Under mätning";
   return "Pågående";
 }

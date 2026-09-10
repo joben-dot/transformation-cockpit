@@ -30,7 +30,8 @@ export function reduceStage3Command(
   command: Command,
 ): CommandResult | undefined {
   if (!stage3Types.has(command.commandType)) return undefined;
-  if (!state.entities.roleAssignments[command.actorRoleAssignmentId])
+  const actor=state.entities.roleAssignments[command.actorRoleAssignmentId], day=command.issuedAt.slice(0,10);
+  if (!actor || !state.entities.people[actor.personId] || actor.validFrom>day || (actor.validTo&&actor.validTo<day))
     return fail(state, "Aktörens rollrelation saknas.");
   const next = structuredClone(state) as DemoState;
   const affected: string[] = [];
@@ -77,7 +78,7 @@ export function reduceStage3Command(
           (item) =>
             item.predecessorNodeId === edge.predecessorNodeId &&
             item.successorNodeId === edge.successorNodeId &&
-            item.blocking === edge.blocking,
+            item.blocking === edge.blocking && item.requiredAt === edge.requiredAt,
         )
       )
         return fail(state, "Ett identiskt beroende finns redan.");

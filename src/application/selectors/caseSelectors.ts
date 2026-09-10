@@ -2,7 +2,7 @@ import { startReadiness } from "./startReadinessSelectors";
 import type { ChallengeId, InitiativeId } from "../../domain";
 import type { DemoState } from "../demoState";
 import { deriveNextCriticalStep, deriveQualificationStatus } from "./qualificationSelectors";
-import { activeCommitments, latestDecision, transformationStage } from "./transformationSelectors";
+import { effectFollowUp, latestDecision, transformationStage } from "./transformationSelectors";
 import { activeSteeringProfile, priorityEligibilityBlockers } from "./prioritySelectors";
 
 export type CaseStep = "UTKAST" | "REGISTRERAD" | "BEREDNING" | "PRIORITERINGSBAR" | "PRIORITERAD" | "STARTKLAR" | "PAGAENDE" | "MATNING" | "AVSLUTAT";
@@ -37,7 +37,7 @@ export function caseOverview(state: DemoState, today = new Date().toISOString().
     const responsibleId=requirement?.status==="SUBMITTED"?requirement.verifierRoleAssignmentId:requirement?.responsibleRoleAssignmentId;
     const assignment = responsibleId ? state.entities.roleAssignments[responsibleId] : undefined;
     const person = assignment ? state.entities.people[assignment.personId] : undefined;
-    const participatingBusinesses = [...new Set(Object.values(state.entities.participations).filter(p=>p.initiativeId===initiativeId).flatMap(p=>p.businessId?[p.businessId]:[]))];
+    const participatingBusinesses = [...new Set(Object.values(state.entities.participations).filter(p=>p.initiativeId===initiativeId&&p.validFrom<=today&&(!p.validTo||p.validTo>=today)).flatMap(p=>p.businessId?[p.businessId]:[]))];
     const areaLabels=participatingBusinesses.map(id=>{const b=state.entities.businesses[id];return `${state.entities.businessAreas[b?.businessAreaId]?.name ?? "Område behöver anges"} · ${b?.name??""}`;});
     const obstacle = requirement?.missingItem ??
       (step === "UTKAST" ? "Utkastet är inte inskickat till beredning" :
@@ -64,16 +64,17 @@ export function caseOverview(state: DemoState, today = new Date().toISOString().
       if(ready.ready||ready.prioritized){overview.step=ready.ready?"STARTKLAR":"PRIORITERAD";overview.nextAction=ready.ready?"Fatta mänskligt startbeslut":"Färdigställ startkraven";overview.obstacle=ready.ready?"Underlaget är startklart; ett mänskligt beslut återstår.":ready.blockers[0];}
     }
     if(initiativeId&&latestDecision(state,initiativeId)) {
-      const stage=transformationStage(state,initiativeId),cs=activeCommitments(state,initiativeId);
+      const stage=transformationStage(state,initiativeId);
       overview.step=stage==="Avslutat"?"AVSLUTAT":stage==="Under mätning"?"MATNING":"PAGAENDE";
-      const change=cs.find(c=>!c.details?.changeCompletedAt);
-      const pending=cs.flatMap(c=>c.details?.measurementDates.filter(date=>!Object.values(state.entities.measurementPoints).some(m=>m.measurementPlanId===c.measurementPlanId&&m.measuredAt===date&&m.verifiedAt)).map(date=>({c,date}))??[]).sort((a,b)=>a.date.localeCompare(b.date))[0];
-      const nextRole=change?.details?.changeResponsibleId ?? (pending&&state.entities.measurementPlans[pending.c.measurementPlanId].responsibleRoleAssignmentId);
-      overview.responsible=nextRole?state.entities.people[state.entities.roleAssignments[nextRole].personId].displayName:"Ansvarig saknas";
+      const followUp=effectFollowUp(state,initiativeId,today);
+      const change=followUp.changes[0];
+      const pending=followUp.next;
+      const nextRole=change?.details?.changeResponsibleId ?? (pending&&!pending.point&&state.entities.measurementPlans[pending.c.measurementPlanId].responsibleRoleAssignmentId);
+      overview.responsible=stage==="Avslutat"?"Avslutat":pending?.point&&!change?"Specialist verifierar":nextRole?state.entities.people[state.entities.roleAssignments[nextRole].personId].displayName:"Ansvarig saknas";
       overview.dueDate=change?.details?.changeDueDate??pending?.date;
-      overview.overdue=!!overview.dueDate&&overview.dueDate<today;
-      overview.nextAction=stage==="Avslutat"?"Använd lärdom inför eventuell skalning":change?"Genomför beslutad verksamhetsförändring":pending?"Rapportera och verifiera beslutad mätpunkt":"Bedöm utfall och dokumentera lärdom inför avslut";
-      overview.obstacle=stage==="Avslutat"?"Beslut och uppmätt utfall bevaras":change?change.details?.changeDescription??"Förändring återstår":pending?"Beslutad mätning är ännu inte verifierad":"Full effekt är uppmätt";
+      overview.overdue=stage!=="Avslutat"&&!!overview.dueDate&&overview.dueDate<today;
+      overview.nextAction=stage==="Avslutat"?"Använd lärdom inför eventuell skalning":change?"Genomför beslutad verksamhetsförändring":pending?(pending.point?"Verifiera rapporterad mätpunkt":pending.date>today?"Invänta planerad mättidpunkt":"Rapportera beslutad mätpunkt"):"Bedöm utfall och dokumentera lärdom inför avslut";
+      overview.obstacle=stage==="Avslutat"?"Beslut och uppmätt utfall bevaras":change?change.details?.changeDescription??"Förändring återstår":pending?"Beslutad mätning är ännu inte verifierad":"Mätplanen är verifierad; bedöm utfallet mot målet";
     }
     return overview;
   });

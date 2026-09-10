@@ -1,3 +1,4 @@
+import { createId } from "../../domain";
 import { expect, it } from "vitest";
 import { initializeDemoState } from "../initializeDemoState";
 import { stage3Ids } from "../../demo-data/stage3DemoData";
@@ -21,6 +22,11 @@ it("behåller externa och indirekta förutsättningar utan att ändra områdets 
 
 it("samlar initiativ kring en gemensam förutsättning och respekterar deltagandets datum", () => {
   const state = initializeDemoState();
+  expect(portfolioLens(state, "Alla", "2026-10-01").shared.find(g=>g.node.id===stage3Ids.sharedNode)).toBeUndefined();
+  const successor={...state.entities.executionNodes[stage3Ids.sharedNode],id:createId("ExecutionNode","reuse-delivery"),ownerInitiativeId:stage3Ids.reuseInitiative,contextInitiativeIds:[stage3Ids.reuseInitiative]};
+  state.entities.executionNodes[successor.id]=successor;
+  const edge={...Object.values(state.entities.dependencies)[0],id:createId("Dependency","real-reuse"),predecessorNodeId:stage3Ids.sharedNode,successorNodeId:successor.id,blocking:true};
+  state.entities.dependencies[edge.id]=edge;
   const group = portfolioLens(state, "Alla", "2026-10-01").shared.find(g => g.node.id === stage3Ids.sharedNode);
   expect(group?.consumers).toEqual(expect.arrayContaining([stage3Ids.valueInitiative, stage3Ids.reuseInitiative]));
   Object.values(state.entities.participations).forEach(p => { p.validFrom = "2027-01-01"; });

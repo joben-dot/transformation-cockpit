@@ -1,7 +1,7 @@
 import type { DemoState } from "../demoState";
 import type { InitiativeId } from "../../domain";
 import { caseOverview } from "./caseSelectors";
-import { activeSteeringProfile } from "./prioritySelectors";
+import { activeSteeringProfile,latestPriorityAssessment } from "./prioritySelectors";
 import { currentEffectPotentials } from "./effectPotentialSelectors";
 import { prerequisiteGraph } from "./executionSelectors";
 
@@ -9,8 +9,8 @@ import { prerequisiteGraph } from "./executionSelectors";
 export function cockpitCases(state:DemoState,day:string) {
   const profile=activeSteeringProfile(state);
   const items=caseOverview(state,day).map(item=>{
-    const assessments=Object.values(state.entities.priorityAssessments).filter(a=>a.initiativeId===item.initiativeId&&a.steeringProfileVersionId===profile?.id&&a.status!=="DRAFT");
-    const assessment=assessments.sort((a,b)=>b.assessedAt.localeCompare(a.assessedAt))[0];
+    const latest=item.initiativeId?latestPriorityAssessment(state,item.initiativeId,profile?.id):undefined;
+    const assessment=latest?.status!=="DRAFT"?latest:undefined;
     const stale=!!assessment&&currentEffectPotentials(state,assessment.initiativeId).some(p=>!assessment.effectPotentialIds.includes(p.id));
     const rankable=item.comparable&&!!assessment&&!stale;
     return {...item,assessment,stale,rankable,priorityScore:rankable?assessment.totalScore:undefined,createdAt:state.entities.challenges[item.challengeId].createdAt};
@@ -25,7 +25,7 @@ export function initiativeDependencies(state:DemoState,ids:InitiativeId[]) {
     return graph.nodes.filter(n=>n.ownerInitiativeId&&n.ownerInitiativeId!==id).flatMap(node=>{
       const edges=graph.dependencies.filter(d=>d.blocking&&d.predecessorNodeId===node.id);
       if(!edges.length)return [];
-      return [{initiativeId:id,ownerInitiativeId:node.ownerInitiativeId!,node,edges,available:node.availabilityStatus==="AVAILABLE",beforeStart:edges.some(e=>e.requiredAt==="NODE_START")}];
+      return [{initiativeId:id,ownerInitiativeId:node.ownerInitiativeId!,node,edges,available:node.availabilityStatus==="AVAILABLE",beforeStart:edges.some(e=>e.requiredAt==="INITIATIVE_START"&&state.entities.executionNodes[e.successorNodeId]?.ownerInitiativeId===id)}];
     });
   });
 }

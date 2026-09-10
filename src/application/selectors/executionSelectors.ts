@@ -1,5 +1,5 @@
 import type { DemoState } from "../demoState";
-import type { ExecutionNodeId, InitiativeId } from "../../domain";
+import type { Dependency, ExecutionNodeId, InitiativeId } from "../../domain";
 
 export function prerequisiteGraph(
   state: DemoState,
@@ -7,7 +7,7 @@ export function prerequisiteGraph(
 ) {
   const included = new Set(
     Object.values(state.entities.executionNodes)
-      .filter((node) => node.contextInitiativeIds.includes(initiativeId))
+      .filter((node) => node.ownerInitiativeId === initiativeId || node.contextInitiativeIds.includes(initiativeId))
       .map((node) => node.id),
   );
   // Follow incoming relationships across ownership boundaries. Never follow unrelated successors.
@@ -82,14 +82,25 @@ export function topologicalExecutionOrder(
   };
 }
 
-/** The same prerequisite gate is used by the start decision and its summaries. */
+/** A delivery start is not an initiative start. Only explicit gates for this owner apply. */
+export function initiativeStartDependencies(state: DemoState, initiativeId: InitiativeId) {
+  return Object.values(state.entities.dependencies).filter(edge => edge.blocking
+    && edge.requiredAt === "INITIATIVE_START"
+    && state.entities.executionNodes[edge.successorNodeId]?.ownerInitiativeId === initiativeId);
+}
+
+export function dependencyDueDate(state: DemoState, edge: Dependency) {
+  return edge.requiredAt === "NODE_START"
+    ? state.entities.executionNodes[edge.successorNodeId]?.plannedPeriod.from
+    : edge.requiredAt === "MILESTONE" ? edge.requiredBy ?? state.entities.executionNodes[edge.predecessorNodeId]?.neededAt
+    : undefined;
+}
+
 export function unavailableStartPrerequisites(state: DemoState, initiativeId: InitiativeId) {
-  const graph = prerequisiteGraph(state, initiativeId);
-  const prerequisiteIds = new Set(graph.dependencies
-    .filter(edge => edge.blocking && edge.requiredAt === "NODE_START")
+  const prerequisiteIds = new Set(initiativeStartDependencies(state, initiativeId)
     .map(edge => edge.predecessorNodeId));
-  return graph.nodes.filter(node => prerequisiteIds.has(node.id)
-    && node.ownerInitiativeId !== initiativeId && node.availabilityStatus !== "AVAILABLE");
+  return Object.values(state.entities.executionNodes).filter(node => prerequisiteIds.has(node.id)
+    && node.availabilityStatus !== "AVAILABLE");
 }
 
 export function wouldCreateBlockingCycle(
@@ -129,6 +140,7 @@ export function blockingChains(state: DemoState, initiativeId: InitiativeId) {
         graph.dependencies
           .filter((edge) => edge.blocking && edge.successorNodeId === id)
           .forEach((edge) => {
+            if (indirect.has(edge.predecessorNodeId)) return;
             indirect.add(edge.predecessorNodeId);
             walk(edge.predecessorNodeId);
           });
@@ -156,7 +168,7 @@ export function dependencyReadiness(
   );
   return {
     blockedBeforeStart: unresolved.filter(
-      (edge) => edge.blocking && edge.requiredAt === "NODE_START",
+      (edge) => edge.blocking && (edge.requiredAt === "NODE_START" || edge.requiredAt === "INITIATIVE_START"),
     ),
     laterMilestones: unresolved.filter(
       (edge) => edge.blocking && edge.requiredAt === "MILESTONE",

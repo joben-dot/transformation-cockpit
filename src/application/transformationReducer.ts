@@ -2,7 +2,7 @@ import { createId } from "../domain";
 import type { Command } from "./commands";
 import type { CommandResult } from "./commandResult";
 import type { DemoState } from "./demoState";
-import { acceptedCommitment, activeCommitments, commitmentBlockers, effectOutcome, hasMandate, latestDecision, preparedEconomics, roleValid, startBlockers, validDate } from "./selectors/transformationSelectors";
+import { acceptedCommitment, activeCommitments, commitmentBlockers, effectFollowUp, effectOutcome, hasMandate, latestDecision, preparedEconomics, roleValid, startBlockers, validDate } from "./selectors/transformationSelectors";
 import { costSummary, costsByOrigin } from "./selectors/costSelectors";
 import { prerequisiteGraph } from "./selectors/executionSelectors";
 
@@ -17,7 +17,7 @@ export function transformationReducer(state: DemoState, command: Command): Comma
   const next=structuredClone(state), e=next.entities;
   const id="targetId" in command ? command.targetId : "";
   const affected: string[]=[id];
-  const commitTarget=Object.values(e.effectCommitments).find(c=>c.id===id);
+  const commitTarget=Object.values(e.effectCommitments).find(c=>c.id===id || ("payload" in command && "commitmentId" in command.payload && c.id===command.payload.commitmentId) || (command.commandType==="VERIFY_EFFECT_MEASUREMENT"&&c.measurementPlanId===Object.values(e.measurementPoints).find(m=>m.id===command.targetId)?.measurementPlanId));
   const commandInitiative="payload" in command && "initiativeId" in command.payload ? command.payload.initiativeId : commitTarget?.initiativeId;
   if(commandInitiative && e.initiatives[commandInitiative]?.closedAt)return fail(state,"Ärendet är avslutat. Skapa ett separat initiativ för nästa förändring.");
   switch (command.commandType) {
@@ -75,6 +75,8 @@ export function transformationReducer(state: DemoState, command: Command): Comma
     case "CONFIRM_BUSINESS_CHANGE": {
       const c=Object.values(e.effectCommitments).find(c=>c.id===id); if(!c?.details || !activeCommitments(next,c.initiativeId).some(x=>x.id===id))return fail(state,"Förändringen måste tillhöra ett startat och beslutat åtagande.");
       if(c.details.changeCompletedAt)return fail(state,"Förändringen är redan bekräftad.");
+      const originalStart=Object.values(e.humanDecisions).filter(d=>d.initiativeId===c.initiativeId&&d.decisionType==="START").sort((a,b)=>a.decidedAt.localeCompare(b.decidedAt))[0];
+      if(!originalStart||command.payload.date<originalStart.decidedAt.slice(0,10))return fail(state,"Genomförd förändring får inte dateras före initiativets startbeslut.");
       if(actor!==c.details.changeResponsibleId||!validDate(command.payload.date)||command.payload.date>day||!command.payload.evidence.trim())return fail(state,"Utpekad förändringsansvarig ska ange genomfört datum och evidens.");
       c.details.changeCompletedAt=command.payload.date;c.details.changeEvidence=command.payload.evidence;break;
     }
@@ -103,7 +105,7 @@ export function transformationReducer(state: DemoState, command: Command): Comma
       const cs=activeCommitments(next,command.targetId);
       if(!cs.length || e.initiatives[command.targetId]?.closedAt)return fail(state,"Ett pågående initiativ med beslutade åtaganden krävs.");
       if(!roleValid(next,actor,day,"DECISION_MAKER")||!hasMandate(next,actor,"START_TRANSFORMATION",day))return fail(state,"Avslut kräver giltigt beslutsmandat.");
-      if(cs.some(c=>!c.details?.changeCompletedAt || !Object.values(e.measurementPoints).some(m=>m.measurementPlanId===c.measurementPlanId&&m.measuredAt===c.details?.fullEffectDate&&m.verifiedAt)))return fail(state,"Samtliga lokala förändringar och verifierad mätning vid full effekt krävs före avslut.");
+      if(!effectFollowUp(next,command.targetId,day).complete)return fail(state,"Samtliga lokala förändringar och alla beslutade mätpunkter, inklusive full effekt, ska vara verifierade före avslut.");
       if(!command.payload.observation.trim()||!command.payload.evidence.trim())return fail(state,"Dokumentera lärdom och underlag även när effektmålet inte uppnåddes.");
       e.initiatives[command.targetId].closedAt=command.issuedAt;
       const lId=createId("LearningRecord",command.commandId);e.learningRecords[lId]={id:lId,initiativeId:command.targetId,observation:command.payload.observation,evidenceReferences:[command.payload.evidence],recordedAt:command.issuedAt};affected.push(lId);

@@ -118,3 +118,13 @@
 .product-shell:has(.process-navigation) .data-provenance>summary {font-size:15px;}
 .product-shell .inline-feedback {font-size:16px;margin:0;line-height:1.4;}
 @media(min-width:1050px){.product-shell .process-navigation button{font-size:14px;padding:7px 8px;align-items:flex-start;gap:7px;overflow-wrap:normal;word-break:normal;}}
+.product-shell .progress-actions > button { background: #176c55; color: white; border: 1px solid #12553f; border-radius: 7px; padding: 12px 18px; cursor: pointer; font: inherit; font-weight: 600; }
+.product-shell .progress-actions > button:hover { background: #12553f; }
+.product-shell .dependency-disclosure { background: #fff; border: 1px solid #cbd8d1; border-radius: 8px; padding: 12px 16px; margin: 10px 0; font-size: 16px; }
+.product-shell .dependency-disclosure > summary { font-size: 16px; font-weight: 600; cursor: pointer; }
+.product-shell .dependency-disclosure h2 { font-size: 19px; margin: 16px 0 6px; }
+.product-shell .dependency-disclosure h3 { font-size: 18px; margin: 0 0 6px; }
+.product-shell .dependency-disclosure p { font-size: 16px; line-height: 1.4; margin: 5px 0; }
+.product-shell .dependency-disclosure ul { list-style: none; padding: 0; }
+.product-shell .dependency-disclosure li { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 14px 0; border-top: 1px solid #e1e8e3; }
+@media (max-width: 700px) { .product-shell .dependency-disclosure li { flex-direction: column; } }

@@ -21,6 +21,9 @@ export function validateStage3State(state: DemoState): string[] {
       !state.entities.executionNodes[edge.successorNodeId]
     )
       errors.push(`Beroende ${edge.id} saknar nod.`);
+    if (!["INITIATIVE_START","NODE_START","MILESTONE"].includes(edge.requiredAt)) errors.push(`Beroende ${edge.id} saknar giltigt behovstillfälle.`);
+    if (edge.requiredBy && (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(edge.requiredBy) || Number.isNaN(Date.parse(edge.requiredBy)) || new Date(edge.requiredBy).toISOString().slice(0,10)!==edge.requiredBy)) errors.push(`Beroende ${edge.id} har ogiltigt behovsdatum.`);
+    if (edge.requiredAt==="INITIATIVE_START" && !state.entities.executionNodes[edge.successorNodeId]?.ownerInitiativeId) errors.push(`Startvillkor ${edge.id} saknar ägande initiativ.`);
     if (edge.predecessorNodeId === edge.successorNodeId)
       errors.push(`Beroende ${edge.id} är självrefererande.`);
   });

@@ -38,6 +38,14 @@ export const activeSteeringProfile = (state: DemoState) =>
   Object.values(state.entities.steeringProfileVersions).find(
     (item) => item.status === "ACTIVE",
   );
+export const priorityPosition = (assessment?: PriorityAssessment) =>
+  assessment && ["ACCEPTED", "OVERRIDDEN"].includes(assessment.status)
+    ? assessment.humanRecommendation ?? (assessment.status === "ACCEPTED" ? assessment.systemRecommendation : undefined)
+    : undefined;
+export const latestPriorityAssessment = (state: DemoState, id: InitiativeId, profileId?: SteeringProfileVersionId) =>
+  Object.values(state.entities.priorityAssessments).filter(a=>a.initiativeId===id&&(!profileId||a.steeringProfileVersionId===profileId))
+    .reverse().sort((a,b)=>b.assessedAt.localeCompare(a.assessedAt))[0];
+export const priorityPositionLabels = {START:"Gå vidare till startprövning",INVESTIGATE:"Utred vidare",WAIT:"Avvakta",STOP:"Avstå",NOT_ELIGIBLE:"Underlag saknas"};
 export interface PriorityCalculationInput {
   assessmentId: PriorityAssessmentId;
   initiativeId: InitiativeId;

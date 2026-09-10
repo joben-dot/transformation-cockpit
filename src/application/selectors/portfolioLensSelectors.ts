@@ -13,7 +13,15 @@ export function portfolioLens(state:DemoState,area:string,day:string) {
   const selectedIds=new Set(selected.map(i=>i.id));
   const externalIds=new Set(nodes.flatMap(n=>n.ownerInitiativeId&&!selectedIds.has(n.ownerInitiativeId)?[n.ownerInitiativeId]:[]));
   const dependencies=Object.values(e.dependencies).filter(d=>nodeIds.has(d.predecessorNodeId)&&nodeIds.has(d.successorNodeId));
-  const shared=nodes.map(node=>({node,consumers:graphs.filter(g=>(node.contextInitiativeIds.includes(g.id)&&node.ownerInitiativeId!==g.id)||g.graph.dependencies.some(d=>d.predecessorNodeId===node.id)).map(g=>g.id)})).filter(x=>x.consumers.length>1).sort((a,b)=>b.consumers.length-a.consumers.length);
+  const dependsOn=(initiativeId:InitiativeId,nodeId:string)=>{
+    const visited=new Set<string>();
+    const walk=(id:string):boolean=>{
+      if(visited.has(id))return false;visited.add(id);
+      return Object.values(e.dependencies).filter(d=>d.blocking&&d.successorNodeId===id).some(d=>d.predecessorNodeId===nodeId||walk(d.predecessorNodeId));
+    };
+    return Object.values(e.executionNodes).filter(n=>n.ownerInitiativeId===initiativeId).some(n=>walk(n.id));
+  };
+  const shared=nodes.map(node=>({node,consumers:graphs.filter(g=>dependsOn(g.id,node.id)).map(g=>g.id)})).filter(x=>x.consumers.length>1).sort((a,b)=>b.consumers.length-a.consumers.length);
   return {selected,selectedIds,externalIds,nodes,dependencies,shared};
 }
 

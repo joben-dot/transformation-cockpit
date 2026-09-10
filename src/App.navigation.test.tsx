@@ -9,12 +9,12 @@ const text = (value: unknown): string => {
   return (value as { children: unknown[] }).children.map(text).join("");
 };
 
-it("visar samma startberoende via jämförelse och i ärendets detaljsteg",()=>{
+it("visar samma leveransberoende via jämförelse och i ärendets detaljsteg",()=>{
   const state=initializeDemoState(),before=JSON.stringify(state);
   const root=create(<App demoState={state}/>).root;
   const click=(label:string)=>act(()=>root.findAllByType("button").find(b=>text(b).trim()===label)!.props.onClick());
   const summary=()=>root.findByProps({"aria-label":"Initiativets beroenden"});
-  const check=()=>{expect(text(summary())).toContain("Start blockeras av 1 förutsättning");expect(text(summary())).toContain("Gemensam datamiljö");};
+  const check=()=>{expect(text(summary())).toContain("inför leveranser");expect(text(summary())).toContain("Gemensam datamiljö");};
   click("Prioritering");
   act(()=>root.findAllByType("button").find(b=>b.props.className?.includes("comparison-card")&&text(b).includes("Bättre planering"))!.props.onClick());
   expect(root.findByProps({id:"potential"}).props.hidden).toBe(false);
@@ -164,7 +164,7 @@ it("öppnar exakt förutsättning från ärendets sammanfattning och återgår t
   act(()=>row!.props.onClick());
   const title=root.findAllByType("h1").map(text)[0];
   const summary=root.findByProps({"aria-label":"Initiativets beroenden"});
-  expect(text(summary)).toContain("Start blockeras av");
+  expect(text(summary)).toContain("inför leveranser");
   const dependency=summary.findAllByType("button").find(b=>b.props["aria-label"]?.startsWith("Visa förutsättningen:"))!;
   const expected=dependency.props["aria-label"].replace("Visa förutsättningen: ","");
   act(()=>dependency.props.onClick());

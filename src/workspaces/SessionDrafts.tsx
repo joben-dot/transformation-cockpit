@@ -11,15 +11,17 @@ export function SessionDrafts({ children }: { children: ReactNode }) {
 // eslint-disable-next-line react-refresh/only-export-components
 export function useSessionDraft<T>(key: string, initial: T | (() => T)) {
   const drafts = useContext(DraftContext);
-  const [value, setValue] = useState<T>(() => drafts?.has(key) ? drafts.get(key) as T
-    : typeof initial === "function" ? (initial as () => T)() : initial);
+  const read = () => drafts?.has(key) ? drafts.get(key) as T : typeof initial === "function" ? (initial as () => T)() : initial;
+  const [entry, setEntry] = useState(() => ({key, value: read()}));
+  const value = entry.key === key ? entry.value : read();
+  if (entry.key !== key) setEntry({key, value});
   const current = useRef(value);
   current.current = value;
   const setDraft = (next: SetStateAction<T>) => {
     const result = typeof next === "function" ? (next as (previous: T) => T)(current.current) : next;
     current.current = result;
     drafts?.set(key, result);
-    setValue(result);
+    setEntry({key, value:result});
   };
   return [value, setDraft] as const;
 }

@@ -6,6 +6,13 @@ import { demoReducer } from "./demoReducer";
 import { costsByOrigin } from "./selectors/costSelectors";
 const actor = (state: ReturnType<typeof baseDemoState>) =>
   Object.keys(state.entities.roleAssignments)[0] as RoleAssignmentId;
+it.each([["2026-11-30",true],["2026-02-31",false],["fel datum",false]] as const)("validerar milstolpens behovsdatum %s",(requiredBy,valid)=>{
+  const state=baseDemoState(),edge=Object.values(state.entities.dependencies)[0];
+  const {id:_id,...payload}=edge;void _id;
+  const result=demoReducer(state,{commandId:createId("Command","milestone-date"),actorRoleAssignmentId:actor(state),issuedAt:"2026-09-06T12:00:00Z",commandType:"ADD_DEPENDENCY",targetId:createId("Dependency","milestone-date"),payload:{...payload,requiredAt:"MILESTONE",dependencyType:"MILESTONE",requiredBy}});
+  expect(result.success,result.success?"":result.errors.map(e=>e.description).join("; ")).toBe(valid);
+  if(!valid)expect(result.nextState).toBe(state);
+});
 describe("gemensam valideringsgrund för etapp 3", () => {
   it("avvisar omvänd kapacitetsperiod atomärt", () => {
     const state = baseDemoState();

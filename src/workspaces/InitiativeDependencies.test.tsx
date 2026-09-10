@@ -12,13 +12,17 @@ const id = stage3Ids.valueInitiative;
 
 describe("beroenden direkt i ärendeflödet", () => {
   it("visar startstopp, faktisk ägare och datum, utan att ändra prioritering eller fatta beslut", () => {
-    const state = initializeDemoState(), before = JSON.stringify(state), open = vi.fn();
+    const state = initializeDemoState(), open = vi.fn();
+    const gate=prerequisiteGraph(state,id).dependencies.find(d=>state.entities.executionNodes[d.predecessorNodeId].ownerInitiativeId!==id&&state.entities.executionNodes[d.successorNodeId].ownerInitiativeId===id)!;
+    gate.requiredAt="INITIATIVE_START";
+    const before=JSON.stringify(state);
     const node = unavailableStartPrerequisites(state, id)[0];
     const view = create(<InitiativeDependencies state={state} id={id} day="2026-09-06" onOpen={open}/>);
-    expect(text(view.root)).toContain("Start blockeras av");
+    expect(text(view.root)).toContain("1 villkor för startbesked");
     expect(text(view.root)).toContain(node.title);
-    expect(text(view.root)).toContain(node.neededAt);
-    expect(text(view.root)).toContain("Beroendet hindrar inte i sig beredning eller prioritering");
+    expect(view.root.findAllByType("details")[0].props.open).not.toBe(true);
+    expect(text(view.root)).toContain(state.entities.executionNodes[gate.successorNodeId].title);
+    expect(text(view.root)).toContain("Beredning och prioritering kan fortsätta");
     const button = view.root.findAllByType("button").find(b => b.props["aria-label"] === `Visa förutsättningen: ${node.title}`)!;
     act(() => button.props.onClick());
     expect(open).toHaveBeenCalledWith(node.id);
@@ -31,14 +35,14 @@ describe("beroenden direkt i ärendeflödet", () => {
     const view = create(<InitiativeDependencies state={state} id={id} day="2026-09-06" onOpen={()=>{}}/>);
     expect(unavailableStartPrerequisites(state,id)).toHaveLength(0);
     expect(text(view.root)).not.toContain("Start blockeras");
-    expect(text(view.root)).toContain("Krävs vid senare milstolpe");
+    expect(text(view.root)).toContain("Krav vid senare milstolpe");
   });
   it("visar saknade ansvar och datum och deklarerar inte automatisk startklarhet när beroenden lösts", () => {
     const state = initializeDemoState();
     const nodes = prerequisiteGraph(state,id).nodes;
-    for (const node of nodes) { node.responsibleRoleAssignmentId = undefined; node.neededAt = ""; }
+    for (const node of nodes) { node.responsibleRoleAssignmentId = undefined; node.neededAt = ""; node.plannedPeriod.from = ""; }
     const view = create(<InitiativeDependencies state={state} id={id} day="2026-09-06" onOpen={()=>{}}/>);
-    expect(text(view.root)).toContain("Ansvarig saknas");expect(text(view.root)).toContain("Datum saknas");
+    expect(text(view.root)).toContain("Ansvarig saknas");expect(text(view.root)).toContain("datum saknas");
     for (const node of nodes) node.availabilityStatus = "AVAILABLE";
     act(()=>view.update(<InitiativeDependencies state={state} id={id} day="2026-09-06" onOpen={()=>{}}/>));
     expect(text(view.root)).not.toContain("Start blockeras");

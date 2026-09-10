@@ -21,7 +21,7 @@ export const completionRequirementsByInitiative = (
   initiativeId: InitiativeId,
 ) =>
   Object.values(state.entities.completionRequirements).filter(
-    (item) => item.initiativeId === initiativeId,
+    (item) => item.initiativeId === initiativeId || item.challengeId === state.entities.initiatives[initiativeId]?.challengeId,
   );
 export const qualificationBlockers = (
   state: DemoState,
@@ -183,7 +183,7 @@ export function deriveNextCriticalStep(
     };
   if (blockers.length)
     return {
-      label: "Verifiera inskickat underlag",
+      label: blockers.some(item=>item.status!=="SUBMITTED")?"Komplettera underlaget":"Verifiera inskickat underlag",
       sourceRefs: blockers.map((item) => item.id),
     };
   if (!isInitiativeQualified(state, initiativeId))

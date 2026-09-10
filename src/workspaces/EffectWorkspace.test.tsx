@@ -24,7 +24,7 @@ it("går genom synliga formulär från lokalt utkast till start, verifierad mät
   enter("Mandat att binda", "Syntetiskt verksamhetsmandat");check("Jag accepterar aktivt");submit("Acceptera lokalt effektåtagande");
   expect(text(root)).toContain("Aktivt accepterat");
   enter("Ny mottagande verksamhet",referenceCommitment.businessId,"select");enter("Person som registrerar deltagandet",roleAssignments[1].id,"select");submit("Lägg till effektmottagare");
-  click("2. Start och beslut");
+  click("7. Startbeslut");
   const priority=control("Prioriteringsunderlag","select").findAllByType("option")[1].props.value;
   enter("Prioriteringsunderlag",priority,"select");enter("Styrversion","GOVERNANCE-DEMO-1","select");
   for(const label of ["Finansiering –", "Genomförandekapacitet –", "Lagkrav och", "Kvalitetskrav –", "Beroenden –", "Samlad ekonomi –"])enter(label,"Syntetisk dokumenterad bedömning för detta ärende");
@@ -35,11 +35,15 @@ it("går genom synliga formulär från lokalt utkast till start, verifierad mät
   submit("Spara nytt beslutspaket och pröva startklarhet");
   expect(text(root)).toContain("Underlaget är komplett");
   enter("Beslutsmotivering","Syntetiskt aktivt startbeslut");check("Jag fattar aktivt beslut");submit("Fatta startbeslut");
-  click("4. Beslutshistorik");expect(text(root)).toContain("Beslutsversion 1");expect(text(root)).toContain("Syntetiskt aktivt startbeslut");
-  click("3. Förändring och mätning");enter("Demodatum","2026-12-31");click("Tillämpa demodatum");
+  click("Beslutshistorik");expect(text(root)).toContain("Beslutsversion 1");expect(text(root)).toContain("Syntetiskt aktivt startbeslut");
+  click("8. Genomförande");enter("Demodatum","2026-12-31");click("Tillämpa demodatum");
   enter("Aktiv person för",referenceCommitment.details.changeResponsibleId,"select");enter("Förändringen genomförd","2026-12-31");enter("Evidens för att arbetssättet","Syntetisk rutin används");submit("Bekräfta genomförd förändring");
+  click("9. Effektuppföljning");enter("Aktiv person för",referenceCommitment.details.changeResponsibleId,"select");
+  enter("Demodatum","2027-12-31");click("Tillämpa demodatum");enter("Beslutad mättidpunkt","2027-06-30","select");enter("Uppmätt nivå","480000");enter("Mätunderlag och evidens","Syntetiskt halvårsuttag");enter("Uppmätt kvalitet och underlag","Alla kritiska tjänster omfattas");enter("Uppfylls beslutad kvalitetsgräns?","yes","select");submit("Rapportera mätpunkt för verifiering");
+  enter("Aktiv person för",roleAssignments[1].id,"select");check("Jag har kontrollerat mätningen");click("Verifiera mätpunkt som specialist");
+  enter("Aktiv person för",referenceCommitment.details.changeResponsibleId,"select");
   enter("Demodatum","2027-12-31");click("Tillämpa demodatum");enter("Beslutad mättidpunkt","2027-12-31","select");enter("Uppmätt nivå","450000");enter("Mätunderlag och evidens","Syntetiskt mätuttag");enter("Uppmätt kvalitet och underlag","Alla kritiska tjänster omfattas");enter("Uppfylls beslutad kvalitetsgräns?","yes","select");submit("Rapportera mätpunkt för verifiering");
-  expect(text(root)).toContain("Ej uppmätt");
+  expect(control("Jag har kontrollerat mätningen").props.checked).toBe(false);
   enter("Aktiv person för",roleAssignments[1].id,"select");check("Jag har kontrollerat mätningen");click("Verifiera mätpunkt som specialist");
   expect(text(root)).toMatch(/150\s000/);
   click("Kontrollrum");click("Effektuppföljning");expect(text(root)).toContain("Digital fiktiv avtalsuppföljning");expect(text(root)).toContain("Under mätning");expect(text(root)).toMatch(/150\s000/);

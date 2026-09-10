@@ -30,6 +30,8 @@ it("leder ett nytt ärende från utkast genom faktisk prioriteringsgranskning ti
  enter("Nuläge","Manuell hantering tar onödig tid.","textarea");enter("Varför strategisk hantering?","Gemensam förbättring över verksamhetsgränser.","textarea");click("Registrera utmaning för fortsatt beredning");complete("material");
  for(const [label,value] of Object.entries({Syfte:"Kortare väntan och mindre dubbelarbete", "Önskat förändrat läge":"En gemensam rutin används",Avgränsning:"Återkoppling på servicefrågor",Alternativ:"Gemensam rutin jämfört med lokala förbättringar","Om vi avstår":"Dubbelarbete kvarstår"}))enter(label,value,"textarea");
  submit("Spara businesscase");click("Registrera initiativ för beredning");complete("businesscase");
+ for(const [l,v] of Object.entries({Mätetal:"Årlig kostnad för dubbelarbete",Enhet:"SEK/år","Bedömda effektmottagare":"Verksamhet Inlopp","Låg potential":"100000","Förväntad potential":"180000","Hög potential":"220000","Evidens / underlagsreferens":"Tidsstudie och kalkyl","Antagande":"Volymen består","Effekthemtagningsfönster":"2027","Tidigast möjlig effekt":"2027-01-01","Full potential tidigast":"2027-12-31"}))enter(l,v);
+ submit("Spara bedömd potential");complete("potential");next("Kvalificering");
  const configuration=Object.values(state().entities.qualificationConfigurations).find(c=>c.status==="ACTIVE")!;
  for(const c of configuration.criteria){
   const input=(label:string)=>root.findAllByType("input").find(i=>i.props["aria-label"]===label)!;
@@ -39,16 +41,14 @@ it("leder ett nytt ärende från utkast genom faktisk prioriteringsgranskning ti
   act(()=>card().findAllByType("button").find(b=>text(b)==="Spara punkt")!.props.onClick());
   if(c.requiresVerification)act(()=>card().findAllByType("button").find(b=>text(b)==="Specialistverifiera")!.props.onClick());
  }
- complete("qualification");next("Bedömd effektpotential");
- for(const [l,v] of Object.entries({Mätetal:"Årlig kostnad för dubbelarbete",Enhet:"SEK/år","Bedömda effektmottagare":"Verksamhet Inlopp","Låg potential":"100000","Förväntad potential":"180000","Hög potential":"220000","Evidens / underlagsreferens":"Tidsstudie och kalkyl","Antagande":"Volymen består","Effekthemtagningsfönster":"2027","Tidigast möjlig effekt":"2027-01-01","Full potential tidigast":"2027-12-31"}))enter(l,v);
- submit("Spara bedömd potential");complete("potential");next("Prioritering");
+ complete("qualification");next("Prioritering");
  const profile=Object.values(state().entities.steeringProfileVersions).find(p=>p.status==="ACTIVE")!;
  for(const c of profile.criteria){enter(`Poäng för ${c.name}`,"65");enter(`Underlag för ${c.name}`,"Bedömning i businesscase och kalkyl");}
  submit("Skapa prioriteringsunderlag från mina bedömningar");
  expect(flow().find(s=>s.key==="priority")?.status).not.toBe("COMPLETE");
  expect(button("Godkänn granskat prioriteringsunderlag").props.disabled).toBe(true);
  enter("Person som granskar prioriteringen",decision,"select");enter("Ställningstagande och motivering","Rimlig potential och förankrat underlag.","textarea");check("Jag har granskat underlaget");submit("Godkänn granskat prioriteringsunderlag");complete("priority");
- expect(latestDecision(state(),id())).toBeUndefined();next("Förutsättningar och kostnad");
+ expect(latestDecision(state(),id())).toBeUndefined();next("Förutsättningar och körordning");
  enter("Ansvarig specialist för förutsättningsunderlaget",specialist,"select");enter("Leveransens namn","Gemensam återkopplingsrutin");enter("Vad ska finnas och varför?","Dokumenterad rutin och utbildning");enter("Planerad från","2026-09-06");enter("Ska finnas senast","2026-12-31");enter("Kriterium för att vara tillgänglig","Rutinen är beslutad och utbildningen genomförd");submit("Registrera planerad förutsättning");
  const node=Object.values(state().entities.executionNodes).find(n=>n.ownerInitiativeId===id())!;expect(node).toBeDefined();
  enter("Kostnaden tillhör",node.id,"select");enter("Kostnadsbelopp i SEK","120000");enter("Kostnadsperiod från","2026-09-06");enter("Kostnadsperiod till","2026-12-31");enter("Kalkylunderlag","Kalkyl över rutin, utbildning och införande");submit("Registrera kostnadsunderlag");complete("conditions");next("Lokala effektåtaganden");
@@ -64,15 +64,19 @@ it("leder ett nytt ärende från utkast genom faktisk prioriteringsgranskning ti
  enter("Ekonomisk jämförelse till","2027-12-31");enter("Beslutsfattare (demo)",decision,"select");submit("Spara nytt beslutspaket och pröva startklarhet");
  expect(button("Fatta startbeslut").props.disabled).toBe(false);
  expect(latestDecision(state(),id())).toBeUndefined();enter("Beslutsmotivering","Genomför enligt granskat och accepterat underlag");check("Jag fattar aktivt beslut");submit("Fatta startbeslut");complete("decision");
- const frozen=JSON.stringify(latestDecision(state(),id()));next("Förändring och effektmätning");
+ const frozen=JSON.stringify(latestDecision(state(),id()));next("Genomförande och förändring");
  enter("Demodatum","2026-12-31");click("Tillämpa demodatum");enter("Aktiv person för",initiator,"select");enter("Förändringen genomförd","2026-12-31");enter("Evidens för att arbetssättet","Rutinen används enligt verksamhetens uppföljning");submit("Bekräfta genomförd förändring");
+ complete("implementation");next("Effektuppföljning");enter("Aktiv person för",initiator,"select");
  enter("Demodatum","2027-12-31");click("Tillämpa demodatum");enter("Beslutad mättidpunkt","2027-12-31","select");enter("Uppmätt nivå","450000");enter("Mätunderlag och evidens","Verifierbart ekonomiskt utfall");enter("Uppmätt kvalitet och underlag","98 procent besvarade frågor");enter("Uppfylls beslutad kvalitetsgräns?","yes","select");submit("Rapportera mätpunkt för verifiering");
  const commitment=()=>Object.values(state().entities.effectCommitments).find(c=>c.initiativeId===id())!;
  expect(effectOutcome(state(),commitment(),"2027-12-31").realized).toBeUndefined();
  enter("Aktiv person för",specialist,"select");check("Jag har kontrollerat mätningen");click("Verifiera mätpunkt som specialist");
  expect(effectOutcome(state(),commitment(),"2027-12-31").realized).toBe(150000);
  expect(JSON.stringify(latestDecision(state(),id()))).toBe(frozen);
+ next("Avslut, lärande och skalning");
  enter("Beslutsfattare vid avslut",decision,"select");enter("Lärdom –","150000 uppnått av 180000 planerat. Förbättra rutinen inför skalning.");enter("Underlag för lärdom","Verifierat utfall och verksamhetsanalys");submit("Avsluta med verifierat utfall");
  expect(state().entities.initiatives[id()].closedAt).toBeDefined();
+ expect(text(root)).toContain("Målet nåddes inte");
+ expect(text(root)).toContain("150000 uppnått av 180000 planerat. Förbättra rutinen inför skalning.");
  click("Kontrollrum");click("Effektuppföljning");expect(text(root)).toContain("Samordnad återkoppling – provärende");
 });

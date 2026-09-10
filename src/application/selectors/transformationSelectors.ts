@@ -3,7 +3,7 @@ import type { DemoState } from "../demoState";
 import type { InitiativeId, LocalEffectCommitment, EffectCommitmentId, RoleAssignmentId } from "../../domain";
 import type { StartPreparation } from "../../domain/transformation";
 import { priorityEligibilityBlockers } from "./prioritySelectors";
-import { topologicalExecutionOrder, unavailableStartPrerequisites } from "./executionSelectors";
+import { prerequisiteGraph, topologicalExecutionOrder, unavailableStartPrerequisites } from "./executionSelectors";
 import { costSummary } from "./costSelectors";
 import { currentEffectPotentials } from "./effectPotentialSelectors";
 import { capacityStatus } from "./capacitySelectors";
@@ -54,6 +54,7 @@ export function startBlockers(state: DemoState, p: StartPreparation, day: string
   if (!i || !profile) return ["Initiativ eller styrprofil saknas."];
   errors.push(...priorityEligibilityBlockers(state,i.id,profile).map(x=>x.description));
   const challenge=e.challenges[i.challengeId];
+  if (!currentEffectPotentials(state,i.id).length) errors.push("Angiven effekt från businesscase saknas. Komplettera nyttokalkylen i steg 2.");
   if(challenge?.nominationStatus!=="NOMINATED")errors.push("Utmaningen måste vara registrerad för beredning.");
   if(challenge) errors.push(...challengeDocumentBlockers(challenge),...businessCaseDocumentBlockers(challenge));
   const a = e.priorityAssessments[p.priorityAssessmentId];
@@ -82,6 +83,11 @@ export function startBlockers(state: DemoState, p: StartPreparation, day: string
   capacityStatus(state,i.id).filter(c=>c.status!=="AVAILABLE").forEach(c=>errors.push(`Genomförandekapacitet ${c.status==="UNKNOWN"?"inte styrkt":"otillräcklig"}: ${c.demand.poolReference}.`));
   if (!topologicalExecutionOrder(state,i.id).valid) errors.push("Förutsättningsgrafen innehåller en cirkel.");
   unavailableStartPrerequisites(state,i.id).forEach(n=>errors.push(`Förutsättning inte klar: ${n.title}.`));
+  const graph=prerequisiteGraph(state,i.id);
+  const milestones=new Set(graph.dependencies.filter(d=>d.blocking&&d.requiredAt==="MILESTONE").map(d=>d.predecessorNodeId));
+  graph.nodes.filter(n=>milestones.has(n.id)&&n.availabilityStatus!=="AVAILABLE").forEach(n=>{
+    if(!validDate(n.neededAt)||!n.responsibleRoleAssignmentId||!roleValid(state,n.responsibleRoleAssignmentId,day)) errors.push(`Senare beroende saknar giltig ansvarig eller datum: ${n.title}.`);
+  });
   Object.values(e.completionRequirements).filter(r=>(r.initiativeId===i.id||r.challengeId===i.challengeId)&&r.blocks.includes("START_DECISION")&&!["VERIFIED","NOT_APPLICABLE"].includes(r.status)).forEach(r=>errors.push(r.missingItem));
   if (!validDate(p.costHorizon.from)||!validDate(p.costHorizon.to)||p.costHorizon.from>p.costHorizon.to) errors.push("Ekonomisk jämförelseperiod saknas.");
   else {

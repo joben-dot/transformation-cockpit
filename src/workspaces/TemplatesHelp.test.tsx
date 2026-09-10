@@ -14,7 +14,7 @@ afterEach(()=>vi.clearAllMocks());
 
 describe("Processguide och mallreferenser",()=>{
  it("har spårbar täckning av samtliga ärendesteg utan att göra dokumentguiden till en statusmotor",()=>{
-   expect(new Set(processGuide.flatMap(stage=>stage.flowSteps))).toEqual(new Set(["material","businesscase","qualification","potential","priority","conditions","commitments","decision","measurement"]));
+   expect(new Set(processGuide.flatMap(stage=>stage.flowSteps))).toEqual(new Set(["material","businesscase","qualification","potential","priority","conditions","commitments","decision","implementation","measurement","learning"]));
    const documents=processGuide.flatMap(stage=>stage.documents.map(document=>document.id));
    expect(new Set(documents).size).toBe(documents.length);
    expect(processGuide.find(stage=>stage.id==="priority")!.purpose).toContain("inte ett startbeslut");

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { PriorityCriteria } from "./PriorityCriteria";
+import { useSessionDraft } from "./SessionDrafts";
 import type { Command, CommandResult, DemoState } from "../application";
 import { createId, type InitiativeId, type PotentialCategory, type RoleAssignmentId } from "../domain";
 import { RoleSelect } from "./transformationUi";
@@ -8,14 +10,14 @@ import { priorityEligibilityBlockers } from "../application/selectors/prioritySe
 type Props = { state: DemoState; initiativeId: InitiativeId; dispatch: (command: Command) => CommandResult; section?: "potential" | "priority" };
 export function AssessmentEditors({ state, initiativeId, dispatch, section }: Props) {
   const profile = Object.values(state.entities.steeringProfileVersions).find(p => p.status === "ACTIVE")!;
-  const [potential, setPotential] = useState({ measure: "", category: "MONEY", unit: "SEK/år", lower: "", expected: "", upper: "", evidence: "", assumption: "", horizon: "", earliest: "", full: "", recipient: "", uncertainty: "MEDIUM" });
-  const [scores, setScores] = useState<Record<string, { score: string; evidence: string; uncertainty: "LOW" | "MEDIUM" | "HIGH" }>>({});
+  const [potential, setPotential] = useSessionDraft(`potential-new-${initiativeId}`, { measure: "", category: "MONEY", unit: "SEK/år", lower: "", expected: "", upper: "", evidence: "", assumption: "", horizon: "", earliest: "", full: "", recipient: "", uncertainty: "MEDIUM" });
+  const [scores, setScores] = useSessionDraft<Record<string, { score: string; evidence: string; uncertainty: "LOW" | "MEDIUM" | "HIGH" }>>(`priority-scores-${initiativeId}`, {});
   const potentials = currentEffectPotentials(state, initiativeId);
   const blockers = priorityEligibilityBlockers(state, initiativeId, profile);
   const latest = Object.values(state.entities.priorityAssessments).filter(a=>a.initiativeId===initiativeId&&a.steeringProfileVersionId===profile.id).sort((a,b)=>b.assessedAt.localeCompare(a.assessedAt))[0];
   const fresh = latest && potentials.every(p=>latest.effectPotentialIds.includes(p.id));
   const [reviewer,setReviewer] = useState<RoleAssignmentId|"">("");
-  const [rationale,setRationale] = useState("");
+  const [rationale,setRationale] = useSessionDraft(`priority-rationale-${initiativeId}`,"");
   const [confirmed,setConfirmed] = useState(false);
   const actor = (kind: string) => Object.values(state.entities.roleAssignments).find(a => state.entities.roleDefinitions[a.roleDefinitionId]?.roleKind === kind)!.id;
   const [feedback, setFeedback] = useState("");
@@ -25,6 +27,7 @@ export function AssessmentEditors({ state, initiativeId, dispatch, section }: Pr
     <h2>{section==="potential"?"Bedömd effektpotential":section==="priority"?"Prioriteringsbedömning":"Effektpotential och prioriteringsbedömning"}</h2>
     <p>Potentialen beskriver vad förändringen kan ge. Verksamhetens bindande åtagande beslutas senare, före start.</p>
     <p role="status">{feedback}</p>
+    {section==="priority"&&<PriorityCriteria profile={profile}/>}
     {section!=="priority"&&<><div className="potential-summary">{potentials.map(p=><article key={p.id}><b>{p.effectMeasureCode}</b><p>{p.expectedValue.toLocaleString("sv-SE")} {p.unit} · bedömt intervall {p.lowerBound.toLocaleString("sv-SE")}–{p.upperBound.toLocaleString("sv-SE")}</p><p>{p.realizationWindow} · full potential {p.fullPotentialDate}</p></article>)}</div><details data-step-work="potential" open={!potentials.length}><summary>Lägg till en bedömd effektpotential</summary>
       <form className="material-form" onSubmit={e => {
         e.preventDefault(); const id = token();

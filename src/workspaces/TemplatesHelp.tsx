@@ -1,3 +1,4 @@
+import { token } from "./transformationHelpers";
 import { useEffect, useRef, useState } from "react";
 import { FileText, Link as LinkIcon, Upload } from "lucide-react";
 import { processGuide, type GuideDocument } from "./processGuide";
@@ -19,7 +20,7 @@ function TemplateSlot({document,resources,onChanged}:{document:GuideDocument;res
     <details className="template-add"><summary><Upload size={18} aria-hidden="true"/> Lägg till mall eller länk</summary>
       <p>Koppla en befintlig mall till <strong>{document.title}</strong>. Referensen sparas bara i din webbläsare. Den ändrar inte ärendens formulär eller beslutskrav.</p>
       <form onSubmit={async event=>{event.preventDefault();setBusy(true);setMessage("");try{
-        await saveTemplateResource({id:crypto.randomUUID(),documentId:document.id,title:title.trim(),owner:owner.trim(),version:version.trim(),addedAt:new Date().toISOString(),kind:mode,...(mode==="link"?{url}:{blob:file,fileName:file?.name})});
+        await saveTemplateResource({id:token(),documentId:document.id,title:title.trim(),owner:owner.trim(),version:version.trim(),addedAt:new Date().toISOString(),kind:mode,...(mode==="link"?{url}:{blob:file,fileName:file?.name})});
         await onChanged();setTitle("");setOwner("");setVersion("");setUrl("");setFile(undefined);if(fileInputRef.current)fileInputRef.current.value="";setMessage("Sparad i den här webbläsaren. Mallens innehåll och status behöver granskas innan gemensam användning.");
       }catch(error){setMessage(error instanceof Error?error.message:"Mallen kunde inte sparas.");}finally{setBusy(false);}}}>
         <fieldset disabled={busy}><legend>Malluppgifter</legend>
@@ -37,7 +38,7 @@ function TemplateSlot({document,resources,onChanged}:{document:GuideDocument;res
   </article>;
 }
 
-export function TemplatesHelp({stageId="challenge",onStageChange,openCases,onShowProcess,focusRequest=0}:{stageId?:string;onStageChange:(id:string)=>void;openCases:()=>void;onShowProcess?:()=>void;focusRequest?:number}) {
+export function TemplatesHelp({stageId="challenge",onStageChange,openCases,onShowProcess,focusRequest=0,openGovernance}:{stageId?:string;onStageChange:(id:string)=>void;openCases:()=>void;onShowProcess?:()=>void;focusRequest?:number;openGovernance?:()=>void}) {
   const stage=processGuide.find(item=>item.id===stageId)??processGuide[1];
   const [resources,setResources]=useState<TemplateResource[]>([]),[error,setError]=useState("");
   const detailRef=useRef<HTMLElement>(null);
@@ -51,6 +52,7 @@ export function TemplatesHelp({stageId="challenge",onStageChange,openCases,onSho
   return <section className="templates-help" aria-labelledby="templates-help-title">
     <header className="guide-heading"><p className="eyebrow">GEMENSAMT ARBETSSÄTT · FRÅN BEHOV TILL EFFEKT</p><h1 id="templates-help-title">Mallar och hjälp</h1><p className="lead">Följ processen. Se vilket underlag som behövs och vem som bidrar – även när arbetet sker utanför verktyget.</p></header>
     {!onShowProcess&&<MethodGuideNavigation stageId={stage.id} onStageChange={select} openCases={openCases} navigationRef={processRef} detailId="guide-stage-detail"/>}
+    {stage.id==="foundation"&&openGovernance&&<button onClick={openGovernance}>Öppna styrprofil, mandat och gemensamma ramar →</button>}
     <p className="guide-rule">Underlag kan kompletteras parallellt. <strong>Bedömd potential före prioritering. Lokalt accepterade effektåtaganden före start. Prioritering är inte startbeslut.</strong></p>
     <section id="guide-stage-detail" className="guide-stage" tabIndex={-1} ref={detailRef} aria-labelledby="guide-stage-title">
       <div className="guide-stage-header"><p className="eyebrow">VALT PROCESSTEG · {stage.number} {stage.number>0?"AV 10":"· GÄLLER ALLA STEG"}</p><h2 id="guide-stage-title">{stage.title}</h2><button className="text-button" onClick={()=>{if(onShowProcess){onShowProcess();return;}processRef.current?.scrollIntoView?.({block:"start"});processRef.current?.focus?.({preventScroll:true});}}>Visa hela processen ↑</button><p>{stage.purpose}</p></div>

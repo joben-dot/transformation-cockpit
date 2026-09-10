@@ -69,3 +69,52 @@
 .priority-criteria {padding:12px 16px;margin:14px 0;border:1px solid #cbdccf;border-radius:8px;background:#f6f9f7;}
 .priority-criteria summary {cursor:pointer;font-weight:600;}
 .priority-criteria td,.priority-criteria th {padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid #d8e4dc;}
+.header-method-guide {padding-top:12px;padding-bottom:12px;}
+.header-method-guide .guide-intro {font-size:16px;line-height:1.4;}
+.header-method-guide .guide-intro p {margin:8px 0 12px;}
+.header-method-guide .guide-process ol {gap:8px;}
+.product-header .header-method-guide .guide-process li button {padding:10px 12px;gap:8px;border-radius:9px;}
+.header-method-guide .guide-process strong {font-size:16px;line-height:1.3;}
+.header-method-guide .guide-process small {font-size:14px;line-height:1.35;margin-top:5px;}
+.header-method-guide .guide-step-number {min-width:25px;height:25px;font-size:14px;}
+.header-method-guide .guide-foundation {font-size:16px;padding:10px 12px;margin-top:8px;}
+.header-method-guide .guide-foundation span {font-size:14px;}
+.start-rule {border-left:4px solid #ab532f;padding:10px 14px;background:#fff7ee;}
+.product-shell:has(.process-navigation) .cosmic-mast {grid-template-columns:190px minmax(0,1fr);gap:18px;padding-right:20px;}
+.product-shell:has(.process-navigation) .cosmic-mast canvas {height:100px;}
+.product-shell:has(.process-navigation) .cosmic-title {font-size:24px;}
+.product-shell:has(.process-navigation) .cosmic-title span {display:inline;}
+.product-shell:has(.process-navigation) .cosmic-subtitle,
+.product-shell:has(.process-navigation) .cosmic-principle,
+.product-shell:has(.process-navigation) .starwords {display:none;}
+.product-shell:has(.process-navigation) .cosmic-mast .pause {bottom:4px;padding:2px 6px;min-height:28px;font-size:12px;}
+.product-shell .process-navigation {padding:10px 12px;}
+.product-shell .step-gate .muted {font-size:14px;}
+.product-shell .step-gate .journey-checklist {margin-top:10px;}
+@media(min-width:1500px){.product-shell .process-navigation ol{grid-template-columns:repeat(10,minmax(0,1fr));}}
+@media(max-width:600px){.product-shell:has(.process-navigation) .cosmic-mast{grid-template-columns:110px minmax(0,1fr);gap:10px;}.product-shell:has(.process-navigation) .cosmic-title{font-size:20px;}}
+.product-shell .workspace-tools .return-bar {flex-basis:100%;}
+.product-shell .workspace-tools .return-location {flex:1;}
+.product-shell .workspace-tools .return-location button,.product-shell .workspace-tools .return-location strong {font-size:16px;}
+.product-shell .case-workspace,.product-shell .effect-workspace {padding-top:0;}
+.product-shell .case-detail-head {margin:8px 0 12px;}
+.product-shell .case-detail-head h1 {font-size:28px;line-height:1.25;}
+.product-shell .case-detail-head p {font-size:16px;line-height:1.4;margin:6px 0;}
+.product-shell .process-navigation ol {margin:8px 0;}
+.product-shell .case-workspace>.back-link,.product-shell .effect-workspace>.back-link {display:none;}
+@media(min-width:1050px){
+  .product-shell .case-workspace:has(>.step-gate),.product-shell .effect-workspace:has(>.step-gate){display:grid;grid-template-columns:300px minmax(0,1fr);gap:12px 20px;align-items:start;}
+  .product-shell .case-workspace:has(>.step-gate)>*,.product-shell .effect-workspace:has(>.step-gate)>*{grid-column:2;min-width:0;}
+  .product-shell .case-workspace:has(>.step-gate)>.case-detail-head,.product-shell .effect-workspace:has(>.step-gate)>.case-detail-head{grid-column:1/-1;padding:0;}
+  .product-shell .case-workspace>.step-gate,.product-shell .effect-workspace>.step-gate{grid-column:1;grid-row:span 8;margin:0;padding:14px;}
+  .product-shell .step-gate h2{font-size:21px;}
+  .product-shell .step-gate p{font-size:16px;}
+  .product-shell .step-gate .journey-actions{display:grid;gap:8px;}
+  .product-shell .case-workspace .detail-level{display:block;}
+  .product-shell .case-workspace .detail-level:empty,.product-shell .inline-feedback:empty{display:none;}
+  .product-shell .case-workspace>.assessment-editors,.product-shell .effect-workspace>.section-block{margin:0;padding-top:0;}
+}
+.product-shell:has(.process-navigation) .data-provenance {padding:8px 12px;margin:0;}
+.product-shell:has(.process-navigation) .data-provenance>summary {font-size:15px;}
+.product-shell .inline-feedback {font-size:16px;margin:0;line-height:1.4;}
+@media(min-width:1050px){.product-shell .process-navigation button{font-size:14px;padding:7px 8px;align-items:flex-start;gap:7px;overflow-wrap:normal;word-break:normal;}}

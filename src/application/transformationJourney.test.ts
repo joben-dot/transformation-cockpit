@@ -26,6 +26,29 @@ function ready() {
 function start(state=ready()) {return apply(state,{...meta(decision),commandType:"DECIDE_TRANSFORMATION",targetId:"decision-journey",payload:{preparationId:"package-journey",accepted:true,rationale:"Syntetiskt startbeslut för full kedja.",type:"START"}});}
 
 describe("verksamhetsägd effekt från åtagande till uppföljning",()=>{
+  it.each(["effect","owner","dependency","milestone"] as const)("spärrar start utan komplett underlag: %s",(missing)=>{
+    const state=ready(),id=referenceCommitment.initiativeId;
+    expect(startBlockers(state,state.entities.startPreparations["package-journey"],"2026-09-06")).toEqual([]);
+    if(missing==="effect") {
+      state.entities.effectPotentials={};
+      Object.values(state.entities.steeringProfileVersions).forEach(p=>p.criteria.forEach(c=>{if(c.code==="EFFECT")c.required=false;}));
+    } else if(missing==="owner") {
+      delete state.entities.roleAssignments[owner];
+    } else {
+      const successor=Object.values(state.entities.executionNodes).find(n=>n.contextInitiativeIds.includes(id))!;
+      const predecessor={...successor,id:createId("ExecutionNode",`start-${missing}`),ownerInitiativeId:Object.values(state.entities.initiatives).find(i=>i.id!==id)!.id,nodeKind:"BUSINESS_CHANGE" as const,availabilityStatus:"PLANNED" as const,neededAt:missing==="milestone"?"":"2026-09-06"};
+      state.entities.executionNodes[predecessor.id]=predecessor;
+      const edge={...Object.values(state.entities.dependencies)[0],id:createId("Dependency",`start-${missing}`),predecessorNodeId:predecessor.id,successorNodeId:successor.id,blocking:true,requiredAt:missing==="milestone"?"MILESTONE" as const:"NODE_START" as const};
+      state.entities.dependencies[edge.id]=edge;
+    }
+    const errors=startBlockers(state,state.entities.startPreparations["package-journey"],"2026-09-06").join(" ");
+    expect(errors).toContain({effect:"Angiven effekt från businesscase saknas",owner:"Lokal effektägare",dependency:"Förutsättning inte klar",milestone:"Senare beroende saknar"}[missing]);
+    const before=JSON.stringify(state);
+    const result=demoReducer(state,{...meta(decision),commandType:"DECIDE_TRANSFORMATION",targetId:`blocked-${missing}`,payload:{preparationId:"package-journey",accepted:true,rationale:"Får inte passera spärren",type:"START"}});
+    expect(result.success).toBe(false);
+    expect(JSON.stringify(state)).toBe(before);
+    expect(latestDecision(state,id)).toBeUndefined();
+  });
   it("stoppar fel effektägare, saknad accept och ofullständigt beslutspaket utan någon delmutation",()=>{
     const state=draft(),before=JSON.stringify(state);
     const result=demoReducer(state,{...meta(specialist),commandType:"ACCEPT_EFFECT_COMMITMENT",targetId:commitmentId,payload:{accepted:true,mandateDescription:"IT kan inte binda verksamheten"}});

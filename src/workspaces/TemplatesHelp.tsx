@@ -1,3 +1,4 @@
+import { token } from "./transformationHelpers";
 import { useEffect, useRef, useState } from "react";
 import { FileText, Link as LinkIcon, Upload } from "lucide-react";
 import { processGuide, type GuideDocument } from "./processGuide";
@@ -19,7 +20,7 @@ function TemplateSlot({document,resources,onChanged}:{document:GuideDocument;res
     <details className="template-add"><summary><Upload size={18} aria-hidden="true"/> Lägg till mall eller länk</summary>
       <p>Koppla en befintlig mall till <strong>{document.title}</strong>. Referensen sparas bara i din webbläsare. Den ändrar inte ärendens formulär eller beslutskrav.</p>
       <form onSubmit={async event=>{event.preventDefault();setBusy(true);setMessage("");try{
-        await saveTemplateResource({id:crypto.randomUUID(),documentId:document.id,title:title.trim(),owner:owner.trim(),version:version.trim(),addedAt:new Date().toISOString(),kind:mode,...(mode==="link"?{url}:{blob:file,fileName:file?.name})});
+        await saveTemplateResource({id:token(),documentId:document.id,title:title.trim(),owner:owner.trim(),version:version.trim(),addedAt:new Date().toISOString(),kind:mode,...(mode==="link"?{url}:{blob:file,fileName:file?.name})});
         await onChanged();setTitle("");setOwner("");setVersion("");setUrl("");setFile(undefined);if(fileInputRef.current)fileInputRef.current.value="";setMessage("Sparad i den här webbläsaren. Mallens innehåll och status behöver granskas innan gemensam användning.");
       }catch(error){setMessage(error instanceof Error?error.message:"Mallen kunde inte sparas.");}finally{setBusy(false);}}}>
         <fieldset disabled={busy}><legend>Malluppgifter</legend>

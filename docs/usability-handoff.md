@@ -1,6 +1,6 @@
 # Usability working version
 
-This branch changes presentation and navigation around the existing normalized domain. It is a draft pending browser review; the current published demo has not been updated with these changes.
+This change improves presentation and navigation around the existing normalized domain. Browser review of the primary desktop journeys is complete. Publication uses the existing GitHub Pages workflow; its successful run is the authoritative deployment record.
 
 ## User outcome
 
@@ -22,15 +22,15 @@ The command reducer still owns permissions and gates. Qualification, active loca
 
 ## Validation
 
-The full Vitest suite passed: 232 tests in 41 files. It includes a React-renderer journey from a new challenge through qualification, priority review, local acceptance, start, confirmed change, measurement, independent verification, missed target and closure. Additional checks cover external dependencies, shared prerequisites, scenario nonmutation, missing costs, invalid plan windows, ten-step projection and retained unsaved input. TypeScript and the production build passed.
+The full Vitest suite passed: 236 tests in 41 files. It includes a React-renderer journey from a new challenge through qualification, priority review, local acceptance, start, confirmed change, measurement, independent verification, missed target and closure. Additional checks cover mandatory businesscase effect even when the profile makes EFFECT optional, missing owner, external start prerequisites, later milestone ownership/date, external dependencies, shared prerequisites, scenario nonmutation, missing costs, invalid plan windows, ten-step projection, retained unsaved input and independent verification per measurement. TypeScript and the production build passed.
 
-These are automated component/domain checks, not browser usability evidence. React renderer can access controls inside closed disclosures and hidden sections. No claim of visual, keyboard, touch or responsive verification is made.
+The managed browser was also used at 1348 × 926. A new case was registered, businesscase saved, later incomplete steps opened and unsaved challenge/potential input retained on return. A start-ready case passed an explicit human start decision, confirmed business change, two measurements, separate specialist verification and closure with a missed target (8 versus 12 percentage points). The locked original goal remained 92, and saved learning was visible after closure.
 
-The managed preview failed to start twice with `vite: not found`. Dependency materialization and Vite host configuration did not resolve the supervised runner failure. Stop retrying in that session. Use the supported Sites preview recovery workflow in a fresh environment, then the approved browser-control tool. No alternate browser transport was used.
+Browser checks also exercised area filtering with an external prerequisite, opening its owner and returning with the same area and edited plan window, shared dependencies, capacity shortage, component simulation and reset, method-guide reopening, governance access and decision history. Browser-discovered fixes include relative local dependency executable links for the supervised preview, secure random UUID fallback for HTTP previews, date input events, controlled guide expansion and separate verification checkboxes. No alternate browser transport was used.
 
-## Required browser review before publishing this larger change
+## Further usability evaluation
 
-1. Desktop and narrow viewport: method guide, compact toolbar, focus visibility, ten-step navigation, disclosure states and validation messages. Ensure normal work does not require scrolling past repeated headings.
+1. Narrow/mobile viewports, touch and complete keyboard-only usage still need dedicated user testing. Desktop layout was inspected and compacted; no measured click-count reduction is claimed.
 2. Create an initiative, visit later steps with missing data, return to drafts, then complete the human role sequence. Check that the suggested next action agrees with the real form and never grants authority.
 3. Review external and indirect dependencies from an area filter, open the owning initiative, and return with the same selection and time window. Compare the timeline with the text dependency list.
 4. Review several initiatives sharing one prerequisite. Verify that grouping does not imply automatic start eligibility or additive effect claims.
@@ -47,6 +47,6 @@ The managed preview failed to start twice with `vite: not found`. Dependency mat
 - Cost totals use existing estimates and full-calendar-year handling. Incomplete partial-year calculations and missing records remain visible.
 - The scenario is proportional sensitivity analysis of registered effect components and assumptions. It is not a causal forecast, automatic capacity rescheduling or portfolio optimizer.
 - Session drafts survive view changes, not necessarily a page reload. Confirm every remaining editor before claiming universal draft retention.
-- Compact styling and click reduction have not yet been validated with an actual user or measured against the previous interface.
+- Compact styling was inspected in the desktop browser; click reduction has not been measured against the previous interface or validated with end users.
 
 Use this branch as the starting point. Do not restart the product or replace the domain model to improve its appearance.

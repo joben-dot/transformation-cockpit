@@ -76,5 +76,7 @@ it("leder ett nytt ärende från utkast genom faktisk prioriteringsgranskning ti
  next("Avslut, lärande och skalning");
  enter("Beslutsfattare vid avslut",decision,"select");enter("Lärdom –","150000 uppnått av 180000 planerat. Förbättra rutinen inför skalning.");enter("Underlag för lärdom","Verifierat utfall och verksamhetsanalys");submit("Avsluta med verifierat utfall");
  expect(state().entities.initiatives[id()].closedAt).toBeDefined();
+ expect(text(root)).toContain("Målet nåddes inte");
+ expect(text(root)).toContain("150000 uppnått av 180000 planerat. Förbättra rutinen inför skalning.");
  click("Kontrollrum");click("Effektuppföljning");expect(text(root)).toContain("Samordnad återkoppling – provärende");
 });

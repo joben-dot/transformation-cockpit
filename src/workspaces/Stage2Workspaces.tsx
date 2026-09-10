@@ -429,6 +429,7 @@ export function QualificationWorkspace({
                 <input
                   type="date"
                   value={deadline}
+                  onInput={(e) => setDeadline(e.currentTarget.value)}
                   onChange={(e) => setDeadline(e.target.value)}
                 />
               </label>
@@ -756,6 +757,7 @@ export function EffectPotentialWorkspace({
             <input
               type="date"
               value={earliest}
+              onInput={(e) => setEarliest(e.currentTarget.value)}
               onChange={(e) => setEarliest(e.target.value)}
             />
           </label>
@@ -764,6 +766,7 @@ export function EffectPotentialWorkspace({
             <input
               type="date"
               value={full}
+              onInput={(e) => setFull(e.currentTarget.value)}
               onChange={(e) => setFull(e.target.value)}
             />
           </label>

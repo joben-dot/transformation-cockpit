@@ -89,7 +89,6 @@ export function unavailableStartPrerequisites(state: DemoState, initiativeId: In
     .filter(edge => edge.blocking && edge.requiredAt === "NODE_START")
     .map(edge => edge.predecessorNodeId));
   return graph.nodes.filter(node => prerequisiteIds.has(node.id)
-    && ["EXISTING_CAPABILITY", "ENABLING_DELIVERY"].includes(node.nodeKind)
     && node.ownerInitiativeId !== initiativeId && node.availabilityStatus !== "AVAILABLE");
 }
 

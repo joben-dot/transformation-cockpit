@@ -42,6 +42,8 @@ describe("Processguide och mallreferenser",()=>{
    expect(header.children[1]).toBe(root.findByProps({className:"header-method-guide"}));
    const menu=root.findByProps({"aria-label":"Arbetsytor"});
    expect(text(menu)).not.toContain("Metod och styrning");
+   expect(menu.findAllByType("button").map(text)).toEqual(["Kontrollrum","Ärenden","Prioritering","Effekt och beslut","Mallar och hjälp"]);
+   expect(menu.findAllByType("button")[0].props["aria-current"]).toBe("page");
    const guide=()=>root.findByProps({"aria-label":"Huvudprocess med dokumentstöd"});
    expect(guide().findAllByType("button").every(button=>button.props["aria-pressed"]===false)).toBe(true);
    for(const stage of processGuide.filter(item=>item.number>0)){

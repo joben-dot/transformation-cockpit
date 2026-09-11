@@ -1,0 +1,21 @@
+import type { DemoState } from '../application';
+import { controlStages, type ActionDestination, type controlRoomCases } from '../application/selectors/controlRoomSelectors';
+import { roleName } from './transformationHelpers';
+
+type Cases=ReturnType<typeof controlRoomCases>;
+export function ControlProcess({cases,selection,onSelect}:{cases:Cases;selection:string;onSelect:(value:string)=>void}) {
+ return <section className="control-process" aria-label="Portföljens processteg">
+  <div className="process-heading"><div><h2>Från utmaning till verksamhetseffekt</h2><p>Välj en ruta för att se ärendena och deras nästa steg.</p></div><button className="text-button" aria-pressed={selection==='Alla'} onClick={()=>onSelect('Alla')}>Alla registrerade ärenden · {cases.length}</button></div>
+  <nav className="stage-counters process-counters" aria-label="Välj processteg">{controlStages.map(s=><button key={s.key} aria-pressed={selection===s.key} onClick={()=>onSelect(s.key)}><span>{s.label}</span><b>{cases.filter(c=>c.stage===s.key).length}</b><small>{s.help}</small></button>)}</nav>
+  <nav className="cross-counters" aria-label="Gemensam uppmärksamhet"><button aria-pressed={selection==='hinders'} onClick={()=>onSelect('hinders')}><span>Hinder som kräver åtgärd</span><b>{cases.filter(c=>c.blockers.length).length}</b><small>Ärenden med öppna kompletteringskrav, otillgängliga blockerande beroenden eller försenade åtgärder.</small></button><button aria-pressed={selection==='effects'} onClick={()=>onSelect('effects')}><span>Effekthemtagning</span><b>{cases.filter(c=>c.effectTaking).length}</b><small>Startade initiativ med beslutade effektåtaganden, inklusive avslutade resultat.</small></button></nav>
+  <p className="chart-caption">Huvudradens antal summerar till totalen. Hinder och effekthemtagning gäller hela valt verksamhetsområde, överlappar processtegen och adderas inte. Utkast och återtagna utmaningar ingår inte.</p>
+ </section>;
+}
+export function ControlCaseList({state,cases,selection,open}:{state:DemoState;cases:Cases;selection:string;open:(target:ActionDestination)=>void}) {
+ const label=controlStages.find(s=>s.key===selection)?.label??(selection==='hinders'?'Hinder som kräver åtgärd':selection==='effects'?'Effekthemtagning':'Alla registrerade ärenden');
+ return <section className="control-case-list" aria-label="Ärenden i valt processteg"><h2>{label} · {cases.length} ärenden</h2><p>Giltiga prioriteringsunderlag visas högst först. Övriga saknar placering och visas därefter i registreringsordning. Klicka på nästa åtgärd för att komma till rätt underlag.</p>
+ {!cases.length?<p>Inga ärenden i detta urval.</p>:<div className="table-scroll"><table><thead><tr><th>Ärende och läge</th><th>Nästa steg</th><th>Ansvar och datum</th></tr></thead><tbody>{cases.map(c=>{
+ const actions=selection==='hinders'?c.blockers:c.next?[c.next]:[];
+ return <tr key={c.challengeId}><td><button className="text-button" onClick={()=>open(c.next?.destination??{challengeId:c.challengeId,initiativeId:c.initiativeId,section:c.initiativeId?'measurement':'businesscase'})}>{c.title}</button><small className="area-label">{c.area}</small><span>{c.step==='MATNING'?'Pågående · under mätning':controlStages.find(s=>s.key===c.stage)?.label}</span>{c.priorityScore!==undefined&&<small className="area-label">{c.priorityScore} / 100 · granskat eller beräknat underlag</small>}</td><td>{actions.length?actions.map((a,index)=><div className="control-action" key={index}><button className="text-button" onClick={()=>open(a.destination)}>{a.label} →</button><p>{a.reason}</p>{a.destination.challengeId!==c.challengeId&&<small>Öppnar förutsättningen i {state.entities.challenges[a.destination.challengeId].title}.</small>}</div>):<button className="text-button" onClick={()=>open({challengeId:c.challengeId,initiativeId:c.initiativeId,section:'learning'})}>Se utfall och lärdomar →</button>}</td><td>{actions.map((a,index)=><p key={index}>{a.responsibleId?roleName(state,a.responsibleId):a.destination.section==='measurement'&&a.reason.includes('specialistverifiering')?'Specialist verifierar underlaget':'Ansvar behöver klarläggas'}<small className="area-label">{a.dueDate??'Datum behöver anges i underlaget'}</small></p>)}</td></tr>;
+ })}</tbody></table></div>}</section>;
+}

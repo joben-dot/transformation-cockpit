@@ -1,0 +1,5 @@
+export interface StoredDocumentFile {id:string;name:string;createdAt:string;blob:Blob;}
+export interface StoredDocuments {key:string;files:StoredDocumentFile[];}
+function database():Promise<IDBDatabase>{return new Promise((resolve,reject)=>{const request=indexedDB.open("cockpit-documents",1);request.onupgradeneeded=()=>request.result.createObjectStore("documents",{keyPath:"key"});request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}
+export async function readDocuments(key:string):Promise<StoredDocuments>{const db=await database();return new Promise((resolve,reject)=>{const tx=db.transaction("documents","readonly"),r=tx.objectStore("documents").get(key);r.onsuccess=()=>resolve(r.result??{key,files:[]});r.onerror=()=>reject(r.error);tx.oncomplete=()=>db.close();});}
+export async function writeDocuments(value:StoredDocuments){const db=await database();return new Promise<void>((resolve,reject)=>{const tx=db.transaction("documents","readwrite");tx.objectStore("documents").put(value);tx.oncomplete=()=>{db.close();resolve();};tx.onabort=()=>{db.close();reject(tx.error);};tx.onerror=()=>reject(tx.error);});}
